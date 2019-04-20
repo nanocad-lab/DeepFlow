@@ -22,7 +22,9 @@ TechConfig = _namedtuple("tech_param", ["DRAM_energy_per_bit_trans",
                                         "line_latency"])
 PowerBreakConfig = _namedtuple("power_breakdown", ["TDP", "core", "DRAM",
                                                    "L2", "shared_mem", "IB"])
-SchedulingConfig = _namedtuple("scheduling_param", ["dp",
+SchedulingConfig = _namedtuple("scheduling_param", ["auto",
+                                                    "topology",
+                                                    "dp",
                                                     "lp", 
                                                     "hlp", 
                                                     "kp_hidden_dim1", 
@@ -48,7 +50,7 @@ def convert(d):
 
          digit = [int(s) for s in val2.split() if s.isdigit()]
          order = [str(s) for s in val2.split() if not s.isdigit()]
-         if order:
+         if order and digit:
            assert(len(order) == 1)
            assert(len(digit) == 1)
 
@@ -100,3 +102,4 @@ def parse_config(filename):
   
   return FullConfig(model_config=model_config, arch_config=arch_config, 
                     sch_config=sch_config, tech_config=tech_config, power_breakdown=power_config)
+

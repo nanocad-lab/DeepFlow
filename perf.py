@@ -2,10 +2,13 @@
 
 import click
 import math
-
 import os
 import sys
 import config
+
+from parallelism import Parallelism
+from topology import Topology
+import util
 
 th_scale=0.7
 mem_scale=0.7
@@ -15,6 +18,7 @@ mem_latency=50e-9 #50 nano sec
 tensorflow_overhead=750e-6 #0.75 u-seconds
 
 G=1 #1024.0*1024.0*1024.0
+
 
 class TimeCalculation:
     def __init__(self, exp_config):
@@ -43,44 +47,36 @@ class TimeCalculation:
         self.ll                           = exp_config.tech_config.line_latency
 
         #Scheduling Parameters
-        self.lp    = exp_config.sch_config.lp
-        self.hlp    = exp_config.sch_config.hlp
-        self.kp_hidden_dim1    = exp_config.sch_config.kp_hidden_dim1
-        self.kp_softmax_dim1   = exp_config.sch_config.kp_softmax_dim1
-        self.kp_embedding_dim1 = exp_config.sch_config.kp_embedding_dim1
-        self.kp_projection_dim1 = exp_config.sch_config.kp_projection_dim1
-        self.kp_hidden_dim2    = exp_config.sch_config.kp_hidden_dim2
-        self.kp_softmax_dim2   = exp_config.sch_config.kp_softmax_dim2
-        self.kp_embedding_dim2 = exp_config.sch_config.kp_embedding_dim2
-        self.kp_projection_dim2 = exp_config.sch_config.kp_projection_dim2
-        self.dp    = exp_config.sch_config.dp
-        self.kp_hidden_type  =  exp_config.sch_config.kp_hidden_type #1: CR, 2: RC
-        self.kp_softmax_type  =  exp_config.sch_config.kp_softmax_type #1: CR, 2: RC
-        self.kp_embedding_type  =  exp_config.sch_config.kp_embedding_type #1: CR, 2: RC
-        self.kp_projection_type  =  exp_config.sch_config.kp_projection_type #1: CR, 2: RC
+        par                     = Parallelism(exp_config)
+        par.findParallelStrategy()
+        self.autoPar            = par.autoPar
+        self.lp                 = par.lp
+        self.hlp                = par.hlp
+        self.kp_hidden_dim1     = par.kp_hidden_dim1
+        self.kp_softmax_dim1    = par.kp_softmax_dim1
+        self.kp_embedding_dim1  = par.kp_embedding_dim1
+        self.kp_projection_dim1 = par.kp_projection_dim1
+        self.kp_hidden_dim2     = par.kp_hidden_dim2
+        self.kp_softmax_dim2    = par.kp_softmax_dim2
+        self.kp_embedding_dim2  = par.kp_embedding_dim2
+        self.kp_projection_dim2 = par.kp_projection_dim2
+        self.dp                 = par.dp
+        self.kp_hidden_type     = par.kp_hidden_type #1: CR, 2: RC
+        self.kp_softmax_type    = par.kp_softmax_type #1: CR, 2: RC
+        self.kp_embedding_type  = par.kp_embedding_type #1: CR, 2: RC
+        self.kp_projection_type = par.kp_projection_type #1: CR, 2: RC
 
         #Power Breakdown Parameters
-        self.TDP       = exp_config.power_breakdown.TDP
-        self.DRAMPower = exp_config.power_breakdown.DRAM * self.TDP
-        self.HBM_stack_bw  = exp_config.tech_config.HBM_stack_bw
+        self.TDP                = exp_config.power_breakdown.TDP
+        self.DRAMPower          = exp_config.power_breakdown.DRAM * self.TDP
+        self.HBM_stack_bw       = exp_config.tech_config.HBM_stack_bw
         self.HBM_stack_capacity = exp_config.tech_config.HBM_stack_capacity
-        self.mem_bw = self.DRAMPower / self.dram_energy_per_byte * mem_scale
-        self.mem_size = (self.mem_bw / mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
+        self.mem_bw             = self.DRAMPower / self.dram_energy_per_byte * mem_scale
+        self.mem_size           = (self.mem_bw / mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
 
-        #FIXME: Do we anymore need this?
-        setPar = False
-        if (self.lp is not None and self.hlp is not None and 
-            self.kp_hidden_dim1 is not None and self.kp_hidden_dim2 is not None and 
-            self.kp_softmax_dim1 is not None and self.kp_softmax_dim2 is not None and
-            self.kp_embedding_dim1 is not None and self.kp_embedding_dim2 is not None and 
-            self.dp is not None and 
-            self.kp_hidden_type is not None and 
-            self.kp_softmax_type is not None and
-            self.kp_embedding_type is not None):
-            setPar = True
-        
+       
+        #Define miniBatch size
         self.miniB = math.ceil(self.B / self.dp)
-        self.setParallelism(setPar)
 
         #Calculate architecture configurations based on power breakdown
         #and technology parameters
@@ -100,50 +96,16 @@ class TimeCalculation:
         self.shared_mem_bw = (self.shared_mem_power / self.shared_mem_energy_per_byte)
         self.shared_mem_size = (self.shared_mem_bw / self.shared_mem_bank_bw) * self.shared_mem_bank_capacity
        
-        print("Shared_Mem_Size: {} MB".format(self.shared_mem_size/(1024 * 1024)))
 
-        #TODO: Do we anymore need this?
-        #Assuming Homogenous Cores, i.e. if we have 
-        #3 links out of one core within one layers, 
-        #we have 3 links out of every core regardless of if that layers need it.
-        grid_dim = 0
 
-        if self.dp > 1:
-          grid_dim += 1
-        
-        if self.lp > 1:
-          grid_dim += 1
-
-        h1 = self.kp_hidden_dim1
-        h2 = self.kp_hidden_dim2
-        
-        s1 = self.kp_softmax_dim1
-        s2 = self.kp_softmax_dim2
-      
-        p1 = self.kp_projection_dim1
-        p2 = self.kp_projection_dim2
-
-        e1 = self.kp_embedding_dim1
-        e2 = self.kp_embedding_dim2
-
-        if(h1 > 1 or s1 > 1 or p1 > 1 or e1 > 1 or h2 > 1 or s2 > 1 or p2 > 1 or e2 > 1):
-            grid_dim += 1
-       
-        print("grid_dim: {}".format(grid_dim))
-
-        #FIXME: hack! Fix after ISCA deadline.
-        num_links = 1
-        if (grid_dim == 1):
-            num_links = self.dp * h1
-        elif (grid_dim == 2):
-            num_links = 2 * self.dp * h1
-        else:
-            num_links = 3 * self.dp * h1 * self.lp
-        
-        print("num_links: {}".format(num_links))
-
-        self.IB = (0 if grid_dim == 0 else self.IBPower / (num_links * self.internode_energy_per_byte)) 
-        #NOTE:Assuming power across all links are similar
+        # Network Parameters
+        # IBK: interconnection bandiwdth across kernel parall dimension
+        # IBD: interconnection bandiwdth across data parall dimension
+        # IBM: interconnection bandiwdth across model parall dimension
+        # We are assuming same network bandwidth along all dimensons
+        # TODO: Parameterize this so we can explore different bandwidth along different dimensions
+        topology = Topology(exp_config) 
+        self.IB = (0 if topology.grid_dim == 0 else self.IBPower / (topology.num_links * self.internode_energy_per_byte)) 
         self.IBK = self.IB
         self.IBM = self.IB
         self.IBD = self.IB
@@ -151,6 +113,7 @@ class TimeCalculation:
         self.attached = True
         self.debug = False
         self.tot_time = 0
+
         self.L2_tile_dim = 0
         self.sm_tile_dim = 0
         self.setTileDim()
@@ -158,158 +121,110 @@ class TimeCalculation:
         self.tot_flop = 0
         self.tot_mem = 0
 
-    def tot_par(self):
+    #Number of parameters
+    def tot_param(self):
         embedding = self.V * self.D
         hidden = (2 * self.D + 1) * (self.G * self.D) * self.L
         projection = self.D * self.projection
         softmax = ((self.projection if proj else self.D) + 1) * self.V
 
-        tot_par = embedding + hidden + projection + softmax
-        return tot_par
+        tot_param = embedding + hidden + projection + softmax
+        return tot_param
 
+    def printSysConfig(self, exp_config):
 
-    def setParallelism(self, ParallelParams):
-      print("----kp_hidden_type: {}, kp_softmax_type: {}, kp_projection_type: {}," 
-             "kp_embedding_type: {}\n".format(self.kp_hidden_type, 
-              self.kp_softmax_type, self.kp_projection_type, self.kp_embedding_type))
-      
+      kiloByte = 1024
+      megaByte = kiloByte * 1024
+      gigaByte = megaByte * 1024
+      teraByte = gigaByte * 1024
+
+      print("======================")
+      print("Hardware Configuration")
+      print("======================")
+      print("Throughput: {:.1f} Tflops\n"
+            "Memory Bandwidth: {:.1f} GB/s\n"
+            "Memory Size: {:.1f} GB\n"
+            "L2 Bandwidth: {:.1f} TB/s\n"
+            "L2 Size: {:.1f} MB\n"
+            "Shared Memory Size: {:.1f} MB\n"
+            "Interconnection Bandwidth: {:.1f} GB/s"
+            .format(self.th/1e12/th_scale, 
+                    self.mem_bw/(gigaByte)/mem_scale, 
+                    self.mem_size/(gigaByte), 
+                    self.L2_bw/(teraByte), 
+                    self.L2_size/(megaByte), 
+                    self.shared_mem_size/(megaByte),
+                    self.IBK/(gigaByte)))
+       
+
       M = self.mem_size
-      tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = self.getTotMemReq()
+      tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
+      print("\n\n===========================================")
+      print("Memory Requirement Breakdown per Data Shard")
+      print("===========================================")
+      print("Total Memory: {:.1f} GB\n"
+            "Embedding Memory: {:.1f} GB\n"
+            "Hidden Memory: {:.1f} GB\n"
+            "Softmax Memory: {:.1f} GB\n"
+            "Projection Memory: {:.1f} GB"
+            .format(tot_mem/gigaByte, 
+                    embedding_mem/gigaByte, 
+                    hidden_mem/gigaByte, 
+                    softmax_mem/gigaByte, 
+                    projection_mem/gigaByte))
       
-      print("Overall Memory Requirement per Data Shard:")
-      print("req_mem: {}, embedding: {}, hidden: {}, softmax: {}, projection: {}".format(tot_mem/1e9, embedding_mem/1e9, hidden_mem/1e9, softmax_mem/1e9, projection_mem/1e9))
-      print("mem_size: {} GB, ratio: {}\n".format(M/(1024 * 1024 * 1024), tot_mem/M))
-      
-      if (ParallelParams): #and tot_mem < M):
-        #TODO: ensure everyone fits in memory by given arguments
-        print("Manual Mode\n")
+      print("\nTotal Memory: {:.1f} GB\n"
+            "Weight Memory: {:.1f} GB\n"
+            "Activation Memory: {:.1f} GB\n"
+            "Pointwise Memory: {:.1f} GB\n"
+            .format(tot_mem/gigaByte, 
+                    wt_mem/gigaByte, 
+                    act_mem/gigaByte, 
+                    point_mem/gigaByte))
+
+
+      print("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n"
+            .format(tot_mem/M))
 
       
-      else: 
-        print("Finding best parallelism parameters")
-        #Step 1. Try to fit everything on one GPU
-        #Step 2. If it does not fit, check if individual items fit in one GPU,
-        #if it does allocate a  seperate GPU per item
-        #Step 3. If it does not fit, try layer parallelism across hidden layers
-        #Step 4. If it does not fit, try kernel parallelism across hidden layers
-        #Step 5. For softmax and embedding try kernel parallelism
-        tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = self.getTotMemReq()
+      tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
+      print("\n\n=========================================================")
+      print("Memory Requirement Breakdown per Data Shard Per Model Shard")
+      print("===========================================================")
+      print("Total Memory: {:.1f} GB\n"
+          "Embedding Memory: {:.1f} GB\n"
+          "Hidden Memory: {:.1f} GB\n"
+          "Softmax Memory: {:.1f} GB\n"
+          "Projection Memory: {:.1f} GB"
+             .format(tot_mem/gigaByte, 
+                     embedding_mem/gigaByte, 
+                     hidden_mem/gigaByte, 
+                     softmax_mem/gigaByte, 
+                     projection_mem/gigaByte))
 
-        if (tot_mem < M):
-            self.lp = 1
-            self.hlp = 1
-            self.kp_hidden_type = -1
-            self.kp_softmax_type = -1
-            self.kp_embedding_type = -1
-            self.kp_projection_type = -1
-        
-        else:
-            self.kp_hidden_dim1 = 1
-            self.kp_hidden_dim2 = 1
-            self.kp_softmax_dim1 = 1
-            self.kp_softmax_dim2 = 1
-            self.kp_projection_dim1 = 1
-            self.kp_projection_dim2 = 1
-            
-            L = self.L
-            hlp = math.ceil(hidden_mem / M)
-            self.hlp = (L if hlp > L else hlp)
-            self.kp_hidden     = (1 if hlp <= L else math.ceil(hidden_mem / L / M))
-            self.kp_softmax    = math.ceil(softmax_mem / M)
-            self.kp_embedding  = math.ceil(embedding_mem / M)
-            self.kp_projection = math.ceil(projection_mem / M)
-            
-            self.findlp()
-            
-           
-            if (self.kp_hidden == 1):
-                self.kp_hidden_type = -1
+      print("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n"
+            .format(tot_mem/M))
 
-            if (self.kp_softmax == 1):
-                self.kp_softmax_type = -1
-
-            if (self.kp_projection == 1):
-                self.kp_projection_type = -1
-            
-            if (self.kp_embedding == 1):
-                self.kp_embedding_type = -1
-           
-            if self.kp_hidden_type == 1:
-                self.kp_hidden_dim1 = self.kp_hidden
-                self.kp_hidden_dim2 = 1
-            elif self.kp_hidden_type == 2:
-                #This is an arbiotrary choice until I have more insight
-                self.kp_hidden_dim1 = self.findDiv(math.ceil(math.sqrt(self.kp_hidden)), self.miniB)
-                self.kp_hidden_dim2 = self.kp_hidden_dim1 
-             
-            if self.kp_softmax_type == 1:
-                self.kp_softmax_dim1 = self.kp_softmax
-                self.kp_softmax_dim2 = 1
-            elif self.kp_softmax_type == 2:
-                #This is an arbitrary choice until I have more insight
-                self.kp_softmax_dim1 = self.findDiv(math.ceil(math.sqrt(self.kp_softmax)), self.miniB * self.S)
-                self.kp_softmax_dim2 = self.kp_softmax_dim1 
-                
-            if self.kp_projection_type == 1:
-                self.kp_projection_dim1 = self.kp_projection
-                self.kp_projection_dim2 = 1
-            elif self.kp_projection_type == 2:
-                #This is an arbitrary choice until I have more insight
-                self.kp_projection_dim1 = self.findDiv(math.ceil(math.sqrt(self.kp_projection)), self.miniB * self.S)
-                self.kp_projection_dim2 = self.kp_projection_dim1 
-
-      print("kp_hidden_type: {}, kp_softmax_type: {}, kp_projection_type: {}," 
-             "kp_embedding_type: {}\n".format(self.kp_hidden_type, 
-              self.kp_softmax_type, self.kp_projection_type, self.kp_embedding_type))
-
+      print("\nTotal Memory: {:.1f} GB\n"
+            "Weight Memory: {:.1f} GB\n"
+            "Activation Memory: {:.1f} GB\n"
+            "Pointwise Memory: {:.1f} GB\n"
+            .format(tot_mem/gigaByte, 
+                    wt_mem/gigaByte, 
+                    act_mem/gigaByte, 
+                    point_mem/gigaByte))
+      
+      print("\n\n====================")
+      print("Parallelism Strategy")
+      print("====================")
       print("dp: {}, lp: {}, hlp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
              "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
-             "kp_projection_dim1: {}, kp_proejction_dim2: {}\n".format(self.dp,
-            self.lp, self.hlp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
-            self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
-            self.kp_projection_dim1, self.kp_projection_dim2))   
+             "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
+             .format(self.dp,
+              self.lp, self.hlp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
+              self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
+              self.kp_projection_dim1, self.kp_projection_dim2))   
 
-      embedding_mem, hidden_mem, softmax_mem, projection_mem = self.getMemUsagePerCore()
-      print("Memory Usage per Core:")
-      print("embedding: {}, hidden: {}, softmax: {}, projection: {}".
-            format(embedding_mem/(1024*1024*1024), hidden_mem/(1024*1024*1024), softmax_mem/(1024*1024*1024), 
-            projection_mem/(1024*1024*1024)))
-      #assert(tot_mem < M)
-   
-    def bag(self, bag):
-      return 1
-
-    def findlp(self):
-        tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = self.getTotMemReq()
-        M = self.mem_size
-
-        #If Kernel parallelism is one for all components then finding how to group
-        #layers together is a knap-sack problem with some dependency constraints st.
-        #neighbouring layers are bagged together
-        if (self.hlp == 1 and self.kp_hidden == 1 and self.kp_embedding == 1 and 
-            self.kp_projection == 1 and self.kp_softmax == 1 and tot_mem > M):
-            value = [embedding_mem, hidden_mem, projection_mem, softmax_mem]
-            num_bags = self.bag(value)
-            
-        elif (self.hlp > 1 and self.kp_hidden == 1 and self.kp_embedding == 1 and 
-              self.kp_projection == 1 and self.kp_softmax == 1 and tot_mem > M):
-              value1 = [embedding_mem, hidden_mem / self.hlp] 
-              value2 = [hidden_mem / self.hlp, projection_mem, softmax_mem] 
-              num_bags1 = self.bag(value1)
-              num_bags2 = self.bag(value2)
-              num_bags = num_bags1 + num_bags2
-        self.lp = num_bags
-
-
-    #Find minimum value between A and B that B is divisible by
-    def findDiv(self, A, B):
-        smallestFactor = -1
-        for i in range(A,B+1):
-          if (B % i == 0):
-              smallestFactor = i
-              break
-        assert(smallestFactor != -1)
-        return smallestFactor
 
     def setTileDim(self):
         self.L2_tile_dim = 0
@@ -319,7 +234,7 @@ class TimeCalculation:
             self.L2_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.L2_size / self.precision) / 3), 2))))
         if (self.shared_mem_size > 0):
             self.sm_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.shared_mem_size / self.precision) / 3), 2))))
-        print("L2Tile_dim: {}, SMTile_dim: {}".format(self.L2_tile_dim, self.sm_tile_dim))
+        #print("L2Tile_dim: {}, SMTile_dim: {}".format(self.L2_tile_dim, self.sm_tile_dim))
     
     def getTileDim(self):
         #assert(self.L2_tile_dim != 0)
@@ -608,7 +523,7 @@ class TimeCalculation:
         return GEMM_time + point_time
 
 
-
+    #Reduction and all-gather time estimation
     def getR(self, Dim0 = None, Dim1 = None, p = None, ib = None, partial = None,
             allReduce = None):
         """Get partail or full reduction or allGather latency"""
@@ -1068,108 +983,17 @@ class TimeCalculation:
 
 
     def getEmbedding_b(self):
-        data_transfer  = 0 if (self.dp == 1) else (((self.precision * self.miniB * self.D * self.S) / self.IBD + self.ll) * 2 * (self.dp -1 )) 
+        p2p_data_transfer = (self.precision * self.miniB * self.D * self.S)
+        data_transfer_time  = 0 if (self.dp == 1) else (((p2p_data_transfer) / self.IBD + self.ll) * 2 * (self.dp -1 )) 
         
         embedding_mem = 2 * self.miniB * self.D * self.S * self.precision
         embedding_mem_time = (embedding_mem / self.mem_bw) + mem_latency + self.O
 
-        dt=(self.precision * self.miniB * self.D * self.S)*2
-        print("R2: {}".format(dt))
 
         if self.debug:
             print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/G)))
-        return data_transfer + embedding_mem_time
+        return data_transfer_time + embedding_mem_time
 
-
-
-    def getHiddenMem(self, L, Dim1, Dim2, Dim3, S):
-        #Activations refer to output activations that need to be stored
-        hidden_act = Dim1 * Dim2 * S * L
-        hidden_wt  = (Dim2 + 1) * Dim3 * L
-        hidden_point = (Dim1 * Dim2 / 2) * 9 * L * S
-        #3 sigmoids
-        #2 tanh
-        #3 pointwise multiply
-        #1 addition
-        hidden_mem = (hidden_act + hidden_wt + hidden_point) * self.precision
-   
-        return hidden_mem, hidden_act, hidden_wt, hidden_point
- 
-    def getSoftmaxMem(self, B, S, P, V):
-         #activation output from each layer, assuming input ativation are taken 
-        #into account in the previous layer
-        softmax_act = B * S * V 
-        softmax_wt = (P + 1) * V
-        softmax_point = 2 * B * S * V + B * S
-        #NOTE: sigmoid and exp could have been combined
-        #1 sigmoids
-        #1 exp
-        #1 pointwise div
-        softmax_mem = (softmax_act + softmax_wt + softmax_point) * self.precision
-
-        return softmax_mem, softmax_act, softmax_wt, softmax_point
-
-    def getProjectionMem(self, B, S, P, D):
-        projection_act = B * S * P
-        projection_wt = (D + 1) * P
-        projection_point= B * S * P
-        projection_mem = (projection_act + projection_wt + projection_point) * self.precision
-      
-        return projection_mem, projection_act, projection_wt, projection_point
-
-    def getEmbeddingMem(self, B, S, V, D):
-        embedding_act = self.miniB * self.S * self.D
-        embedding_wt = self.V * self.D
-        embedding_point = 0
-        embedding_mem = (embedding_wt + embedding_act + embedding_point) * self.precision
-
-        return embedding_mem, embedding_act, embedding_wt, embedding_point
-
-    def getTotMemReq(self):
-        #TODO: Add pointwise op memory 
-        hidden_mem, hidden_act, hidden_wt, hidden_point =  self.getHiddenMem(L=self.L, Dim1 = self.miniB, Dim2 = 2 * self.D, Dim3 = self.G * self.D, S = self.S)
-        softmax_mem, softmax_act, softmax_wt, softmax_point =  self.getSoftmaxMem(B=self.miniB, S=self.S, P=self.projection, V=self.V)
-        projection_mem, projection_act, projection_wt, projection_point =  self.getProjectionMem(B=self.miniB, S=self.S, P=self.projection, D=self.D)
-        embedding_mem, embedding_act, embedding_wt, embedding_point =  self.getEmbeddingMem(B=self.miniB, S=self.S, V=self.V, D=self.D)
-  
-        print("*****embedding_mem: {}, embedding_act: {}, embedding_wt: {}\n".format(embedding_mem/1e9, embedding_act * self.precision/1e9, embedding_wt * self.precision/1e9))
-
-        #tot_mem = hidden_mem + softmax_mem + embedding_mem + projection_mem
-        wt_mem = (hidden_wt + softmax_wt + projection_wt + embedding_wt) * self.precision
-        act_mem = (hidden_act + softmax_act + projection_act + embedding_act) * self.precision
-        point_mem = (hidden_point + softmax_point + projection_point + embedding_point) * self.precision
-        tot_mem = wt_mem + act_mem + point_mem
-
-        assert(tot_mem == hidden_mem + softmax_mem + projection_mem + embedding_mem)
-
-        print("**Parameter Breakdown:***")
-        print("hidden: {}, softmax: {}, projection: {}, embedding: {}\n".
-             format(hidden_wt/1e9, softmax_wt/1e9, projection_wt/1e9, 
-             embedding_wt/1e9))
-
-        print("Memory Usage Breakdown (wt/act/pointwise)")
-        print("wt_mem: {}, act_mem: {}, point_mem: {},"
-              "tot_mem: {}\n".format(
-              wt_mem/1e9, act_mem/1e9, point_mem/1e9, tot_mem/1e9))
-        return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem
-
-
-    def getMemUsagePerCore(self):
-
-        #TODO: Add pointwise op memory 
-        hidden_mem, hidden_act, hidden_wt, point_act =  self.getHiddenMem(L=self.L/self.hlp, Dim1 = self.miniB / (self.kp_hidden_dim1 if self.kp_hidden_type == 2 else  1), Dim2 = 2 * self.D / (1 if self.kp_hidden_type == 2 else self.kp_hidden_dim1),  Dim3 = self.D * self.G / (self.kp_hidden_dim2 if self.kp_hidden_type == 2 else 1), S = self.S)
-
-        #activation output from each layer, assuming input ativation are taken 
-        #into account in the previous layer
-        softmax_mem, softmax_act, softmax_wt, softmax_point =  self.getSoftmaxMem(B=self.miniB / (self.kp_softmax_dim1 if self.kp_softmax_type == 2 else  1), S=self.S, P=self.projection/ (1 if self.kp_softmax_type == 2 else self.kp_softmax_dim1 ), V=self.V/(self.kp_softmax_dim2 if self.kp_softmax_type == 2 else 1))
-
-        projection_mem, projection_act, projection_wt, projection_point =  self.getProjectionMem(B=self.miniB/(self.kp_projection_dim1 if self.kp_projection_type == 2 else  1), S=self.S, D=self.D/(1 if self.kp_projection_type == 2 else self.kp_projection_dim1), P=self.projection/(self.kp_projection_dim2 if self.kp_projection_type == 2 else 1))
-        
-        #embedding_mem = self.miniB * self.S * self.D * self.precision + self.V * self.D / self.kp_embedding_dim1
-        embedding_mem, embedding_act, embedding_wt, embedding_point =  self.getEmbeddingMem(B=self.miniB/(self.kp_embedding_dim1 if self.kp_embedding_type==1 else self.kp_embedding_dim1 * self.kp_embedding_dim2), S=self.S, V=self.V, D=self.D)
-        
-          
-        return embedding_mem, hidden_mem, softmax_mem, projection_mem
 
 
 
@@ -1263,8 +1087,6 @@ class TimeCalculation:
 
         tot_gpu = max(embedding_gpu, hidden_gpu, projection_gpu, softmax_gpu) 
         
-        print("th: {}Tflops, mem_bw: {}GB/s, mem_size: {}GB, L2_bw: {}GB/s, L2_size: {}MB, IBK: {}GB/s"
-              .format(self.th/1e12/th_scale, self.mem_bw/(1024*1024*1024)/mem_scale, self.mem_size/(1024*1024*1024), self.L2_bw/(1024*1024*1024), self.L2_size/(1024*1024), self.IBK/(1024*1024*1024)))
         #print("th: {}Tflops, mem_bw: {}GB/s, mem_size: {}GB, L2_bw: {}GB/s, L2_size: {}MB"
         #      .format(self.th/1e12 * tot_gpu, self.mem_bw/1e9 * tot_gpu, self.mem_size/1e9 * tot_gpu, self.L2_bw/1e9 * tot_gpu, self.L2_size/1e6 * tot_gpu))
         if self.debug:
@@ -1330,8 +1152,8 @@ class TimeCalculation:
         
         self.tot_time = time
         
-        tot_param = self.tot_par()
-        print("tot_par: {}\n".format(tot_param/1e9))
+        tot_param = self.tot_param()
+        print("#Parameters: {:.2f} Billion\n".format(tot_param/1e9))
     
 
         return time
@@ -1350,9 +1172,9 @@ def main(exp_config, debug):
     TC.debug = debug
     tot_time = TC.calcTime()
 
+    TC.printSysConfig(exp_config)
 
     print("Time: {0:.8f}".format(tot_time))
-
 
    
 if __name__ == "__main__":
