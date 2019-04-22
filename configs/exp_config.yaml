@@ -36,6 +36,8 @@ power_breakdown:
     IB: 0.02
 
 scheduling_param:
+    auto:
+    topology: mesh
     dp: 1
     lp: 1
     hlp: 1 #FIXME: should not be here, should be calculated based on hidden_dim1 and dim2
