@@ -5,10 +5,11 @@ import os
 import config
 
 import perf as pf
-import util as util
 
-th_scale=0.8
-mem_scale=0.8
+from parallelism import Parallelism
+from topology import Topology
+import util
+
 
 MB=1024*1024
 GB=MB*1024
@@ -18,70 +19,109 @@ SM=True
 
 class EnergyCalculation:
     def __init__(self, exp_config):
+        #Model Parameters
         self.B = exp_config.model_config.batch_size
         self.V = exp_config.model_config.vocab_size
         self.L = exp_config.model_config.num_layers
         self.D = exp_config.model_config.layer_size
+        self.projection = exp_config.model_config.projection
         self.S = exp_config.model_config.seq_len
         self.G = exp_config.model_config.num_gates
         self.NL = exp_config.model_config.num_non_linear
         self.A = exp_config.model_config.num_add
         self.P = self.NL + self.A
         
+        #Architecture Parameters
         self.O         = exp_config.arch_config.kernel_launch_overhead
         self.precision = exp_config.arch_config.precision
        
+        #Technology Parameters
+        self.dram_energy_per_byte         = exp_config.tech_config.DRAM_energy_per_bit_trans * 8
         self.L2_energy_per_byte           = exp_config.tech_config.L2_energy_per_bit * 8
+        self.shared_mem_energy_per_byte   = exp_config.tech_config.shared_mem_energy_per_bit * 8
         self.energy_per_flop              = exp_config.tech_config.core_energy_per_flop
         self.internode_energy_per_byte    = exp_config.tech_config.internode_energy_per_bit * 8
-        self.dram_energy_per_byte   = exp_config.tech_config.DRAM_energy_per_bit_trans * 8
+        self.ll                           = exp_config.tech_config.line_latency
 
-        self.mp    = exp_config.sch_config.mp
-        self.dp    = exp_config.sch_config.dp
-        self.miniB = self.B / self.dp
-        
-        self.TDP       = exp_config.power_breakdown.TDP
-        self.corePower = exp_config.power_breakdown.core * self.TDP
-        self.DRAMPower = exp_config.power_breakdown.DRAM * self.TDP
-        self.L2Power   = exp_config.power_breakdown.L2 * self.TDP
-        self.IBDPower  = exp_config.power_breakdown.IBD * self.TDP
-        self.IBMPower  = exp_config.power_breakdown.IBM * self.TDP
-        self.HBM_stack_bw  = exp_config.tech_config.HBM_stack_bw
+        #Scheduling Parameters
+        par                     = Parallelism(exp_config)
+        par.findParallelStrategy()
+        self.autoPar            = par.autoPar
+        self.lp                 = par.lp
+        self.hlp                = par.hlp
+        self.kp_hidden_dim1     = par.kp_hidden_dim1
+        self.kp_softmax_dim1    = par.kp_softmax_dim1
+        self.kp_embedding_dim1  = par.kp_embedding_dim1
+        self.kp_projection_dim1 = par.kp_projection_dim1
+        self.kp_hidden_dim2     = par.kp_hidden_dim2
+        self.kp_softmax_dim2    = par.kp_softmax_dim2
+        self.kp_embedding_dim2  = par.kp_embedding_dim2
+        self.kp_projection_dim2 = par.kp_projection_dim2
+        self.dp                 = par.dp
+        self.kp_hidden_type     = par.kp_hidden_type #1: CR, 2: RC
+        self.kp_softmax_type    = par.kp_softmax_type #1: CR, 2: RC
+        self.kp_embedding_type  = par.kp_embedding_type #1: CR, 2: RC
+        self.kp_projection_type = par.kp_projection_type #1: CR, 2: RC
+
+        #Power Breakdown Parameters
+        self.TDP                = exp_config.power_breakdown.TDP
+        self.DRAMPower          = exp_config.power_breakdown.DRAM * self.TDP
+        self.HBM_stack_bw       = exp_config.tech_config.HBM_stack_bw
         self.HBM_stack_capacity = exp_config.tech_config.HBM_stack_capacity
+        self.mem_bw             = self.DRAMPower / self.dram_energy_per_byte * util.mem_scale
+        self.mem_size           = (self.mem_bw / util.mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
+
+       
+        #Define miniBatch size
+        self.miniB = math.ceil(self.B / self.dp)
+
+        #Calculate architecture configurations based on power breakdown
+        #and technology parameters
+        self.corePower = exp_config.power_breakdown.core * self.TDP
+        self.L2Power   = exp_config.power_breakdown.L2 * self.TDP
+        self.shared_mem_power = exp_config.power_breakdown.shared_mem * self.TDP
+        self.IBPower  = exp_config.power_breakdown.IB * self.TDP
+        self.th     = self.corePower / self.energy_per_flop * util.th_scale
+        
         self.L2_bank_bw  = exp_config.tech_config.L2_bank_bw
         self.L2_bank_capacity = exp_config.tech_config.L2_bank_capacity
-        self.shared_mem = 49152 #exp_config.tech_config.shared_mem
-        
-        self.th     = self.corePower / self.energy_per_flop * th_scale
-        self.mem_bw = self.DRAMPower / self.dram_energy_per_byte * mem_scale
-        self.mem_size = (self.mem_bw / mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
         self.L2_bw    = (self.L2Power / self.L2_energy_per_byte)
         self.L2_size  = (self.L2_bw / self.L2_bank_bw) * self.L2_bank_capacity 
-        
-        self.setmp()
+      
+        self.shared_mem_bank_bw = exp_config.tech_config.shared_mem_bank_bw
+        self.shared_mem_bank_capacity = exp_config.tech_config.shared_mem_bank_capacity
+        self.shared_mem_bw = (self.shared_mem_power / self.shared_mem_energy_per_byte)
+        self.shared_mem_size = (self.shared_mem_bw / self.shared_mem_bank_bw) * self.shared_mem_bank_capacity
+       
 
-        self.IBD = self.IBDPower / (self.dp * self.internode_energy_per_byte) #inter-devcie bandwidth across data shard
-        self.IBM = ((self.IBMPower / (self.dp * self.internode_energy_per_byte)) if
-                   (self.mp == 1) else (self.IBMPower / ((self.mp - 1) * self.dp *
-                                       self.internode_energy_per_byte)))
+
+        # Network Parameters
+        # IBK: interconnection bandiwdth across kernel parall dimension
+        # IBD: interconnection bandiwdth across data parall dimension
+        # IBM: interconnection bandiwdth across model parall dimension
+        # We are assuming same network bandwidth along all dimensons
+        # TODO: Parameterize this so we can explore different bandwidth along different dimensions
+        topology = Topology(exp_config) 
+        self.IB = (0 if topology.grid_dim == 0 else self.IBPower / (topology.num_links * self.internode_energy_per_byte)) 
+        self.IBK = self.IB
+        self.IBM = self.IB
+        self.IBD = self.IB
+
         self.attached = True
         self.debug = False
-        self.tot_energy = 0
+        self.tot_time = 0
+
         self.L2_tile_dim = 0
         self.sm_tile_dim = 0
         self.setTileDim()
-
-    def setmp(self):
-        self.mp = max(math.ceil(self.getTotMemReq()/self.mem_size), self.mp)
-        if (self.mp > self.L):
-            print("ERROR: The model parallelism required ({}) is more than the number of layers ({})".format(self.mp, self.L))
-            exit(0)
+    
+        self.tot_energy = 0
 
 
     def setTileDim(self):
         self.L2_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.L2_size / self.precision) / 3), 2))))
-        self.sm_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.shared_mem / self.precision) / 3), 2))))
-        print("L2Tile_dim: {}, SMTile_dim: {}".format(self.L2_tile_dim, self.sm_tile_dim))
+        self.sm_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.shared_mem_size/ self.precision) / 3), 2))))
+        #print("L2Tile_dim: {}, SMTile_dim: {}".format(self.L2_tile_dim, self.sm_tile_dim))
     
     def getTileDim(self):
         assert(self.L2_tile_dim != 0)
@@ -346,7 +386,7 @@ class EnergyCalculation:
         REmbedding = self.getEmbedding_b()   # Across all the data shards
         L = self.L
         S = self.S
-        mp = self.mp
+        lp = self.lp
 
         softmax_f = self.getSoftmax_f()
         softmax_b = self.getSoftmax_b()
@@ -354,12 +394,12 @@ class EnergyCalculation:
         embedding_b = self.getEmbedding_b() 
 
         if self.debug:
-          print("mp: {}, Cf: {}, Cb:; {}, RHidden: {}, RSoftmax: {}, REmbedding: {}, softmax_f: {}, softmax_b:{}, embedding_f: {}, embedding_b: {}\n"
-             .format(self.mp, Cf, Cb, RHidden, RSoftmax, REmbedding, softmax_f, softmax_b, embedding_f, embedding_b))
+          print("lp: {}, Cf: {}, Cb:; {}, RHidden: {}, RSoftmax: {}, REmbedding: {}, softmax_f: {}, softmax_b:{}, embedding_f: {}, embedding_b: {}\n"
+             .format(self.lp, Cf, Cb, RHidden, RSoftmax, REmbedding, softmax_f, softmax_b, embedding_f, embedding_b))
 
         #Energy per data shard exclusing the all reduce energy
         energy_per_data_shard = (embedding_f + Cf * L * S + softmax_f + 
-                                softmax_b  + Cb * L * S + W * (mp - 1))
+                                softmax_b  + Cb * L * S + W * (lp - 1))
         energy_all_reduce = RHidden * L + RSoftmax + REmbedding
 
         #RHidden happens every layer
@@ -380,29 +420,15 @@ def main(exp_config, debug):
 
     EC = EnergyCalculation(exp_config)
     PC = pf.TimeCalculation(exp_config)
-    UC = util.UtilCalculation(exp_config)
 
     EC.debug = debug
     tot_energy = EC.calcEnergy()
     tot_time = PC.calcTime()
     tot_power = tot_energy / tot_time
-    core_util, mem_util, netM_util, netD_util = UC.getUtil(tot_time) 
     
-    print("mp: {}".format(EC.mp))
-    print("time: {}".format(tot_time))
-    print("Energy: {0:.3f}".format(tot_energy))
-    print("Power: {0:.3f}".format(tot_power))
-    print("Throughput: {0:.3f} TFlops/s".format(EC.th/1e12/th_scale))
-    print("mem_bw: {0:.3f} GB/s".format(EC.mem_bw/GB/mem_scale))
-    print("mem_size: {0:.3f} GB".format(EC.mem_size/GB))
-    print("L2_bw: {0:.3f} GB/s".format(EC.L2_bw/GB))
-    print("L2_size: {0:.3f} MB".format(EC.L2_size/MB))
-    print("IBD: {0:.3f} GB/s".format(EC.IBD/GB))
-    print("IBM: {0:.3f} GB/s".format(EC.IBM/GB))
-    print("core_util: {0:.3f}".format(core_util))
-    print("mem_util: {0:.3f}".format(mem_util))
-    print("netM_util: {0:.3f}".format(netM_util))
-    print("netD_util: {0:.3f}".format(netD_util))
+    print("Time: {:.2f} Seconds".format(tot_time))
+    print("Energy: {0:.2f} Jouls".format(tot_energy))
+    print("Power: {0:.2f} Watt.".format(tot_power))
 
    
 if __name__ == "__main__":
