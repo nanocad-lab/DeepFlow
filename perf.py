@@ -10,8 +10,6 @@ from parallelism import Parallelism
 from topology import Topology
 import util
 
-th_scale=0.7
-mem_scale=0.7
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for validation
 mem_latency=50e-9 #50 nano sec
@@ -71,8 +69,8 @@ class TimeCalculation:
         self.DRAMPower          = exp_config.power_breakdown.DRAM * self.TDP
         self.HBM_stack_bw       = exp_config.tech_config.HBM_stack_bw
         self.HBM_stack_capacity = exp_config.tech_config.HBM_stack_capacity
-        self.mem_bw             = self.DRAMPower / self.dram_energy_per_byte * mem_scale
-        self.mem_size           = (self.mem_bw / mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
+        self.mem_bw             = self.DRAMPower / self.dram_energy_per_byte * util.mem_scale
+        self.mem_size           = (self.mem_bw / util.mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
 
        
         #Define miniBatch size
@@ -84,7 +82,7 @@ class TimeCalculation:
         self.L2Power   = exp_config.power_breakdown.L2 * self.TDP
         self.shared_mem_power = exp_config.power_breakdown.shared_mem * self.TDP
         self.IBPower  = exp_config.power_breakdown.IB * self.TDP
-        self.th     = self.corePower / self.energy_per_flop * th_scale
+        self.th     = self.corePower / self.energy_per_flop * util.th_scale
         
         self.L2_bank_bw  = exp_config.tech_config.L2_bank_bw
         self.L2_bank_capacity = exp_config.tech_config.L2_bank_capacity
@@ -105,7 +103,8 @@ class TimeCalculation:
         # We are assuming same network bandwidth along all dimensons
         # TODO: Parameterize this so we can explore different bandwidth along different dimensions
         topology = Topology(exp_config) 
-        self.IB = (0 if topology.grid_dim == 0 else self.IBPower / (topology.num_links * self.internode_energy_per_byte)) 
+        num_links = topology.getNumLinks()
+        self.IB = (0 if topology.grid_dim == 0 else self.IBPower / (num_links * self.internode_energy_per_byte)) 
         self.IBK = self.IB
         self.IBM = self.IB
         self.IBD = self.IB
@@ -148,8 +147,8 @@ class TimeCalculation:
             "L2 Size: {:.1f} MB\n"
             "Shared Memory Size: {:.1f} MB\n"
             "Interconnection Bandwidth: {:.1f} GB/s"
-            .format(self.th/1e12/th_scale, 
-                    self.mem_bw/(gigaByte)/mem_scale, 
+            .format(self.th/1e12/util.th_scale, 
+                    self.mem_bw/(gigaByte)/util.mem_scale, 
                     self.mem_size/(gigaByte), 
                     self.L2_bw/(teraByte), 
                     self.L2_size/(megaByte), 
