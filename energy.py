@@ -10,13 +10,6 @@ from parallelism import Parallelism
 from topology import Topology
 import util
 
-
-MB=1024*1024
-GB=MB*1024
-TB=GB*1024
-
-SM=True
-
 class EnergyCalculation:
     def __init__(self, exp_config):
         #Model Parameters

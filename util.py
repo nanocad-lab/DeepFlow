@@ -1,5 +1,10 @@
 import math
 
+
+th_scale=0.7
+mem_scale=0.7
+
+
 def getHiddenMem(L, Dim1, Dim2, Dim3, S, precision):
     #Activations refer to output activations that need to be stored
     hidden_act = Dim1 * Dim2 * S * L

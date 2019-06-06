@@ -63,7 +63,8 @@ class Topology:
             self.num_links = 2 * self.dp * h1
         else:
             self.num_links = 3 * self.dp * h1 * self.lp
-        
+       
+        return self.num_links
         print("num_links: {}".format(self.num_links))
 
     elif (self.topology == "tree"):
