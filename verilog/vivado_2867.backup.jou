@@ -1,0 +1,77 @@
+#-----------------------------------------------------------
+# Vivado v2016.4 (64-bit)
+# SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+# IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+# Start of session at: Fri May 17 21:08:07 2019
+# Process ID: 2867
+# Current directory: /home/saptad/baidu/MechaFlow/verilog
+# Command line: vivado
+# Log file: /home/saptad/baidu/MechaFlow/verilog/vivado.log
+# Journal file: /home/saptad/baidu/MechaFlow/verilog/vivado.jou
+#-----------------------------------------------------------
+start_gui
+open_project /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.xpr
+file mkdir /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new
+close [ open /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb w ]
+add_files /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb
+set_property file_type Verilog [get_files  /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb]
+update_compile_order -fileset sources_1
+update_compile_order -fileset sim_1
+launch_simulation
+source mat_mul_tb.tcl
+close_sim
+launch_simulation
+source mat_mul_tb.tcl
+add_force {/mat_mul_tb/clk} -radix hex {0 0ns} {1 50000ps} -repeat_every 100000ps
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+add_wave {{/mat_mul_tb/D1}} 
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+add_wave {{/mat_mul_tb/E}} 
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+relaunch_sim
+synth_design -rtl -name rtl_1
+restart
+run all
+refresh_design
+refresh_design
+close_sim

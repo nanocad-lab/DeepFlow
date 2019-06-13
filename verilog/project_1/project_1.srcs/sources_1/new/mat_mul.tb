@@ -1,0 +1,50 @@
+module mat_mul_tb;
+
+reg [255:0] A;
+reg [255:0] B;
+//reg [511:0] C;
+wire [511:0] D;
+
+wire [31:0] E;
+wire [31:0] D2;
+
+reg clk, reset;
+
+assign D2 = B[31:0];
+
+mat_mul dut(
+    .A(A),
+    .B(B),
+    //.C(C),
+    .D(D),
+    .E(E),
+    .clk(clk),
+    .reset(reset));
+    
+    initial
+    begin
+        reset = 0;
+        clk = 0;
+        #15 reset = 1;
+        #35 reset = 0;
+        A = {16'd1,16'd1,16'd1,16'd1,
+            16'd1,16'd1,16'd1,16'd1,
+            16'd1,16'd1,16'd1,16'd1,
+            16'd1,16'd1,16'd1,16'd1};
+        B = {16'd1,16'd1,16'd1,16'd1,
+             16'd1,16'd1,16'd1,16'd1,
+             16'd1,16'd1,16'd1,16'd1,
+             16'd1,16'd1,16'd1,16'd1};
+       /* C = {32'd1,32'd1,32'd1,32'd1,
+             32'd1,32'd1,32'd1,32'd1,
+             32'd1,32'd1,32'd1,32'd1,
+             32'd1,32'd1,32'd1,32'd1};*/
+                     
+             #45 reset = 1;
+             #65 reset = 0;
+    end
+    
+    always
+     #10 clk =~ clk;
+
+endmodule

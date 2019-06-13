@@ -1,0 +1,251 @@
+inflection_point: 5.50
+comp_int: 0.11
+inflection_point: 5.50
+comp_int: 0.33
+(Hidden) gradclip_flop: 12,759,072,768, gradclip_mem: 38,277,218,304
+(Hidden) gradclip_time: 0.04141905183605413
+
+(Hidden) applyGrad_flop: 9,569,304,576, applyGrad_mem: 89,313,509,376
+(Hidden) applyGrad_time: 0.09664438761745964
+
+inflection_point: 5.50
+comp_int: 0.11
+inflection_point: 5.50
+comp_int: 0.33
+(Projection) gradclip_flop: 163,577,856, gradclip_mem: 490,733,568
+(Projection) gradclip_time: 0.000531062844051976
+
+(Projection) applyGrad_flop: 122,683,392, applyGrad_mem: 1,145,044,992
+(Projection) applyGrad_time: 0.0012390799694546105
+
+inflection_point: 5.50
+comp_int: 0.11
+inflection_point: 5.50
+comp_int: 0.33
+(Softmax) gradclip_flop: 63,897,600,000, gradclip_mem: 191,692,800,000
+(Softmax) gradclip_time: 0.2074269422078031
+
+(Softmax) applyGrad_flop: 47,923,200,000, applyGrad_mem: 447,283,200,000
+(Softmax) applyGrad_time: 0.4839961318182073
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 78 1 1
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 39 1 1
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 78
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 39
+inflection_point: 5.50
+comp_int: 30.12
+inflection_point: 5.50
+comp_int: 30.12
+Cf GEMM_flop: 408,878,186,496, GEMM_gmem: 13,576,962,048, GEMM_l2mem: 13,178,241,024
+Cf GEMM_time: 0.08048756910222223
+
+inflection_point: 5.50
+comp_int: 0.10
+Hidden point_flop: 16,613,376, point_mem: 173,801,472
+
+Hidden point_time: 0.0007431170489350748
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 39 1 1
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 20 1 1
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 39
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 20
+inflection_point: 5.50
+comp_int: 30.13
+inflection_point: 5.50
+comp_int: 30.13
+Cb_act GEMM_flop: 408,827,068,416, GEMM_gmem: 13,566,738,432, GEMM_l2mem: 13,178,241,024
+Cb_act GEMM_time: 0.08047751114666668
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 39
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 20
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 78
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 39
+inflection_point: 5.50
+comp_int: 34.80
+inflection_point: 5.50
+comp_int: 34.77
+Cb_wt GEMM_flop: 472,085,692,416, GEMM_gmem: 13,566,738,432, GEMM_l2mem: 13,178,241,024
+Cb_wt GEMM_time: 0.09292423114666667
+
+inflection_point: 5.50
+comp_int: 0.33
+(gr) Hidden point_flop: 3,193,921,536, point_mem: 9,612,754,944
+Hidden point_time: 0.0109568172212473
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 782 1 2
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 391 1 1
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 2 1 782
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 391
+inflection_point: 5.50
+comp_int: 193.36
+inflection_point: 5.50
+comp_int: 193.36
+softmax_f GEMM_flop: 40,961,024,000,000, GEMM_gmem: 211,839,877,120, GEMM_l2mem: 107,967,938,560
+softmax_f GEMM_time: 8.059497740740742
+
+inflection_point: 5.50
+comp_int: 0.11
+Softmax point_flop: 3,071,998,720, point_mem: 28,672,000,000
+point_time: 0.031173439860141493
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 782 1 20
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 10
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 20 1 782
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 391
+inflection_point: 5.50
+comp_int: 182.55
+inflection_point: 5.50
+comp_int: 182.55
+softmax_b_wt GEMM_flop: 41,213,952,000,000, GEMM_gmem: 225,766,277,120, GEMM_l2mem: 104,959,836,160
+softmax_b_wt GEMM_time: 8.109263666666669
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 20 1 2
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 10 1 1
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 2 1 20
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 10
+inflection_point: 5.50
+comp_int: 195.14
+inflection_point: 5.50
+comp_int: 195.14
+softmax_b_act GEMM_flop: 40,944,815,308,800, GEMM_gmem: 209,817,436,160, GEMM_l2mem: 104,959,836,160
+softmax_b_act GEMM_time: 8.05630853066667
+
+inflection_point: 5.50
+comp_int: 0.11
+(gr) Softmax point_flop: 5,120,000,000, point_mem: 45,056,000,000
+(gr) Softmax point_time: 0.048902234065936634
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 2 1 2
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 1
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 2 1 2
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 1
+inflection_point: 5.50
+comp_int: 193.43
+inflection_point: 5.50
+comp_int: 193.43
+projection GEMM_flop: 104,860,221,440, GEMM_gmem: 542,113,792, GEMM_l2mem: 276,299,776
+projection GEMM_time: 0.0206692194962963
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 20 1 2
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 1
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 2 1 20
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 10
+inflection_point: 5.50
+comp_int: 182.61
+inflection_point: 5.50
+comp_int: 182.61
+projection_b_wt GEMM_flop: 105,507,717,120, GEMM_gmem: 577,765,376, GEMM_l2mem: 276,299,776
+projection_b_wt GEMM_time: 0.02079662026666667
+
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 20 1 2
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 1
+gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 2 1 20
+l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}
+ 1 1 10
+inflection_point: 5.50
+comp_int: 164.61
+inflection_point: 5.50
+comp_int: 164.61
+projection_b_act GEMM_flop: 105,201,008,640, GEMM_gmem: 639,107,072, GEMM_l2mem: 276,299,776
+projection_b_act GEMM_time: 0.020736272533333336
+
+Embedding_mem: 204,472,320
+(gr) Embedding_mem: 204,472,320
+dp: 1, lp: 1, hlp: 1, kp_hidden_dim1: 1, kp_hidden_dim2: 1, kp_softmax_dim1: 1, kp_softmax_dim2: 1, kp_embedding_dim1: 1, kp_embedding_dim2: 1,  kp_hidden_type: -1, kp_softmax_type: -1, kp_embedding_type: -1
+
+Cf: 0.0812306861511573, Cb:; 0.18435855951458066, R: 0.13806343945351376, softmax_f: 8.090671180600884, softmax_b:16.214474431399278, embedding_f: 0.00025830535168832333, embedding_b: 0.00025830535168832333, projection_f: 0.0206692194962963, projection_b: 0.041532892800000006
+
+#Parameters: 38.37 Billion
+
+======================
+Hardware Configuration
+======================
+Throughput: 7.3 Tflops
+Memory Bandwidth: 1229.5 GB/s
+Memory Size: 21.9 GB
+L2 Bandwidth: 1964.5 TB/s
+L2 Size: 15.7 MB
+Shared Memory Size: 65.5 MB
+Interconnection Bandwidth: 0.0 GB/s
+
+
+===========================================
+Memory Requirement Breakdown per Data Shard
+===========================================
+Total Memory: 103.2 GB
+Embedding Memory: 59.6 GB
+Hidden Memory: 25.9 GB
+Softmax Memory: 17.6 GB
+Projection Memory: 0.2 GB
+
+Total Memory: 103.2 GB
+Weight Memory: 89.5 GB
+Activation Memory: 4.3 GB
+Pointwise Memory: 9.4 GB
+
+
+Memory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): 4.7
+
+
+
+=========================================================
+Memory Requirement Breakdown per Data Shard Per Model Shard
+===========================================================
+Total Memory: 103.2 GB
+Embedding Memory: 59.6 GB
+Hidden Memory: 25.9 GB
+Softmax Memory: 17.6 GB
+Projection Memory: 0.2 GB
+
+Memory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): 4.7
+
+
+Total Memory: 103.2 GB
+Weight Memory: 89.5 GB
+Activation Memory: 4.3 GB
+Pointwise Memory: 9.4 GB
+
+
+
+====================
+Parallelism Strategy
+====================
+dp: 1, lp: 1, hlp: 1, kp_hidden_dim1: 1, kp_hidden_dim2: 1,kp_softmax_dim1: 1, kp_softmax_dim2: 1, kp_embedding: 1,kp_projection_dim1: 1, kp_proejction_dim2: 1
+
+Time: 35.75871856
+time_per_step: 0.00071939

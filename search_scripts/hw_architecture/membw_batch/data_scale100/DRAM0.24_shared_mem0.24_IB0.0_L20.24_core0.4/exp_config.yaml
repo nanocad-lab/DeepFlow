@@ -1,0 +1,55 @@
+model_param:
+    batch_size: 512
+    vocab_size: 800000
+    num_layers: 2
+    layer_size: 19968
+    projection: 2048
+    seq_len: 20
+    num_gates: 4
+    num_non_linear: 5
+    num_add: 8 
+
+arch_param:
+    kernel_launch_overhead: 37e-6
+    precision: 4
+
+tech_param:
+    DRAM_energy_per_bit_trans: 6e-12
+    L2_energy_per_bit: 5e-15
+    shared_mem_energy_per_bit: 1e-15
+    core_energy_per_flop: 119e-13
+    internode_energy_per_bit: 10e-12
+    HBM_stack_capacity: 4 GB
+    HBM_stack_bw: 225 GB/s
+    L2_bank_capacity: 32 KB
+    L2_bank_bw: 4000 GB/s
+    shared_mem_bank_capacity: 32 KB 
+    shared_mem_bank_bw: 4000 GB/s 
+    line_latency: 16e-7 
+
+power_breakdown:
+    TDP: 300
+    core: 0.4
+    DRAM: 0.24
+    L2: 0.24
+    shared_mem: 0.24
+    IB: 0.0
+
+scheduling_param:
+    auto: False 
+    topology: ring
+    dp: 1
+    lp: 1
+    hlp: 1 #FIXME: should not be here, should be calculated based on hidden_dim1 and dim2
+    kp_hidden_dim1: 1
+    kp_hidden_dim2: 1
+    kp_softmax_dim1: 1
+    kp_softmax_dim2: 1
+    kp_embedding_dim1: 1
+    kp_embedding_dim2: 1
+    kp_projection_dim1: 1
+    kp_projection_dim2: 1
+    kp_hidden_type: -1
+    kp_softmax_type: -1
+    kp_embedding_type: -1
+    kp_projection_type: -1

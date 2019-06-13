@@ -19,6 +19,7 @@ class Parallelism():
         self.kp_softmax_type  =  exp_config.sch_config.kp_softmax_type #1: CR, 2: RC
         self.kp_embedding_type  =  exp_config.sch_config.kp_embedding_type #1: CR, 2: RC
         self.kp_projection_type  =  exp_config.sch_config.kp_projection_type #1: CR, 2: RC
+        self.exp_config = exp_config
 
     def findParallelStrategy(self):
         if (self.autoPar == None or self.autoPar == False):
@@ -45,8 +46,11 @@ class Parallelism():
         #Step 3. If it does not, try layer parallelism across hidden layers
         #Step 4. If it does not fit, try kernel parallelism across hidden layers
         #Step 5. For softmax and embedding try kernel parallelism
-        tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getTotMemReq()
-        if (tot_mem < M):
+        tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(self.exp_config)
+        #tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getTotMemReq(self.exp_config)
+        print("Value of M is {.1d}\n"
+               .format(self.M))
+        if (tot_mem < self.M):
             self.lp = 1
             self.hlp = 1
             self.kp_hidden_type = -1
@@ -117,7 +121,7 @@ class Parallelism():
     #Find how to use minimum number of layers for layer parallelism
     def findlp(self):
             tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = self.getTotMemReq()
-            M = self.mem_size
+            self.M = self.mem_size
     
             #If Kernel parallelism is one for all components then finding how to group
             #layers together is a knap-sack problem with some dependency constraints st.
