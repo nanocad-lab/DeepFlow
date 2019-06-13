@@ -38,7 +38,7 @@ power_breakdown:
 scheduling_param:
     auto: False 
     topology: ring
-    dp: 1
+    dp: 2
     lp: 1
     hlp: 1 #FIXME: should not be here, should be calculated based on hidden_dim1 and dim2
     kp_hidden_dim1: 1
