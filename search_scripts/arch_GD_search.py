@@ -13,10 +13,10 @@ class GradientDescentSearch:
         #Play with this number to start from a reasonable point for search
         #self.parameters['TDP'] = 300
         ###############
-        self.parameters['core'] = 0.15
-        self.parameters['DRAM'] = 0.15
-        self.parameters['L2'] = 0.3
-        self.parameters['shared_mem'] = 0.3
+        self.parameters['core'] = 0.3
+        self.parameters['DRAM'] = 0.3
+        self.parameters['L2'] = 0.2
+        self.parameters['shared_mem'] = 0.2
         self.parameters['IB'] = 0.0
         self.data_scale = 100
         self.parameters['tot_batch_size'] = 32
@@ -95,12 +95,14 @@ class GradientDescentSearch:
         tot_params = len(search_params)
         saturated = False
         min_value_params = 0
+        prev_exec_time = 1000000000
         while (saturated == False):
-            alpha = 1.2 #step of increment (should be >1)
-
-            exec_time_improv = {}
-            print("Calculating execution time with TDP parameters", search_params)
+            alpha = 1.0002 #size of perturbation(should be >1)
+            beta = 0.00005 #step size
+            gradient_list = {}
+            old_params = search_params.copy()
             exec_time = self.collect_time(search_params)[0]
+            print("Execution time %4f with TDP parameters" %(exec_time), search_params)
             temp_params = search_params.copy()
 
             for param in search_params:
@@ -108,31 +110,34 @@ class GradientDescentSearch:
                 if self.debug:
                     print("param: {}, search_param_value: {}".format((param),(temp_params[param])) )
                 new_exec_time = self.collect_time(temp_params)[0]
-                exec_time_improv_n = exec_time/new_exec_time
+                gradient = (exec_time-new_exec_time)/((alpha-1)*search_params[param])
                 if self.debug:
-                    print("Exec time improv =", exec_time_improv_n, exec_time, new_exec_time)
-                exec_time_improv[param] = exec_time_improv_n
+                    print("Exec time improv =", gradient, exec_time, new_exec_time)
+                gradient_list[param] = gradient
                 temp_params = search_params.copy()
 
-            sorted_improv = sorted(exec_time_improv.items(), key=lambda kv: kv[1], reverse=True)
-            exec_time_improv = collections.OrderedDict(sorted_improv)
+            sorted_improv = sorted(gradient_list.items(), key=lambda kv: kv[1], reverse=True)
+            gradient_list = collections.OrderedDict(sorted_improv)
 
             if self.debug:
-                print(exec_time_improv)
+                print(gradient_list)
 
             num_items_to_increase = 2
             count = 0
             amount_increased = 0
 
-            for param in exec_time_improv:
-                if (count == 0 and exec_time_improv[param] < 1):
+            for param in gradient_list:
+                if (count == 0 and gradient_list[param] < 0):
                     saturated = True
-                elif exec_time_improv[param] > 1:
-                    new_param = alpha*search_params[param]
-                    if (new_param > 0.7):
-                        new_param = 0.7
+
+                elif gradient_list[param] > 0:
+                    new_param = search_params[param] + beta*gradient_list[param]  #*search_params[param]
+                    if (new_param > 1.0):
+                        new_param = 1.0
                     search_params[param] = new_param
-                    amount_increased += (alpha - 1)*search_params[param]
+                    amount_increased += beta*gradient_list[param] #*search_params[param]
+                elif gradient_list[param] == 0:
+                    print(param)
                 count += 1
                 if count >= num_items_to_increase:
                     break
@@ -147,48 +152,53 @@ class GradientDescentSearch:
             if self.debug:
                 print(amount_to_decrease)
 
-            exec_time_improv = collections.OrderedDict(reversed(list(exec_time_improv.items())))
+            gradient_list = collections.OrderedDict(reversed(list(gradient_list.items())))
 
             if self.debug:
-                print(exec_time_improv)
+                print(gradient_list)
 
-            for param in exec_time_improv:
-                if (count == 0 and exec_time_improv[param] < 1):
+            for param in gradient_list:
+                if (count == 0 and gradient_list[param] < 0):
                     new_param = search_params[param] - amount_increased
-                    if (new_param < 0.05):
-                        new_param = 0.05
+                    if (new_param < 0.01):
+                        new_param = 0.01
                         amount_to_decrease = (amount_increased - search_params[param]+new_param)/(num_items_to_decrease - count + 1)
                     search_params[param] = new_param
-                elif exec_time_improv[param] >= 1:
+                elif gradient_list[param] >= 0:
                     new_param = search_params[param] - amount_to_decrease
-                    if (new_param < 0.05):
-                        new_param = 0.05
+                    if (new_param < 0.01):
+                        new_param = 0.01
                         amount_to_decrease += (amount_to_decrease - search_params[param] + new_param)/(num_items_to_decrease -count +1)
                     search_params[param] = new_param
-
                 count += 1
-                if count >= num_items_to_increase:
+                if count >= num_items_to_decrease:
                     break
 
-            if amount_increased < 0.00005:
+            t = self.collect_time(search_params)
+            if t[2] == True:
+                print ("Found arch to meet timing requirement")
+                return search_params, exec_time
+
+            new_exec_time = t[0]
+            if prev_exec_time - new_exec_time < 0.00005:
                 saturated = True
             
+            if new_exec_time >= prev_exec_time:
+                search_params = old_params.copy()
+                alpha = alpha*0.5
+                beta = beta*0.5
+            else:
+                prev_exec_time = new_exec_time
+
             agg_TDP = 0
             for param in search_params:
                 if (search_params[param] < 0.05):
                     min_value_params += 1
                 agg_TDP += search_params[param]
             if agg_TDP > 1:
-                alpha = alpha*0.9
-                if(min_value_params == num_items_to_decrease):
-                    print("Search saturated")
-                amount_to_decrease = (agg_TDP - 1)/num_items_to_increase
-                #for c in range(1,1+num_items_to_increase):
-                #    print(search_params[keys[-c]])
-                #    search_params[param] -= amount_to_decrease
-                return search_params, self.collect_time(search_params)[0]
-                if self.debug:
-                    print("Something Wrong going on!")
+                beta = beta*0.5
+                alpha = alpha*0.5
+                search_params = old_params.copy()
 
             if saturated:
                 print('Saturated, done with search', search_params, exec_time)
@@ -198,7 +208,7 @@ class GradientDescentSearch:
 def main():
 
     GDS = GradientDescentSearch(exp_root)
-    GDS.debug=True
+    GDS.debug=False
     tdp_breakdown = GDS.do_GDSearch(GDS.search_params)
 
     print('The TDP breakdown is as follows: ', tdp_breakdown)
