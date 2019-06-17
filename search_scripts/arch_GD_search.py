@@ -143,9 +143,9 @@ class GradientDescentSearch:
         saturated = False
         min_value_params = 0
         prev_exec_time = 1000000000
+        alpha = 1.0002 #size of perturbation(should be >1)
+        beta = 0.00005 #step size
         while (saturated == False):
-            alpha = 1.0002 #size of perturbation(should be >1)
-            beta = 0.00005 #step size
             gradient_list = {}
             old_params = search_params.copy()
             exec_time = self.collect_time(search_params)[0]
