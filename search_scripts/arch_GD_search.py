@@ -2,32 +2,35 @@ import os
 import shutil
 import re
 import collections
+import random
+import numpy as np
 
 exp_root = os.getcwd() + '/hw_architecture/membw_batch'
 
 class GradientDescentSearch:
-    def __init__(self, _exp_root):
+    def __init__(self, _exp_root, _search_params_list):
         #Initial Values to start the GD search with
         self.parameters = {}
         #Starting TDP
         #Play with this number to start from a reasonable point for search
         #self.parameters['TDP'] = 300
         ###############
-        self.parameters['core'] = 0.3
-        self.parameters['DRAM'] = 0.3
-        self.parameters['L2'] = 0.2
-        self.parameters['shared_mem'] = 0.2
+        self.parameters['core'] = 0.25
+        self.parameters['DRAM'] = 0.25
+        self.parameters['L2'] = 0.25
+        self.parameters['shared_mem'] = 0.25
         self.parameters['IB'] = 0.0
         self.data_scale = 100
-        self.parameters['tot_batch_size'] = 32
+        #self.parameters['tot_batch_size'] = 32
         self.exp_root = _exp_root
 
-        search_params_list = ['core', 'DRAM', 'L2', 'shared_mem']
+        search_params_list = _search_params_list
 
         self.search_params = {}
         for item in search_params_list:
             self.search_params[item] = self.parameters[item]
 
+        self.random_starts = 1
         self.debug = False
 
     def collect_time(self, params):
@@ -49,6 +52,20 @@ class GradientDescentSearch:
 
         os.system("cp ../configs/exp_config.yaml "+ exp_dir+"/exp_config.yaml")
 
+        for i in self.parameters:
+            if i not in params:
+                param_name = i
+                if 'capacity' in i:
+                    param_value = str(self.parameters[i]) + " GB"
+                elif 'bw' in i:
+                    param_value = str(self.parameters[i]) + " GB/s"
+                else:
+                    param_value = str(self.parameters[i])
+                command = ['sed -i "s/', param_name, ': .*/', param_name, ': ""', param_value, '""/" ', exp_dir+'/exp_config.yaml']
+                command = "".join(command)
+                os.system(command)
+
+
         for i in params:
             param_name = i
             if 'size' in i:
@@ -68,7 +85,7 @@ class GradientDescentSearch:
         os.system("python ../perf.py --exp_config " + exp_dir+"/exp_config.yaml --debug False >| " + exp_dir + "/summary.txt")
 
         ##Time Limit to compute a step
-        os.system("bash time_limit.sh " + str(self.data_scale) + " " + str(self.parameters['tot_batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
+        os.system("bash time_limit.sh " + str(self.data_scale) + " " + str(self.parameters['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
 
         exec_time = 100000000
         time_limit = 1e15
@@ -89,7 +106,37 @@ class GradientDescentSearch:
 
         return exec_time, time_limit, found
 
+    def multi_start_search(self):
 
+        params_list = []
+        exec_time_list = [] #np.zeros(self.random_starts)
+
+        for i in range(self.random_starts):
+            random_params = random.sample(range(1,100),len(self.search_params))
+            tot = sum(random_params)
+            random_params = [x/tot for x in random_params]
+            for i, param in enumerate(self.search_params):
+                self.search_params[param] = random_params[i]
+
+            tdp_breakdown = self.do_GDSearch(self.search_params)
+
+            params_list.append(tdp_breakdown[0])
+            exec_time_list.append(tdp_breakdown[1])
+        
+        index = exec_time_list.index(min(exec_time_list))
+        return params_list[index], exec_time_list[index]
+        
+
+    def batch_size_sweep(self,batch_sizes):
+        
+        init_parameters = self.search_params.copy()
+        for batch_size in batch_sizes:
+            self.parameters['batch_size'] = batch_size
+            #self.parameters['tot_batch_size'] = batch_size
+            self.search_params = init_parameters.copy()
+            tdp_breakdown = self.multi_start_search()
+            print('For Batch-Size: %d, the TDP breakdown is as follows: ' %(batch_size), tdp_breakdown)
+    
     def do_GDSearch(self, search_params):
        
         tot_params = len(search_params)
@@ -102,7 +149,8 @@ class GradientDescentSearch:
             gradient_list = {}
             old_params = search_params.copy()
             exec_time = self.collect_time(search_params)[0]
-            print("Execution time %4f with TDP parameters" %(exec_time), search_params)
+            if self.debug:
+                print("Execution time %4f with TDP parameters" %(exec_time), search_params)
             temp_params = search_params.copy()
 
             for param in search_params:
@@ -122,7 +170,7 @@ class GradientDescentSearch:
             if self.debug:
                 print(gradient_list)
 
-            num_items_to_increase = 2
+            num_items_to_increase = 3
             count = 0
             amount_increased = 0
 
@@ -136,8 +184,7 @@ class GradientDescentSearch:
                         new_param = 1.0
                     search_params[param] = new_param
                     amount_increased += beta*gradient_list[param] #*search_params[param]
-                elif gradient_list[param] == 0:
-                    print(param)
+                
                 count += 1
                 if count >= num_items_to_increase:
                     break
@@ -145,7 +192,7 @@ class GradientDescentSearch:
             if self.debug:
                 print("Amount Increased: ", amount_increased)
 
-            num_items_to_decrease = 2
+            num_items_to_decrease = 1
             count = 0
             amount_to_decrease = amount_increased/num_items_to_decrease
 
@@ -180,7 +227,7 @@ class GradientDescentSearch:
                 return search_params, exec_time
 
             new_exec_time = t[0]
-            if prev_exec_time - new_exec_time < 0.00005:
+            if prev_exec_time - new_exec_time < 0.000005:
                 saturated = True
             
             if new_exec_time >= prev_exec_time:
@@ -196,22 +243,28 @@ class GradientDescentSearch:
                     min_value_params += 1
                 agg_TDP += search_params[param]
             if agg_TDP > 1:
+                if self.debug:
+                    print("Entered here")
                 beta = beta*0.5
                 alpha = alpha*0.5
                 search_params = old_params.copy()
 
             if saturated:
-                print('Saturated, done with search', search_params, exec_time)
+                if self.debug:
+                    print('Saturated, done with search', search_params, exec_time)
                 return search_params, exec_time
             
 
 def main():
 
-    GDS = GradientDescentSearch(exp_root)
+    search_params_list = ['core', 'DRAM', 'L2', 'shared_mem']
+    GDS = GradientDescentSearch(exp_root,search_params_list)
     GDS.debug=False
-    tdp_breakdown = GDS.do_GDSearch(GDS.search_params)
+    GDS.random_starts = 20
+    
+    batch_sizes = [512]
+    GDS.batch_size_sweep(batch_sizes)
 
-    print('The TDP breakdown is as follows: ', tdp_breakdown)
 
 
 if __name__ == "__main__":
