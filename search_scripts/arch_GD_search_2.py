@@ -164,8 +164,8 @@ class GradientDescentSearch:
                 gradient_list[param] = gradient
                 temp_params = search_params.copy()
 
-            sorted_improv = sorted(gradient_list.items(), key=lambda kv: kv[1], reverse=True)
-            gradient_list = collections.OrderedDict(sorted_improv)
+            #sorted_improv = sorted(gradient_list.items(), key=lambda kv: kv[1], reverse=True)
+            #gradient_list = collections.OrderedDict(sorted_improv)
 
             if self.debug:
                 print(gradient_list)
