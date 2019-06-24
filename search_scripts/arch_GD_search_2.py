@@ -195,10 +195,10 @@ class GradientDescentSearch:
             if prev_exec_time - new_exec_time < 0.000005:
                 saturated = True
             
+            hyper-parameter-scaling = False
+            
             if new_exec_time >= prev_exec_time:
-                search_params = old_params.copy()
-                alpha = alpha*0.5
-                beta = beta*0.5
+                hyper-parameter-scaling = True
             else:
                 prev_exec_time = new_exec_time
 
@@ -206,8 +206,9 @@ class GradientDescentSearch:
             for param in search_params:
                 agg_TDP += search_params[param]
             if agg_TDP > 1:
-                if self.debug:
-                    print("Entered here")
+                hyper-parameter-scaling = True
+                
+            if hyper-parameter-scaling:    
                 beta = beta*0.5
                 alpha = alpha*0.5
                 search_params = old_params.copy()
