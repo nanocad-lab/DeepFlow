@@ -1,0 +1,182 @@
+/*
+
+Vivado v2016.4 (64-bit)
+SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+Process ID: 2170
+
+Current time: 	5/17/19 8:59:49 PM PDT
+Time zone: 	Pacific Standard Time (America/Los_Angeles)
+
+OS: NAME="Ubuntu"
+Version: 4.4.0-142-generic
+Architecture: amd64
+Available processors (cores): 72
+
+DISPLAY: localhost:11.0
+Screen size: 3840x1058
+Screen resolution (DPI): 96
+Available screens: 2
+Default font: family=Dialog,name=Dialog,style=plain,size=12
+
+Java version: 	1.8.0_66 64-bit
+Java home: 	/opt/Xilinx/Vivado/2016.4/tps/lnx64/jre
+
+User name: 	saptad
+User home directory: /home/saptad
+User working directory: /home/saptad/baidu/MechaFlow/verilog
+User country: 	US
+User language: 	en
+User locale: 	en_US
+
+RDI base root directory: /opt/Xilinx/Vivado
+RDI data directory: /opt/Xilinx/Vivado/2016.4/data
+RDI bin directory: /opt/Xilinx/Vivado/2016.4/bin
+
+Vivado preferences path: /home/saptad/.Xilinx/Vivado/2016.4/vivado.ini
+Vivado layouts directory: /home/saptad/.Xilinx/Vivado/2016.4/layouts
+
+GUI allocated memory:	160 MB
+GUI max memory:		3,052 MB
+Engine allocated memory: 5,112 MB
+
+*/
+
+// TclEventType: START_GUI
+// [GUI Memory]: 25 MB (+23909kb) [00:00:13]
+// [Engine Memory]: 5,101 MB (+5196900kb) [00:00:13]
+// Tcl Message: start_gui 
+selectButton(PAResourceEtoH.GettingStartedView_OPEN_PROJECT, "Open Project"); // k:JideButton (JPanel:JComponent, cd:JFrame)
+selectButton(PAResourceEtoH.GettingStartedView_CREATE_NEW_PROJECT, "Create New Project"); // k:JideButton (JPanel:JComponent, cd:JFrame)
+// Run Command: PAResourceCommand.PACommandNames_NEW_PROJECT
+// [GUI Memory]: 39 MB (+13471kb) [00:00:18]
+// [GUI Memory]: 45 MB (+3444kb) [00:00:20]
+// [GUI Memory]: 52 MB (+5797kb) [00:00:20]
+// [GUI Memory]: 66 MB (+11773kb) [00:00:21]
+// g:g (cd:JFrame): New Project: addNotify
+// HMemoryUtils.trashcanNow. Engine heap size: 5,188 MB. GUI used memory: 24 MB. Current time: 5/17/19 8:59:56 PM PDT
+selectButton("NEXT", "Next >"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+selectButton("NEXT", "Next >"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+selectButton("NEXT", "Next >"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+selectButton(PAResourceQtoS.SrcChooserPanel_ADD_HDL_AND_NETLIST_FILES_TO_YOUR_PROJECT, "Add Files"); // a:JButton (C:JPanel, g:g)
+setFileChooser("/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v");
+selectButton("NEXT", "Next >"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+selectButton("NEXT", "Next >"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+selectButton("NEXT", "Next >"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+selectButton("NEXT", "Next >"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+// bt:g (g:g):  Create Project : addNotify
+// TclEventType: DEBUG_PROBE_SET_CHANGE
+// TclEventType: FILE_SET_NEW
+// TclEventType: RUN_ADD
+// TclEventType: RUN_CURRENT
+// TclEventType: PROJECT_NEW
+// Tcl Message: create_project project_1 /home/saptad/baidu/MechaFlow/verilog/project_1 -part xc7vx485tffg1157-1 
+// Tcl Message: INFO: [IP_Flow 19-234] Refreshing IP repositories INFO: [IP_Flow 19-1704] No user IP repositories specified 
+// TclEventType: PROJECT_NEW
+// TclEventType: FILE_SET_OPTIONS_CHANGE
+// Tcl Message: INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/opt/Xilinx/Vivado/2016.4/data/ip'. 
+// HMemoryUtils.trashcanNow. Engine heap size: 5,232 MB. GUI used memory: 30 MB. Current time: 5/17/19 9:00:49 PM PDT
+// TclEventType: FILE_SET_OPTIONS_CHANGE
+// Tcl Message: create_project: Time (s): cpu = 00:00:39 ; elapsed = 00:00:22 . Memory (MB): peak = 6132.488 ; gain = 41.855 ; free physical = 2643 ; free virtual = 250944 
+// TclEventType: FILE_SET_CHANGE
+// Tcl Message: add_files -norecurse /home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v 
+// Elapsed time: 27 seconds
+selectButton("FINISH", "Finish"); // JButton:AbstractButton (ButtonPanel:JPanel, g:g)
+// 'g' command handler elapsed time: 59 seconds
+dismissDialog("Create Project"); // bt:g (g:g)
+dismissDialog("New Project"); // g:g (cd:JFrame)
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: DG_ANALYSIS_MSG_RESET
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: DG_ANALYSIS_MSG_RESET
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: FILE_SET_CHANGE
+// Elapsed time: 21 seconds
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Design Sources, Syntax Error Files]", 1, true); // y:i (D:JPanel, cd:JFrame) - Node
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Design Sources, Syntax Error Files]", 1, true, false, false, false, false, true); // y:i (D:JPanel, cd:JFrame) - Double Click - Node
+// PAPropertyPanels.initPanels (matrix_multiply.v) elapsed time: 0.3s
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Design Sources, Syntax Error Files, matrix_multiply.v]", 2, false); // y:i (D:JPanel, cd:JFrame)
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Design Sources, Syntax Error Files, matrix_multiply.v]", 2, false, false, false, false, false, true); // y:i (D:JPanel, cd:JFrame) - Double Click
+selectCodeEditor("matrix_multiply.v", 201, 438); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 404, 396); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 132, 495); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 164, 495); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 161, 478); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 217, 230); // bF:I (JPanel:JComponent, cd:JFrame)
+// TclEventType: DG_GRAPH_STALE
+// TclEventType: FILE_SET_CHANGE
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: DG_ANALYSIS_MSG_RESET
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: DG_ANALYSIS_MSG_RESET
+// TclEventType: DG_UPDATE_GRAPH
+// Elapsed time: 13 seconds
+selectCodeEditor("matrix_multiply.v", 79, 105); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 77, 99); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 99, 8); // bF:I (JPanel:JComponent, cd:JFrame)
+// Elapsed time: 12 seconds
+selectCodeEditor("matrix_multiply.v", 108, 7); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 7, 111); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 397, 329); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 315, 288); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 198, 273); // bF:I (JPanel:JComponent, cd:JFrame)
+// Elapsed time: 17 seconds
+selectCodeEditor("matrix_multiply.v", 134, 412); // bF:I (JPanel:JComponent, cd:JFrame)
+// Elapsed time: 33 seconds
+selectCodeEditor("matrix_multiply.v", 122, 412); // bF:I (JPanel:JComponent, cd:JFrame)
+typeControlKey((HResource) null, "matrix_multiply.v", 'c'); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 304, 418); // bF:I (JPanel:JComponent, cd:JFrame)
+typeControlKey((HResource) null, "matrix_multiply.v", 'v'); // bF:I (JPanel:JComponent, cd:JFrame)
+typeControlKey((HResource) null, "matrix_multiply.v", 'v'); // bF:I (JPanel:JComponent, cd:JFrame)
+typeControlKey((HResource) null, "matrix_multiply.v", 'v'); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 597, 424); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 919, 414); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 93, 415); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 183, 415); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 327, 414); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 343, 415); // bF:I (JPanel:JComponent, cd:JFrame)
+// [GUI Memory]: 71 MB (+1312kb) [00:04:28]
+selectCodeEditor("matrix_multiply.v", 112, 412); // bF:I (JPanel:JComponent, cd:JFrame)
+// Elapsed time: 11 seconds
+selectCodeEditor("matrix_multiply.v", 60, 415); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 53, 414); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 79, 111); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 392, 146, false, false, false, true, false); // bF:I (JPanel:JComponent, cd:JFrame) - Popup Trigger
+selectMenuItem(RDIResourceCommand.RDICommands_COPY, "Copy"); // ab:JMenuItem (ah:JPopupMenu, Popup:JWindow)
+selectCodeEditor("matrix_multiply.v", 129, 402); // bF:I (JPanel:JComponent, cd:JFrame)
+typeControlKey((HResource) null, "matrix_multiply.v", 'v'); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 30, 417); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 113, 430); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 448, 458); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 55, 475); // bF:I (JPanel:JComponent, cd:JFrame)
+selectCodeEditor("matrix_multiply.v", 61, 410); // bF:I (JPanel:JComponent, cd:JFrame)
+// Elapsed time: 16 seconds
+selectCodeEditor("matrix_multiply.v", 207, 221); // bF:I (JPanel:JComponent, cd:JFrame)
+// TclEventType: DG_GRAPH_STALE
+// TclEventType: FILE_SET_CHANGE
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: DG_ANALYSIS_MSG_RESET
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: DG_ANALYSIS_MSG_RESET
+// TclEventType: DG_UPDATE_GRAPH
+// TclEventType: FILE_SET_CHANGE
+// TclEventType: DG_GRAPH_STALE
+// TclEventType: FILE_SET_CHANGE
+// TclEventType: DG_GRAPH_STALE
+// TclEventType: DG_UPDATE_GRAPH
+// [GUI Memory]: 75 MB (+955kb) [00:05:52]
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Simulation Sources]", 3, true); // y:i (D:JPanel, cd:JFrame) - Node
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Simulation Sources]", 3, true, false, false, false, false, true); // y:i (D:JPanel, cd:JFrame) - Double Click - Node
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Simulation Sources, sim_1, mat_mul (matrix_multiply.v)]", 5, false); // y:i (D:JPanel, cd:JFrame)
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Simulation Sources, sim_1, mat_mul (matrix_multiply.v)]", 5, false, false, false, false, true, false); // y:i (D:JPanel, cd:JFrame) - Popup Trigger
+selectMenu(PAResourceCommand.PACommandNames_AUTO_UPDATE_HIER, "Hierarchy Update"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectMenu(PAResourceQtoS.SrcMenu_IP_HIERARCHY, "IP Hierarchy"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectMenu(PAResourceQtoS.SrcMenu_IP_HIERARCHY, "IP Hierarchy"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectMenu(PAResourceQtoS.SrcMenu_IP_HIERARCHY, "IP Hierarchy"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectMenu(PAResourceCommand.PACommandNames_AUTO_UPDATE_HIER, "Hierarchy Update"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectMenu(PAResourceQtoS.SrcMenu_IP_HIERARCHY, "IP Hierarchy"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectTree(PAResourceEtoH.FileSetPanel_FILE_SET_PANEL_TREE, "[root, Simulation Sources, sim_1, mat_mul (matrix_multiply.v)]", 5, false, false, false, false, true, false); // y:i (D:JPanel, cd:JFrame) - Popup Trigger
+selectMenu(PAResourceCommand.PACommandNames_AUTO_UPDATE_HIER, "Hierarchy Update"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectMenu(PAResourceQtoS.SrcMenu_IP_HIERARCHY, "IP Hierarchy"); // Y:JMenu (ah:JPopupMenu, Popup:JWindow)
+selectMenuItem(PAResourceCommand.PACommandNames_ADD_SOURCES, "Add Sources..."); // ab:JMenuItem (ah:JPopupMenu, Popup:JWindow)
+// Run Command: PAResourceCommand.PACommandNames_ADD_SOURCES
+// b:g (cd:JFrame): Add Sources: addNotify

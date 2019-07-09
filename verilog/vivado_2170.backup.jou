@@ -1,0 +1,14 @@
+#-----------------------------------------------------------
+# Vivado v2016.4 (64-bit)
+# SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+# IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+# Start of session at: Fri May 17 20:59:05 2019
+# Process ID: 2170
+# Current directory: /home/saptad/baidu/MechaFlow/verilog
+# Command line: vivado
+# Log file: /home/saptad/baidu/MechaFlow/verilog/vivado.log
+# Journal file: /home/saptad/baidu/MechaFlow/verilog/vivado.jou
+#-----------------------------------------------------------
+start_gui
+create_project project_1 /home/saptad/baidu/MechaFlow/verilog/project_1 -part xc7vx485tffg1157-1
+add_files -norecurse /home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v

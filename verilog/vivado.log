@@ -1,0 +1,171 @@
+#-----------------------------------------------------------
+# Vivado v2016.4 (64-bit)
+# SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+# IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+# Start of session at: Mon May 20 09:40:53 2019
+# Process ID: 90015
+# Current directory: /home/saptad/baidu/MechaFlow/verilog
+# Command line: vivado
+# Log file: /home/saptad/baidu/MechaFlow/verilog/vivado.log
+# Journal file: /home/saptad/baidu/MechaFlow/verilog/vivado.jou
+#-----------------------------------------------------------
+start_gui
+open_project /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.xpr
+Scanning sources...
+Finished scanning sources
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/opt/Xilinx/Vivado/2016.4/data/ip'.
+launch_simulation
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+
+****** Webtalk v2016.4 (64-bit)
+  **** SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+  **** IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+    ** Copyright 1986-2016 Xilinx, Inc. All Rights Reserved.
+
+source /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/xsim_webtalk.tcl -notrace
+INFO: [Common 17-186] '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/usage_statistics_ext_xsim.xml' has been successfully sent to Xilinx on Mon May 20 09:43:15 2019. For additional details about this file, please refer to the WebTalk help file at /opt/Xilinx/Vivado/2016.4/doc/webtalk_introduction.html.
+INFO: [Common 17-206] Exiting Webtalk at Mon May 20 09:43:15 2019...
+INFO: [USF-XSim-69] 'elaborate' step finished in '2' seconds
+INFO: [USF-XSim-4] XSim::Simulate design
+INFO: [USF-XSim-61] Executing 'SIMULATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+INFO: [USF-XSim-98] *** Running xsim
+   with args "mat_mul_tb_behav -key {Behavioral:sim_1:Functional:mat_mul_tb} -tclbatch {mat_mul_tb.tcl} -log {simulate.log}"
+INFO: [USF-XSim-8] Loading simulator feature
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+source mat_mul_tb.tcl
+# set curr_wave [current_wave_config]
+# if { [string length $curr_wave] == 0 } {
+#   if { [llength [get_objects]] > 0} {
+#     add_wave /
+#     set_property needs_save false [current_wave_config]
+#   } else {
+#      send_msg_id Add_Wave-1 WARNING "No top level signals found. Simulator will start without a wave window. If you want to open a wave window go to 'File->New Waveform Configuration' or type 'create_wave_config' in the TCL console."
+#   }
+# }
+# run 1000ns
+INFO: [USF-XSim-96] XSim completed. Design snapshot 'mat_mul_tb_behav' loaded.
+INFO: [USF-XSim-97] XSim simulation ran for 1000ns
+launch_simulation: Time (s): cpu = 00:00:23 ; elapsed = 00:00:07 . Memory (MB): peak = 6225.781 ; gain = 50.320 ; free physical = 2616 ; free virtual = 251032
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:05 ; elapsed = 00:00:06 . Memory (MB): peak = 6232.930 ; gain = 0.000 ; free physical = 2594 ; free virtual = 251010
+synth_design -rtl -name rtl_1
+Command: synth_design -rtl -name rtl_1
+Starting synth_design
+Using part: xc7vx485tffg1157-1
+Top: mat_mul_tb
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:04:43 ; elapsed = 00:04:58 . Memory (MB): peak = 6278.742 ; gain = 5348.258 ; free physical = 2546 ; free virtual = 250962
+---------------------------------------------------------------------------------
+INFO: [Synth 8-638] synthesizing module 'mat_mul_tb' [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+INFO: [Synth 8-638] synthesizing module 'mat_mul' [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-5856] 3D RAM A_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM B_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM D_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+INFO: [Synth 8-256] done synthesizing module 'mat_mul' (1#1) [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-85] always block has no event control specified [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:47]
+INFO: [Synth 8-256] done synthesizing module 'mat_mul_tb' (2#1) [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:04:56 ; elapsed = 00:04:59 . Memory (MB): peak = 6315.211 ; gain = 5384.727 ; free physical = 2506 ; free virtual = 250922
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:04:57 ; elapsed = 00:04:59 . Memory (MB): peak = 6315.211 ; gain = 5384.727 ; free physical = 2506 ; free virtual = 250922
+---------------------------------------------------------------------------------
+INFO: [Device 21-403] Loading part xc7vx485tffg1157-1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Completed Processing XDC Constraints
+
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+RTL Elaboration Complete:  : Time (s): cpu = 00:05:36 ; elapsed = 00:05:21 . Memory (MB): peak = 6937.449 ; gain = 6006.965 ; free physical = 2009 ; free virtual = 250425
+8 Infos, 4 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:00:57 ; elapsed = 00:00:27 . Memory (MB): peak = 6937.449 ; gain = 658.707 ; free physical = 2009 ; free virtual = 250425
+close_sim
+INFO: [Simtcl 6-16] Simulation closed
+close_sim: Time (s): cpu = 00:00:02 ; elapsed = 00:00:07 . Memory (MB): peak = 6937.527 ; gain = 0.000 ; free physical = 462 ; free virtual = 248172
+exit
+INFO: [Common 17-206] Exiting Vivado at Tue May 21 19:56:44 2019...

@@ -7,12 +7,12 @@ internode_energy="10e-30"
 bank_size="1000 TB"
 bank_bw="322 GB/s"
 l2_bank_size="1000 TB"
-l2_bank_bw="20 GB/s" 
+l2_bank_bw="200000 GB/s" 
 kernel_launch_overhead="10e-30"
 precision=4
 #Starting TDP
 #Play with this number to strat from a reasonable point for search
-min_TDP=300000
+min_TDP=300
 ###############
 kernel_launch_overhead=0
 line_latency=0
@@ -22,7 +22,7 @@ data_scale=100
 
 init() {
   	exp_dir=$1
-	cp ../configs/template.yaml $exp_dir/exp_config.yaml
+	cp ../configs/exp_config.yaml $exp_dir/exp_config.yaml
 }
 
 collect_time() {
@@ -39,7 +39,8 @@ collect_time() {
 
 	_mem_percent=`echo "${_mem_per}/10000" | bc -l | awk {'printf"%1.4f",$1'}` 
 	#core_th=`echo "2400000/${_TDP}" | bc -l | awk {'printf"%1.2f",$1'}` 
-	
+
+        #echo $_mem_percent
 	
 	sed -i "s/batch_size: .*/batch_size: ""${_tot_batch_size}""/" $exp_dir/exp_config.yaml
 	#sed -i "s/core: .*/core: ""$core_th""/" $exp_dir/exp_config.yaml
@@ -98,8 +99,9 @@ ylist=()
 echo "Batch | MemBw (%) | MemBw (GB/s) | exec_time (sec) | time_limit (sec) | TDP"
 for tot_batch_size_power in `seq 1 5`
 do
-	for mem_per in `seq 1 99` `seq 100 100 10000` `seq 11000 1000 100000` `seq 110000 10000 1000000` `seq 1100000 100000 10000000` `seq 11000000 1000000 100000000`
-  	do
+	#for mem_per in `seq 1 99` `seq 100 100 10000` `seq 11000 1000 100000` `seq 110000 10000 1000000` `seq 1100000 100000 10000000` `seq 11000000 1000000 100000000`
+  	for mem_per in `seq 1000 2000`
+        do
 		collect_time $tot_batch_size $mem_per ${min_TDP}
 
 		if [[ ( $found == true ) && ( $first == true ) ]];then

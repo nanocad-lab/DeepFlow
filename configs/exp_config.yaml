@@ -1,5 +1,5 @@
 model_param:
-    batch_size: 64
+    batch_size: 512
     vocab_size: 800000
     num_layers: 2
     layer_size: 19968
@@ -31,13 +31,13 @@ power_breakdown:
     TDP: 300
     core: 0.625
     DRAM: 0.155
-    L2: 0.11
+    L2: 0.05
     shared_mem: 0.028
-    IB: 0.02
+    IB: 0.2
 
 scheduling_param:
-    auto:
-    topology: mesh
+    auto: False 
+    topology: ring
     dp: 1
     lp: 1
     hlp: 1 #FIXME: should not be here, should be calculated based on hidden_dim1 and dim2

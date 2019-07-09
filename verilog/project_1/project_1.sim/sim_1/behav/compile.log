@@ -1,0 +1,7 @@
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl

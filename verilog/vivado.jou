@@ -1,0 +1,18 @@
+#-----------------------------------------------------------
+# Vivado v2016.4 (64-bit)
+# SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+# IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+# Start of session at: Mon May 20 09:40:53 2019
+# Process ID: 90015
+# Current directory: /home/saptad/baidu/MechaFlow/verilog
+# Command line: vivado
+# Log file: /home/saptad/baidu/MechaFlow/verilog/vivado.log
+# Journal file: /home/saptad/baidu/MechaFlow/verilog/vivado.jou
+#-----------------------------------------------------------
+start_gui
+open_project /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.xpr
+launch_simulation
+source mat_mul_tb.tcl
+relaunch_sim
+synth_design -rtl -name rtl_1
+close_sim

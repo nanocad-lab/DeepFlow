@@ -1,0 +1,2325 @@
+#-----------------------------------------------------------
+# Vivado v2016.4 (64-bit)
+# SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+# IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+# Start of session at: Fri May 17 21:08:07 2019
+# Process ID: 2867
+# Current directory: /home/saptad/baidu/MechaFlow/verilog
+# Command line: vivado
+# Log file: /home/saptad/baidu/MechaFlow/verilog/vivado.log
+# Journal file: /home/saptad/baidu/MechaFlow/verilog/vivado.jou
+#-----------------------------------------------------------
+start_gui
+open_project /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.xpr
+Scanning sources...
+Finished scanning sources
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/opt/Xilinx/Vivado/2016.4/data/ip'.
+open_project: Time (s): cpu = 00:00:13 ; elapsed = 00:00:19 . Memory (MB): peak = 6096.777 ; gain = 57.309 ; free physical = 2659 ; free virtual = 250977
+file mkdir /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new
+close [ open /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb w ]
+add_files /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb
+set_property file_type Verilog [get_files  /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb]
+update_compile_order -fileset sources_1
+update_compile_order -fileset sim_1
+launch_simulation
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:13]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+
+****** Webtalk v2016.4 (64-bit)
+  **** SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+  **** IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+    ** Copyright 1986-2016 Xilinx, Inc. All Rights Reserved.
+
+source /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/xsim_webtalk.tcl -notrace
+INFO: [Common 17-186] '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/usage_statistics_ext_xsim.xml' has been successfully sent to Xilinx on Fri May 17 21:20:58 2019. For additional details about this file, please refer to the WebTalk help file at /opt/Xilinx/Vivado/2016.4/doc/webtalk_introduction.html.
+INFO: [Common 17-206] Exiting Webtalk at Fri May 17 21:20:58 2019...
+INFO: [USF-XSim-69] 'elaborate' step finished in '4' seconds
+INFO: [USF-XSim-4] XSim::Simulate design
+INFO: [USF-XSim-61] Executing 'SIMULATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+INFO: [USF-XSim-98] *** Running xsim
+   with args "mat_mul_tb_behav -key {Behavioral:sim_1:Functional:mat_mul_tb} -tclbatch {mat_mul_tb.tcl} -log {simulate.log}"
+INFO: [USF-XSim-8] Loading simulator feature
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+source mat_mul_tb.tcl
+# set curr_wave [current_wave_config]
+# if { [string length $curr_wave] == 0 } {
+#   if { [llength [get_objects]] > 0} {
+#     add_wave /
+#     set_property needs_save false [current_wave_config]
+#   } else {
+#      send_msg_id Add_Wave-1 WARNING "No top level signals found. Simulator will start without a wave window. If you want to open a wave window go to 'File->New Waveform Configuration' or type 'create_wave_config' in the TCL console."
+#   }
+# }
+# run 1000ns
+xsim: Time (s): cpu = 00:00:25 ; elapsed = 00:00:10 . Memory (MB): peak = 6202.285 ; gain = 54.207 ; free physical = 2458 ; free virtual = 250875
+INFO: [USF-XSim-96] XSim completed. Design snapshot 'mat_mul_tb_behav' loaded.
+INFO: [USF-XSim-97] XSim simulation ran for 1000ns
+launch_simulation: Time (s): cpu = 00:00:29 ; elapsed = 00:00:17 . Memory (MB): peak = 6202.285 ; gain = 63.695 ; free physical = 2458 ; free virtual = 250875
+close_sim
+INFO: [Simtcl 6-16] Simulation closed
+launch_simulation
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:13]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+
+****** Webtalk v2016.4 (64-bit)
+  **** SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+  **** IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+    ** Copyright 1986-2016 Xilinx, Inc. All Rights Reserved.
+
+source /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/xsim_webtalk.tcl -notrace
+INFO: [Common 17-186] '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/usage_statistics_ext_xsim.xml' has been successfully sent to Xilinx on Fri May 17 21:22:23 2019. For additional details about this file, please refer to the WebTalk help file at /opt/Xilinx/Vivado/2016.4/doc/webtalk_introduction.html.
+INFO: [Common 17-206] Exiting Webtalk at Fri May 17 21:22:23 2019...
+INFO: [USF-XSim-69] 'elaborate' step finished in '2' seconds
+INFO: [USF-XSim-4] XSim::Simulate design
+INFO: [USF-XSim-61] Executing 'SIMULATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+INFO: [USF-XSim-98] *** Running xsim
+   with args "mat_mul_tb_behav -key {Behavioral:sim_1:Functional:mat_mul_tb} -tclbatch {mat_mul_tb.tcl} -log {simulate.log}"
+INFO: [USF-XSim-8] Loading simulator feature
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+source mat_mul_tb.tcl
+# set curr_wave [current_wave_config]
+# if { [string length $curr_wave] == 0 } {
+#   if { [llength [get_objects]] > 0} {
+#     add_wave /
+#     set_property needs_save false [current_wave_config]
+#   } else {
+#      send_msg_id Add_Wave-1 WARNING "No top level signals found. Simulator will start without a wave window. If you want to open a wave window go to 'File->New Waveform Configuration' or type 'create_wave_config' in the TCL console."
+#   }
+# }
+# run 1000ns
+xsim: Time (s): cpu = 00:00:02 ; elapsed = 00:00:10 . Memory (MB): peak = 6266.953 ; gain = 0.000 ; free physical = 2377 ; free virtual = 250795
+INFO: [USF-XSim-96] XSim completed. Design snapshot 'mat_mul_tb_behav' loaded.
+INFO: [USF-XSim-97] XSim simulation ran for 1000ns
+launch_simulation: Time (s): cpu = 00:00:05 ; elapsed = 00:00:13 . Memory (MB): peak = 6266.953 ; gain = 0.000 ; free physical = 2377 ; free virtual = 250795
+add_force {/mat_mul_tb/clk} -radix hex {0 0ns} {1 50000ps} -repeat_every 100000ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '2' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+INFO: [Common 17-41] Interrupt caught. Command should exit soon.
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:13]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [Common 17-344] 'run_program' was cancelled
+INFO: [Vivado 12-4704] 'elaborate' step aborted
+INFO: [Common 17-344] 'launch_simulation' was cancelled
+INFO: [Common 17-344] 'relaunch_sim' was cancelled
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:13]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:13]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '2' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:04 ; elapsed = 00:00:05 . Memory (MB): peak = 6266.953 ; gain = 0.000 ; free physical = 2358 ; free virtual = 250776
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:13]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:13]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:17]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:10 ; elapsed = 00:00:05 . Memory (MB): peak = 6266.953 ; gain = 0.000 ; free physical = 2363 ; free virtual = 250789
+add_wave {{/mat_mul_tb/D1}} 
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:17]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:03 ; elapsed = 00:00:05 . Memory (MB): peak = 6266.953 ; gain = 0.000 ; free physical = 2359 ; free virtual = 250785
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:20]
+ERROR: [VRFC 10-1219] part-select direction is opposite from prefix index direction [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+INFO: [USF-XSim-99] Step results log file:'/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log'
+ERROR: [USF-XSim-62] 'elaborate' step failed with error(s). Please check the Tcl console output or '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log' file for more information.
+ERROR: [Vivado 12-4473] Detected error while running simulation. Please correct the issue and retry this operation.
+ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+ERROR: [Common 17-69] Command failed: ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:20]
+ERROR: [VRFC 10-1219] part-select direction is opposite from prefix index direction [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:14]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+INFO: [USF-XSim-99] Step results log file:'/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log'
+ERROR: [USF-XSim-62] 'elaborate' step failed with error(s). Please check the Tcl console output or '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log' file for more information.
+ERROR: [Vivado 12-4473] Detected error while running simulation. Please correct the issue and retry this operation.
+ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+ERROR: [Common 17-69] Command failed: ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:20]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2458] undeclared symbol E, assumed default net type wire [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:20]
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-426] cannot find port D1 on this module [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:15]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+ERROR: [VRFC 10-426] cannot find port D1 on this module [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:20]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+INFO: [USF-XSim-99] Step results log file:'/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log'
+ERROR: [USF-XSim-62] 'elaborate' step failed with error(s). Please check the Tcl console output or '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log' file for more information.
+ERROR: [Vivado 12-4473] Detected error while running simulation. Please correct the issue and retry this operation.
+ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+ERROR: [Common 17-69] Command failed: ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-426] cannot find port E on this module [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:15]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+ERROR: [VRFC 10-426] cannot find port E on this module [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:20]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+INFO: [USF-XSim-99] Step results log file:'/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log'
+ERROR: [USF-XSim-62] 'elaborate' step failed with error(s). Please check the Tcl console output or '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/elaborate.log' file for more information.
+ERROR: [Vivado 12-4473] Detected error while running simulation. Please correct the issue and retry this operation.
+ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+ERROR: [Common 17-69] Command failed: ERROR: [Common 17-39] 'launch_simulation' failed due to earlier errors.
+
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+add_wave {{/mat_mul_tb/E}} 
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:17 ; elapsed = 00:00:05 . Memory (MB): peak = 6286.223 ; gain = 0.000 ; free physical = 2335 ; free virtual = 250753
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:09 ; elapsed = 00:00:05 . Memory (MB): peak = 6286.223 ; gain = 0.000 ; free physical = 2335 ; free virtual = 250754
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:04 ; elapsed = 00:00:05 . Memory (MB): peak = 6286.227 ; gain = 0.000 ; free physical = 2338 ; free virtual = 250757
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:04 ; elapsed = 00:00:05 . Memory (MB): peak = 6286.227 ; gain = 0.000 ; free physical = 2329 ; free virtual = 250748
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:03 ; elapsed = 00:00:05 . Memory (MB): peak = 6286.227 ; gain = 0.000 ; free physical = 2328 ; free virtual = 250746
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:13 ; elapsed = 00:00:05 . Memory (MB): peak = 6286.227 ; gain = 0.000 ; free physical = 2316 ; free virtual = 250735
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:20 ; elapsed = 00:00:05 . Memory (MB): peak = 6288.227 ; gain = 0.000 ; free physical = 2299 ; free virtual = 250717
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:18 ; elapsed = 00:00:05 . Memory (MB): peak = 6288.227 ; gain = 0.000 ; free physical = 2292 ; free virtual = 250711
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:06 ; elapsed = 00:00:05 . Memory (MB): peak = 6288.227 ; gain = 0.000 ; free physical = 2293 ; free virtual = 250712
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:08 ; elapsed = 00:00:05 . Memory (MB): peak = 6288.227 ; gain = 0.000 ; free physical = 2292 ; free virtual = 250710
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port C [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:18]
+WARNING: [VRFC 10-278] actual bit length 512 differs from formal bit length 513 for port D [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:19]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim: Time (s): cpu = 00:00:13 ; elapsed = 00:00:05 . Memory (MB): peak = 6288.227 ; gain = 0.000 ; free physical = 2289 ; free virtual = 250708
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '2' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+relaunch_sim
+INFO: [SIM-utils-51] Simulation object is 'sim_1'
+INFO: [USF-XSim-37] Inspecting design source files for 'mat_mul_tb' in fileset 'sim_1'...
+INFO: [USF-XSim-97] Finding global include files...
+INFO: [USF-XSim-98] Fetching design files from 'sim_1'...
+INFO: [USF-XSim-2] XSim::Compile design
+INFO: [USF-XSim-61] Executing 'COMPILE and ANALYZE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+xvlog -m64 --relax -prj mat_mul_tb_vlog.prj
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module mat_mul_tb
+INFO: [VRFC 10-2263] Analyzing Verilog file "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" into library xil_defaultlib
+INFO: [VRFC 10-311] analyzing module glbl
+INFO: [USF-XSim-69] 'compile' step finished in '1' seconds
+INFO: [USF-XSim-3] XSim::Elaborate design
+INFO: [USF-XSim-61] Executing 'ELABORATE' step in '/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav'
+awk: symbol lookup error: awk: undefined symbol: mpfr_z_sub
+Vivado Simulator 2016.4
+Copyright 1986-1999, 2001-2016 Xilinx, Inc. All Rights Reserved.
+Running: /opt/Xilinx/Vivado/2016.4/bin/unwrapped/lnx64.o/xelab -wto abe1dca31beb46d29873578768a9d968 --debug typical --relax --mt 8 -L xil_defaultlib -L unisims_ver -L unimacro_ver -L secureip --snapshot mat_mul_tb_behav xil_defaultlib.mat_mul_tb xil_defaultlib.glbl -log elaborate.log 
+Using 8 slave threads.
+Starting static elaboration
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.mat_mul
+Compiling module xil_defaultlib.mat_mul_tb
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot mat_mul_tb_behav
+INFO: [USF-XSim-69] 'elaborate' step finished in '1' seconds
+Vivado Simulator 2016.4
+Time resolution is 1 ps
+synth_design -rtl -name rtl_1
+Command: synth_design -rtl -name rtl_1
+Starting synth_design
+Using part: xc7vx485tffg1157-1
+Top: mat_mul_tb
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:22:41 ; elapsed = 01:07:18 . Memory (MB): peak = 6317.219 ; gain = 5386.738 ; free physical = 2264 ; free virtual = 250693
+---------------------------------------------------------------------------------
+INFO: [Synth 8-638] synthesizing module 'mat_mul_tb' [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+INFO: [Synth 8-638] synthesizing module 'mat_mul' [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-5856] 3D RAM A_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM B_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM C_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM D_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+INFO: [Synth 8-256] done synthesizing module 'mat_mul' (1#1) [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-85] always block has no event control specified [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:47]
+INFO: [Synth 8-256] done synthesizing module 'mat_mul_tb' (2#1) [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[511]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[510]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[509]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[508]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[507]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[506]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[505]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[504]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[503]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[502]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[501]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[500]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[499]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[498]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[497]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[496]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[495]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[494]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[493]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[492]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[491]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[490]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[489]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[488]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[487]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[486]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[485]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[484]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[483]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[482]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[481]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[480]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[479]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[478]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[477]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[476]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[475]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[474]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[473]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[472]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[471]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[470]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[469]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[468]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[467]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[466]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[465]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[464]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[463]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[462]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[461]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[460]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[459]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[458]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[457]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[456]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[455]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[454]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[453]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[452]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[451]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[450]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[449]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[448]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[447]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[446]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[445]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[444]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[443]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[442]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[441]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[440]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[439]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[438]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[437]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[436]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[435]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[434]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[433]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[432]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[431]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[430]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[429]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[428]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[427]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[426]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[425]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[424]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[423]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[422]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[421]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[420]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[419]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[418]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[417]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[416]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[415]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[414]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[413]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[412]
+INFO: [Common 17-14] Message 'Synth 8-3331' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:22:41 ; elapsed = 01:07:18 . Memory (MB): peak = 6356.688 ; gain = 5426.207 ; free physical = 2221 ; free virtual = 250652
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:22:42 ; elapsed = 01:07:19 . Memory (MB): peak = 6356.688 ; gain = 5426.207 ; free physical = 2221 ; free virtual = 250652
+---------------------------------------------------------------------------------
+INFO: [Device 21-403] Loading part xc7vx485tffg1157-1
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Completed Processing XDC Constraints
+
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+INFO: [Project 1-111] Unisim Transformation Summary:
+No Unisim elements were transformed.
+
+RTL Elaboration Complete:  : Time (s): cpu = 00:23:36 ; elapsed = 01:07:50 . Memory (MB): peak = 7015.793 ; gain = 6085.312 ; free physical = 1568 ; free virtual = 250111
+9 Infos, 108 Warnings, 0 Critical Warnings and 0 Errors encountered.
+synth_design completed successfully
+synth_design: Time (s): cpu = 00:01:00 ; elapsed = 00:00:36 . Memory (MB): peak = 7015.793 ; gain = 727.566 ; free physical = 1568 ; free virtual = 250111
+restart
+INFO: [Simtcl 6-17] Simulation restarted
+run all
+INFO: [Common 17-41] Interrupt caught. Command should exit soon.
+run: Time (s): cpu = 00:00:59 ; elapsed = 00:00:16 . Memory (MB): peak = 7015.871 ; gain = 0.000 ; free physical = 1542 ; free virtual = 250107
+INFO: [Common 17-344] 'run' was cancelled
+refresh_design
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:25:52 ; elapsed = 01:11:54 . Memory (MB): peak = 7015.871 ; gain = 6085.391 ; free physical = 1534 ; free virtual = 250100
+---------------------------------------------------------------------------------
+INFO: [Synth 8-638] synthesizing module 'mat_mul_tb' [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+INFO: [Synth 8-638] synthesizing module 'mat_mul' [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-5856] 3D RAM A_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM B_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM C_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM D_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+INFO: [Synth 8-256] done synthesizing module 'mat_mul' (1#1) [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-85] always block has no event control specified [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:47]
+INFO: [Synth 8-256] done synthesizing module 'mat_mul_tb' (2#1) [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[511]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[510]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[509]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[508]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[507]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[506]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[505]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[504]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[503]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[502]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[501]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[500]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[499]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[498]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[497]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[496]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[495]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[494]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[493]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[492]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[491]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[490]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[489]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[488]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[487]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[486]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[485]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[484]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[483]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[482]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[481]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[480]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[479]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[478]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[477]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[476]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[475]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[474]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[473]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[472]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[471]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[470]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[469]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[468]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[467]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[466]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[465]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[464]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[463]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[462]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[461]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[460]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[459]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[458]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[457]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[456]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[455]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[454]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[453]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[452]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[451]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[450]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[449]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[448]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[447]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[446]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[445]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[444]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[443]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[442]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[441]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[440]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[439]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[438]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[437]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[436]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[435]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[434]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[433]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[432]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[431]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[430]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[429]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[428]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[427]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[426]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[425]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[424]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[423]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[422]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[421]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[420]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[419]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[418]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[417]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[416]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[415]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[414]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[413]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port C[412]
+INFO: [Common 17-14] Message 'Synth 8-3331' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:25:53 ; elapsed = 01:11:54 . Memory (MB): peak = 7015.871 ; gain = 6085.391 ; free physical = 1532 ; free virtual = 250098
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:25:53 ; elapsed = 01:11:55 . Memory (MB): peak = 7015.871 ; gain = 6085.391 ; free physical = 1532 ; free virtual = 250098
+---------------------------------------------------------------------------------
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Completed Processing XDC Constraints
+
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+refresh_design: Time (s): cpu = 00:00:45 ; elapsed = 00:00:22 . Memory (MB): peak = 7017.797 ; gain = 1.926 ; free physical = 1535 ; free virtual = 250094
+refresh_design
+---------------------------------------------------------------------------------
+Starting RTL Elaboration : Time (s): cpu = 00:26:57 ; elapsed = 01:13:42 . Memory (MB): peak = 7017.797 ; gain = 6087.316 ; free physical = 1524 ; free virtual = 250082
+---------------------------------------------------------------------------------
+INFO: [Synth 8-638] synthesizing module 'mat_mul_tb' [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+INFO: [Synth 8-638] synthesizing module 'mat_mul' [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-324] index 4 out of range [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:67]
+WARNING: [Synth 8-5856] 3D RAM A_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM B_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM C_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+WARNING: [Synth 8-5856] 3D RAM D_int_reg  for this pattern/configuration is not supported. This will most likely be implemented in registers
+INFO: [Synth 8-256] done synthesizing module 'mat_mul' (1#1) [/home/saptad/baidu/MechaFlow/verilog/matrix_multiply.v:1]
+WARNING: [Synth 8-85] always block has no event control specified [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:47]
+INFO: [Synth 8-256] done synthesizing module 'mat_mul_tb' (2#1) [/home/saptad/baidu/MechaFlow/verilog/project_1/project_1.srcs/sources_1/new/mat_mul.tb:1]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[255]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[254]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[253]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[252]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[251]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[250]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[249]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[248]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[247]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[246]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[245]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[244]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[243]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[242]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[241]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[240]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[239]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[238]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[237]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[236]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[235]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[234]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[233]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[232]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[231]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[230]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[229]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[228]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[227]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[226]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[225]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[224]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[223]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[222]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[221]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[220]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[219]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[218]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[217]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[216]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[215]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[214]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[213]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[212]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[211]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[210]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[209]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[208]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[207]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[206]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[205]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[204]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[203]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[202]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[201]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[200]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[199]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[198]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[197]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[196]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[195]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[194]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[193]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[192]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[191]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[190]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[189]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[188]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[187]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[186]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[185]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[184]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[183]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[182]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[181]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[180]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[179]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[178]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[177]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[176]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[175]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[174]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[173]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[172]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[171]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[170]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[169]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[168]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[167]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[166]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[165]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[164]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[163]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[162]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[161]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[160]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[159]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[158]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[157]
+WARNING: [Synth 8-3331] design mat_mul has unconnected port A[156]
+INFO: [Common 17-14] Message 'Synth 8-3331' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+---------------------------------------------------------------------------------
+Finished RTL Elaboration : Time (s): cpu = 00:26:58 ; elapsed = 01:13:43 . Memory (MB): peak = 7017.797 ; gain = 6087.316 ; free physical = 1523 ; free virtual = 250082
+---------------------------------------------------------------------------------
+
+Report Check Netlist: 
++------+------------------+-------+---------+-------+------------------+
+|      |Item              |Errors |Warnings |Status |Description       |
++------+------------------+-------+---------+-------+------------------+
+|1     |multi_driven_nets |      0|        0|Passed |Multi driven nets |
++------+------------------+-------+---------+-------+------------------+
+---------------------------------------------------------------------------------
+Finished RTL Optimization Phase 1 : Time (s): cpu = 00:26:58 ; elapsed = 01:13:43 . Memory (MB): peak = 7017.797 ; gain = 6087.316 ; free physical = 1523 ; free virtual = 250082
+---------------------------------------------------------------------------------
+INFO: [Project 1-570] Preparing netlist for logic optimization
+
+Processing XDC Constraints
+Initializing timing engine
+Completed Processing XDC Constraints
+
+INFO: [Opt 31-138] Pushed 0 inverter(s) to 0 load pin(s).
+refresh_design: Time (s): cpu = 00:00:48 ; elapsed = 00:00:23 . Memory (MB): peak = 7067.797 ; gain = 50.000 ; free physical = 1516 ; free virtual = 250075
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+ERROR: [Vivado 12-106] *** Exception: java.lang.ClassCastException (See /home/saptad/baidu/MechaFlow/verilog/vivado_pid2867.debug)
+close_sim
+INFO: [Simtcl 6-16] Simulation closed
+exit
+INFO: [Common 17-206] Exiting Vivado at Fri May 17 22:24:22 2019...

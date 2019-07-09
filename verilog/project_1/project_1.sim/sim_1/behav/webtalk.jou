@@ -1,0 +1,12 @@
+#-----------------------------------------------------------
+# Webtalk v2016.4 (64-bit)
+# SW Build 1733598 on Wed Dec 14 22:35:42 MST 2016
+# IP Build 1731160 on Wed Dec 14 23:47:21 MST 2016
+# Start of session at: Tue May 21 19:56:41 2019
+# Process ID: 49430
+# Current directory: /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav
+# Command line: wbtcv -mode batch -source /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/xsim_webtalk.tcl -notrace
+# Log file: /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/webtalk.log
+# Journal file: /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/webtalk.jou
+#-----------------------------------------------------------
+source /home/saptad/baidu/MechaFlow/verilog/project_1/project_1.sim/sim_1/behav/xsim.dir/mat_mul_tb_behav/webtalk/xsim_webtalk.tcl -notrace
