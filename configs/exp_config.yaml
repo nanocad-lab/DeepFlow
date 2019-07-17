@@ -22,31 +22,47 @@ tech_param:
         nominal_voltage: 1 
         operating_frequency: 5 
         operating_voltage: 5 
-        operating_area_per_mcu: 4
+        operating_area_per_mcu: 1
     DRAM:
-        energy_per_bit: 6e-12
-        area_per_bit: 
+        dynamic_energy_per_bit: 6e-12
+        static_energy_per_bit: 6e-15
+        area_per_bit: 15e-10 mm2
+        stack_bandwidth: 225 GB/s
+        stack_capacity: 4 GB
         latency: 1e-6 
     L2:
-        energy_per_bit: 5e-15
-        area_per_bit: 
+        dynamic_energy_per_bit: 5e-15
+        static_energy_per_bit: 5e-18
+        area_per_bit: 2e-8 mm2
+        bank_bandwidth: 4000 GB/s
+        bank_capacity: 32 KB 
     shared_mem:
-        energy_per_bit: 1e-15
-        area_per_bit:
+        dynamic_energy_per_bit: 1e-15
+        static_energy_per_bit: 1e-18
+        area_per_bit: 2e-8 mm2
+        bank_bandwidth: 4000 GB/s
+        bank_capacity: 32 KB
     network:
-        topology: ring
-        onchip_latency: 16e-7 
-        onchip_energy_per_bit: 10e-12
-        offchip_latency: 0
-        offchip_energy_per_bit: 0
+        topology: "3Dmesh"
+          kernel_dim: intra_node
+          data_dim:   intra_node
+          model_dim:  intra_node
+        intra_node:
+          latency: 16e-7 
+          dynamic_energy_per_bit: 10e-12
+        inter_node:
+          latency: 16e-7
+          dynamic_energy_per_bit: 10e-12
 
-area_param:
-    budget: 600
+area_breakdown:
+    area: 600 mm2
     core: 0.3
     DRAM: 0.2
     L2: 0.3
     shared_mem: 0.1
-    IB: 0.1
+    network:
+      intra_node: 0.1
+      inter_node: 0
 
 power_breakdown:
     TDP: 300
@@ -54,7 +70,9 @@ power_breakdown:
     DRAM: 0.155
     L2: 0.05
     shared_mem: 0.028
-    IB: 0.2
+    network:
+      intra_node: 0.2
+      inter_node: 0
 
 scheduling_param:
     auto: False 
