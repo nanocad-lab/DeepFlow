@@ -16,30 +16,30 @@ sw_param:
 tech_param:
     core:
         nominal_energy_per_mcu: 1e-11
-        nominal_flop_rate_per_mcu: 2
+        nominal_flop_rate_per_mcu: 42
         nominal_area_per_mcu: 1 
-        nominal_frequency: 1e12
+        nominal_frequency: 1.38e9
         nominal_voltage: 1 
-        operating_frequency: 5 
-        operating_voltage: 5 
+        operating_frequency: 1.38e9 
+        operating_voltage: 1
         operating_area_per_mcu: 0.38
-        num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of mcus per SM
+        num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
         dynamic_energy_per_bit: 6e-12
         static_power_per_bit: 0
-        area_per_bit: 15e-10 #mm2
+        area_per_bit: 11e-10 #mm2
         stack_bandwidth: 225 GB/s
         stack_capacity: 4 GB
         latency: 1e-6 
     L2:
-        dynamic_energy_per_bit: 5e-15
+        dynamic_energy_per_bit: 2.28e-15
         static_power_per_bit: 0
-        area_per_bit: 2e-8 #mm2
+        area_per_bit: 3e-8 #mm2
         bank_bandwidth: 4000 GB/s
         bank_capacity: 32 KB
         controller_area_per_link: 1e-3 #mm2 
     shared_mem:
-        dynamic_energy_per_bit: 1e-15
+        dynamic_energy_per_bit: 2e-15
         static_power_per_bit: 0
         area_per_bit: 2e-8 #mm2
         bank_bandwidth: 4000 GB/s
@@ -49,24 +49,24 @@ tech_param:
         intra_node:
           topology: "torus"
           latency: 16e-7 
-          nominal_frequency: 1
+          nominal_frequency: 7.5e9
           nominal_voltage: 1
-          nominal_energy_per_link: 1
-          nominal_area_per_link: 1
-          operating_frequency: 1
+          nominal_energy_per_link: 10e-12
+          #nominal_area_per_link: 1
+          operating_frequency: 7.5e9
           operating_voltage: 1
           num_links_per_mm: 1
           parallelMap: data, layer, kernel
         inter_node:
           topology: "torus"
           latency: 16e-7
-          nominal_frequency: 1
+          nominal_frequency: 7.5e9
           nominal_voltage: 1
-          nominal_energy_per_link: 1
-          nominal_area_per_link: 1
-          operating_frequency: 1
+          nominal_energy_per_link: 10e-12
+          #nominal_area_per_link: 1
+          operating_frequency: 7.5e9
           operating_voltage: 1
-          num_links_per_mm: 1
+          num_links_per_mm: 
           parallelMap:  
 
 area_breakdown:
@@ -91,7 +91,7 @@ power_breakdown:
 
 scheduling_param:
     auto: False 
-    dp: 1
+    dp: 2
     lp: 1
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1
