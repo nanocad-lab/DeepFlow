@@ -22,40 +22,55 @@ tech_param:
         nominal_voltage: 1 
         operating_frequency: 5 
         operating_voltage: 5 
-        operating_area_per_mcu: 1
+        operating_area_per_mcu: 0.38
+        num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of mcus per SM
     DRAM:
         dynamic_energy_per_bit: 6e-12
-        static_energy_per_bit: 6e-15
-        area_per_bit: 15e-10 mm2
+        static_power_per_bit: 0
+        area_per_bit: 15e-10 #mm2
         stack_bandwidth: 225 GB/s
         stack_capacity: 4 GB
         latency: 1e-6 
     L2:
         dynamic_energy_per_bit: 5e-15
-        static_energy_per_bit: 5e-18
-        area_per_bit: 2e-8 mm2
-        bank_bandwidth: 4000 GB/s
-        bank_capacity: 32 KB 
-    shared_mem:
-        dynamic_energy_per_bit: 1e-15
-        static_energy_per_bit: 1e-18
-        area_per_bit: 2e-8 mm2
+        static_power_per_bit: 0
+        area_per_bit: 2e-8 #mm2
         bank_bandwidth: 4000 GB/s
         bank_capacity: 32 KB
+        controller_area_per_link: 1e-3 #mm2 
+    shared_mem:
+        dynamic_energy_per_bit: 1e-15
+        static_power_per_bit: 0
+        area_per_bit: 2e-8 #mm2
+        bank_bandwidth: 4000 GB/s
+        bank_capacity: 32 KB
+        controller_area_per_link: 1e-3 #mm2 
     network:
-        topology: "3Dmesh"
-          kernel_dim: intra_node
-          data_dim:   intra_node
-          model_dim:  intra_node
         intra_node:
+          topology: "torus"
           latency: 16e-7 
-          dynamic_energy_per_bit: 10e-12
+          nominal_frequency: 1
+          nominal_voltage: 1
+          nominal_energy_per_link: 1
+          nominal_area_per_link: 1
+          operating_frequency: 1
+          operating_voltage: 1
+          num_links_per_mm: 1
+          parallelMap: data, layer, kernel
         inter_node:
+          topology: "torus"
           latency: 16e-7
-          dynamic_energy_per_bit: 10e-12
+          nominal_frequency: 1
+          nominal_voltage: 1
+          nominal_energy_per_link: 1
+          nominal_area_per_link: 1
+          operating_frequency: 1
+          operating_voltage: 1
+          num_links_per_mm: 1
+          parallelMap:  
 
 area_breakdown:
-    area: 600 mm2
+    area_budget: 815 #mm2
     core: 0.3
     DRAM: 0.2
     L2: 0.3
@@ -78,7 +93,6 @@ scheduling_param:
     auto: False 
     dp: 1
     lp: 1
-    hlp: 1 #FIXME: should not be here, should be calculated based on hidden_dim1 and dim2
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1
     kp_softmax_dim1: 1
