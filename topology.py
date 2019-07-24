@@ -1,71 +1,127 @@
+import util
+
 class Topology:
-  def __init__(self, exp_config):
+  def __init__(self, net_config, exp_config):
     #Topology Params
-    self.topology = exp_config.sch_config.topology
+    self.topology           = net_config.topology
 
     #Parallelization Params
-    self.lp    = exp_config.sch_config.lp
-    self.hlp    = exp_config.sch_config.hlp
-    self.kp_hidden_dim1    = exp_config.sch_config.kp_hidden_dim1
-    self.kp_softmax_dim1   = exp_config.sch_config.kp_softmax_dim1
-    self.kp_embedding_dim1 = exp_config.sch_config.kp_embedding_dim1
-    self.kp_projection_dim1 = exp_config.sch_config.kp_projection_dim1
-    self.kp_hidden_dim2    = exp_config.sch_config.kp_hidden_dim2
-    self.kp_softmax_dim2   = exp_config.sch_config.kp_softmax_dim2
-    self.kp_embedding_dim2 = exp_config.sch_config.kp_embedding_dim2
-    self.kp_projection_dim2 = exp_config.sch_config.kp_projection_dim2
-    self.dp    = exp_config.sch_config.dp
-    self.kp_hidden_type  =  exp_config.sch_config.kp_hidden_type #1: CR, 2: RC
-    self.kp_softmax_type  =  exp_config.sch_config.kp_softmax_type #1: CR, 2: RC
-    self.kp_embedding_type  =  exp_config.sch_config.kp_embedding_type #1: CR, 2: RC
-    self.kp_projection_type  =  exp_config.sch_config.kp_projection_type #1: CR, 2: RC
+    self.lp                 = exp_config.sch_config.lp
+    self.dp                 = exp_config.sch_config.dp
+    h1                      = exp_config.sch_config.kp_hidden_dim1
+    s1                      = exp_config.sch_config.kp_softmax_dim1
+    e1                      = exp_config.sch_config.kp_embedding_dim1
+    p1                      = exp_config.sch_config.kp_projection_dim1
+    h2                      = exp_config.sch_config.kp_hidden_dim2
+    s2                      = exp_config.sch_config.kp_softmax_dim2
+    e2                      = exp_config.sch_config.kp_embedding_dim2
+    p2                      = exp_config.sch_config.kp_projection_dim2
 
-    self.grid_dim   = 0
-    self.num_links  = 0
+    self.kp_dim             = max(h1, h2, s1, s2, p1, p2, e1, e2)
+
+    data                    = (net_config.parallelMap.data and 
+                               self.dp > 1)
+    layer                   = (net_config.parallelMap.layer and
+                               self.lp > 1)
+    kernel                  = (net_config.parallelMap.kernel and
+                               self.kp_dim > 1)
+    
+    self.num_links          = self.calcNumLinks(data, layer, kernel)
+
+    
+
+  def calcLinks1D(self, x, y, z):
+    num_links = 0
+    if (x > 1):
+      assert(y==1 and z==1)
+      num_links = x
+    elif (y > 2):
+      assert(x==1 and z==1)
+      num_links = y
+    elif (z > 2):
+      assert(x==1 and y==1)
+      num_links = z
+    elif (x == 2):
+      assert(y==1 and z==1)
+      num_links = 1
+    elif (y == 2):
+      assert(x==1 and z==1)
+      num_links = 1
+    elif (z == 2):
+      assert(y==1 and x==1)
+      num_links = 1
+    else:
+      printError("Something went wrong!")
+    return num_links
+
+  def calcLinks2D(self, x, y):
+    num_links = 0
+    if (x > 2 and y > 2):
+      num_links = 2 * x * y
+    elif (x > 2 and y == 2):
+      num_links = 3 * x
+    elif (y > 2 and x == 2):
+      num_links = 3 * y
+    elif (x == 2 and y == 2):
+      num_links = 4
+    return num_links
+
+
+  def calcLinks3D(self, x, y, z):
+    num_links = 0
+    if (x > 2 and y > 2 and z > 2):
+      num_links = 3 * self.dp * kp_dim * self.lp
+    elif (x > 2 and y > 2 and z == 2):
+      num_links = 5 * x * y
+    elif (x > 2 and z > 2 and y == 2):
+      num_links = 5 * x * z
+    elif (y > 2 and z > 2 and x == 2):
+      num_links = 5 * y * z
+    elif (x > 2 and y == 2 and z == 2):
+      num_links = 8 * x
+    elif (y > 2 and x == 2 and z == 2):
+      num_links = 8 * y
+    elif (z > 2 and y == 2 and x == 2):
+      num_links = 8 * z
+    elif (x == 2 and y == 2 and z == 2):
+      num_links = 8
+    else:
+      printError("Something went wrong!")
+    return num_links
 
   #Calculating the total number of links based on the network topology
   #and parallelism strategy
-  def getNumLinks(self):
-    if (self.topology == "mesh"):
-        #Assuming Homogenous Cores, i.e. if we have 
-        #3 links out of one core within one layers, 
-        #we have 3 links out of every core regardless of if that layers need it.
-        self.grid_dim = 0
-
-        if self.dp > 1:
-          self.grid_dim += 1
+  def calcNumLinks(self, data, layer, kernel):
+    grid_dim = 0
+    num_links = 0
+    
+    if ("torus" in self.topology):
+        if data:
+          grid_dim += 1
         
-        if self.lp > 1:
-          self.grid_dim += 1
+        if layer:
+          grid_dim += 1
 
-        h1 = self.kp_hidden_dim1
-        h2 = self.kp_hidden_dim2
-        
-        s1 = self.kp_softmax_dim1
-        s2 = self.kp_softmax_dim2
-      
-        p1 = self.kp_projection_dim1
-        p2 = self.kp_projection_dim2
+        if kernel:
+          grid_dim += 1
 
-        e1 = self.kp_embedding_dim1
-        e2 = self.kp_embedding_dim2
+        if (grid_dim == 1):
+            num_links = calcLinks1D(self.dp, self.lp, self.kp_dim)
+        elif (grid_dim == 2):
+            assert((data and kernel and layer) == False)
+            if (data and kenrel):
+              num_links = calcLinks2D(self.dp, self.kp_dim)
+            if (data and layer):
+              num_links = calcLinks2D(self.dp, self.lp)
+            if (layer and kernel):
+              num_links = calcLinks2D(self.lp, self.kp_dim)
 
-        if(h1 > 1 or s1 > 1 or p1 > 1 or e1 > 1 or h2 > 1 or s2 > 1 or p2 > 1 or e2 > 1):
-            self.grid_dim += 1
+        elif (grid_dim == 3):
+            assert((data and kernel and layer) == True)
+            num_links = calcLinks3D(self.dp, self.kp_dim, self.lp)
        
-        print("grid_dim: {}".format(self.grid_dim))
-
-        #FIXME: hack! Fix after ISCA deadline.
-        self.num_links = 1
-        if (self.grid_dim == 1):
-            self.num_links = self.dp * h1
-        elif (self.grid_dim == 2):
-            self.num_links = 2 * self.dp * h1
-        else:
-            self.num_links = 3 * self.dp * h1 * self.lp
-       
-        return self.num_links
-        print("num_links: {}".format(self.num_links))
+        return num_links
+        print("num_links: {}".format(num_links))
 
     elif (self.topology == "tree"):
         return NotImplemented
