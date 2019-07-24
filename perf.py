@@ -10,6 +10,7 @@ from parallelism import Parallelism
 from topology import Topology
 import util
 from hw_component import Core, DRAM, L2, SharedMem, Network
+from model import Model
 
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for validation
@@ -22,16 +23,17 @@ G=1 #1024.0*1024.0*1024.0
 class TimeCalculation:
     def __init__(self, exp_config):
         #Model Parameters
-        self.B                  = exp_config.model_config.batch_size
-        self.V                  = exp_config.model_config.vocab_size
-        self.L                  = exp_config.model_config.num_layers
-        self.D                  = exp_config.model_config.layer_size
-        self.projection         = exp_config.model_config.projection
-        self.S                  = exp_config.model_config.seq_len
-        self.G                  = exp_config.model_config.num_gates
-        self.NL                 = exp_config.model_config.num_non_linear
-        self.A                  = exp_config.model_config.num_add
-        self.P                  = self.NL + self.A
+        self.model              = Model(exp_config)
+        self.B                  = self.model.batch_size
+        self.V                  = self.model.vocab_size
+        self.L                  = self.model.num_layers
+        self.D                  = self.model.hidden_dim
+        self.projection         = self.model.projection
+        self.S                  = self.model.seq_len
+        self.G                  = self.model.num_gates
+        self.NL                 = self.model.num_non_linear
+        self.A                  = self.model.num_add
+        self.P                  = self.model.num_pointwise
         
         #Software Parameters
         self.O                  = exp_config.sw_config.kernel_launch_overhead
@@ -50,17 +52,20 @@ class TimeCalculation:
         self.L2Mem              = L2(exp_config) 
         self.L2_bw              = self.L2Mem.getThroughput()
         self.L2_size            = self.L2Mem.getSize()
-        self.L2_tile_dim        = self.L2Mem.tile_dim
+        self.L2_tile_dim        = self.L2Mem.getTileDim()
 
         self.sharedMem          = SharedMem(exp_config) 
         self.shared_mem_bw      = self.sharedMem.getThroughput()
         self.shared_mem_size    = self.sharedMem.getSize()
-        self.shared_mem_tile_dim= self.sharedMem.tile_dim
+        self.shared_mem_tile_dim= self.sharedMem.getTileDim()
 
         self.network            = Network(exp_config)
         self.IBK                = self.network.kernel_throughput
         self.IBD                = self.network.data_throughput
         self.IBM                = self.network.layer_throughput
+        self.LLK                = self.network.kernel_latency
+        self.LLD                = self.network.data_latency
+        self.LLM                = self.network.layer_latency
         
         #Scheduling Parameters
         par                     = Parallelism(exp_config)
@@ -81,11 +86,9 @@ class TimeCalculation:
         self.kp_embedding_type  = par.kp_embedding_type #1: CR, 2: RC
         self.kp_projection_type = par.kp_projection_type #1: CR, 2: RC
 
-       
         #Define miniBatch size
         self.miniB              = math.ceil(self.B / self.dp)
 
-   
         #Statistics Param
         self.tot_flop           = 0
         self.tot_mem            = 0
@@ -117,17 +120,17 @@ class TimeCalculation:
             "Memory Size: {:.1f} GB\n"
             "L2 Bandwidth: {:.1f} TB/s\n"
             "L2 Size: {:.1f} MB\n"
-            "Shared Memory Bandwidth: {:.1f} MB\n"
+            "Shared Memory Bandwidth: {:.1f} TB/s\n"
             "Shared Memory Size: {:.1f} MB\n"
-            "Interconnection Bandwidth: {:.1f} GB/s"
+            "Interconnection Bandwidth (Data Dimension): {:.1f} GB/s"
             .format(self.core.nominal_throughput/1e12, 
                     self.mm.dynamic_throughput/(gigaByte), 
                     self.mm.size/(gigaByte), 
                     self.L2Mem.dynamic_throughput/(teraByte), 
                     self.L2Mem.size/(megaByte), 
-                    self.sharedMem.dynamic_throughput/(megaByte),
+                    self.sharedMem.dynamic_throughput/(teraByte),
                     self.sharedMem.size/(megaByte),
-                    self.IBK/(gigaByte)))
+                    self.IBD/(gigaByte)))
        
 
       M = self.mem_size
@@ -484,7 +487,7 @@ class TimeCalculation:
 
 
     #Reduction and all-gather time estimation
-    def getR(self, Dim0 = None, Dim1 = None, p = None, ib = None, partial = None,
+    def getR(self, Dim0 = None, Dim1 = None, p = None, ib = None, ll = None, partial = None,
             allReduce = None):
         """Get partail or full reduction or allGather latency"""
         """Partial reduction means each gpu is only collecting a shard of 
@@ -498,6 +501,8 @@ class TimeCalculation:
             p = self.dp
         if (ib == None): 
             ib = self.IBD
+        if (ll == None): 
+            ll = self.LLD
         if (partial == None): 
             partial = False
         if (allReduce == None):
@@ -526,8 +531,7 @@ class TimeCalculation:
             #data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) * 
             #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
             factor = (1 if partial or not allReduce else 2)
-            print("!!!!!!!!!!!!!!!!!!!!!!****************factor: {}".format(factor))
-            data_transfer  = ((((self.precision * Dim0 * Dim1) / p) / ib) + self.ll) * factor * (p - 1)
+            data_transfer  = ((((self.precision * Dim0 * Dim1) / p) / ib) + ll) * factor * (p - 1)
             dt=((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
             
             data_prep_comp = (Dim0 * Dim1) / p
@@ -618,6 +622,7 @@ class TimeCalculation:
                                    Dim1 = n,
                                    p = dim1,
                                    ib = self.IBK,
+                                   ll = self.LLK,
                                    partial = True,
                                    allReduce = True)
         return GEMM_time, reduction_time
@@ -629,6 +634,7 @@ class TimeCalculation:
                                    Dim1 = n,
                                    p = dim1,
                                    ib = self.IBK,
+                                   ll = self.LLK,
                                    partial = False,
                                    allReduce = False)
 
@@ -649,6 +655,7 @@ class TimeCalculation:
                                    Dim1 = n,
                                    p = dim2,
                                    ib = self.IBK,
+                                   ll = self.LLK,
                                    partial = False,
                                    allReduce = False)
         return GEMM_time, reduction_time
@@ -659,6 +666,7 @@ class TimeCalculation:
                                        Dim1 = m,
                                        p = dim1,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = True,
                                        allReduce = False)
         #To calculate grad(wt), gather output matrix (A') across row within one column before MM
@@ -666,6 +674,7 @@ class TimeCalculation:
                                        Dim1 = n / dim2,
                                        p = dim1,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
 
@@ -674,6 +683,7 @@ class TimeCalculation:
                                        Dim1 = n / dim2,
                                        p = dim1,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
         ########################################################################################
@@ -682,6 +692,7 @@ class TimeCalculation:
                                        Dim1 = n,
                                        p = dim2,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
 
@@ -690,6 +701,7 @@ class TimeCalculation:
                                        Dim1 = n,
                                        p = dim2,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = True,
                                        allReduce = False)
                #To calculate grad(wt), partally gather weght matrix (W) across row within one column after MM
@@ -697,6 +709,7 @@ class TimeCalculation:
                                        Dim1 = k,
                                        p = dim2,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
 
@@ -944,7 +957,7 @@ class TimeCalculation:
 
     def getEmbedding_b(self):
         p2p_data_transfer = (self.precision * self.miniB * self.D * self.S)
-        data_transfer_time  = 0 if (self.dp == 1) else (((p2p_data_transfer) / self.IBD + self.ll) * 2 * (self.dp -1 )) 
+        data_transfer_time  = 0 if (self.dp == 1) else (((p2p_data_transfer) / self.IBD + self.LLD) * 2 * (self.dp -1 )) 
         
         embedding_mem = 2 * self.miniB * self.D * self.S * self.precision
         embedding_mem_time = (embedding_mem / self.mem_bw) + mem_latency + self.O

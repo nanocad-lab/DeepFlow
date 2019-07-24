@@ -96,8 +96,8 @@ class DRAM(Memory):
       self.throughput                 = self.dynamic_throughput * util.DRAM
   
   def calcArea(self):
-        #I/O, inter-bank, intra-bank overhead
-        #TODO: @Saptadeep, do you know how to capture the DRAM circutry overhead
+      #I/O, inter-bank, intra-bank overhead
+      #TODO: @Saptadeep, do you know how to capture the DRAM circutry overhead
       self.overhead_area              = 0
       self.cell_area                  = self.tot_area - self.overhead_area
   
@@ -109,7 +109,6 @@ class DRAM(Memory):
       self.tile_dim = 0
       if (self.size > 0):
           self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size / self.precision) / 3), 2))))
-
 
 
 class L2(Memory):
@@ -142,7 +141,7 @@ class L2(Memory):
       self.cell_area                  = self.tot_area - self.overhead_area
   
   def calcActiveEnergy(self):
-        #TODO: @Saptaddeep: Can you verify if this is correct?
+      #TODO: @Saptaddeep: Can you verify if this is correct?
       self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size
 
   def calcThroughput(self):
@@ -153,6 +152,8 @@ class L2(Memory):
       self.size                       = min(self.num_banks * self.bank_capacity,
                                             self.cell_area / self.area_per_byte)
   def calcTileDim(self):
+      #TODO: Does it make sense to keep the tile dim power of 2 or can we allow non-power of 2 tile-dim
+      #check http://web.cse.ohio-state.edu/~pouchet.2/doc/hipc-article.11.pdf
       self.tile_dim = 0
       if (self.size > 0):
           self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size / self.precision) / 3), 2))))

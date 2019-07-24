@@ -17,12 +17,12 @@ tech_param:
     core:
         nominal_energy_per_mcu: 1e-11
         nominal_flop_rate_per_mcu: 42
-        nominal_area_per_mcu: 1 
+        nominal_area_per_mcu: 0.9
         nominal_frequency: 1.38e9
         nominal_voltage: 1 
         operating_frequency: 1.38e9 
         operating_voltage: 1
-        operating_area_per_mcu: 0.38
+        operating_area_per_mcu: 0.9
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
         dynamic_energy_per_bit: 6e-12
