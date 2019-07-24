@@ -9,6 +9,7 @@ import config
 from parallelism import Parallelism
 from topology import Topology
 import util
+from hw_component import Core, DRAM, L2, SharedMem, Network
 
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for validation
@@ -21,35 +22,51 @@ G=1 #1024.0*1024.0*1024.0
 class TimeCalculation:
     def __init__(self, exp_config):
         #Model Parameters
-        self.B = exp_config.model_config.batch_size
-        self.V = exp_config.model_config.vocab_size
-        self.L = exp_config.model_config.num_layers
-        self.D = exp_config.model_config.layer_size
-        self.projection = exp_config.model_config.projection
-        self.S = exp_config.model_config.seq_len
-        self.G = exp_config.model_config.num_gates
-        self.NL = exp_config.model_config.num_non_linear
-        self.A = exp_config.model_config.num_add
-        self.P = self.NL + self.A
+        self.B                  = exp_config.model_config.batch_size
+        self.V                  = exp_config.model_config.vocab_size
+        self.L                  = exp_config.model_config.num_layers
+        self.D                  = exp_config.model_config.layer_size
+        self.projection         = exp_config.model_config.projection
+        self.S                  = exp_config.model_config.seq_len
+        self.G                  = exp_config.model_config.num_gates
+        self.NL                 = exp_config.model_config.num_non_linear
+        self.A                  = exp_config.model_config.num_add
+        self.P                  = self.NL + self.A
         
-        #Architecture Parameters
-        self.O         = exp_config.arch_config.kernel_launch_overhead
-        self.precision = exp_config.arch_config.precision
-       
-        #Technology Parameters
-        self.dram_energy_per_byte         = exp_config.tech_config.DRAM_energy_per_bit_trans * 8
-        self.L2_energy_per_byte           = exp_config.tech_config.L2_energy_per_bit * 8
-        self.shared_mem_energy_per_byte   = exp_config.tech_config.shared_mem_energy_per_bit * 8
-        self.energy_per_flop              = exp_config.tech_config.core_energy_per_flop
-        self.internode_energy_per_byte    = exp_config.tech_config.internode_energy_per_bit * 8
-        self.ll                           = exp_config.tech_config.line_latency
+        #Software Parameters
+        self.O                  = exp_config.sw_config.kernel_launch_overhead
+        self.precision          = exp_config.sw_config.precision
+        self.attached           = True
+        
 
+        #Hardware Parameters
+        self.core               = Core(exp_config)
+        self.th                 = self.core.getThroughput()
+
+        self.mm                 = DRAM(exp_config) 
+        self.mem_bw             = self.mm.getThroughput()
+        self.mem_size           = self.mm.getSize()
+        
+        self.L2Mem              = L2(exp_config) 
+        self.L2_bw              = self.L2Mem.getThroughput()
+        self.L2_size            = self.L2Mem.getSize()
+        self.L2_tile_dim        = self.L2Mem.tile_dim
+
+        self.sharedMem          = SharedMem(exp_config) 
+        self.shared_mem_bw      = self.sharedMem.getThroughput()
+        self.shared_mem_size    = self.sharedMem.getSize()
+        self.shared_mem_tile_dim= self.sharedMem.tile_dim
+
+        self.network            = Network(exp_config)
+        self.IBK                = self.network.kernel_throughput
+        self.IBD                = self.network.data_throughput
+        self.IBM                = self.network.layer_throughput
+        
         #Scheduling Parameters
         par                     = Parallelism(exp_config)
         par.findParallelStrategy()
         self.autoPar            = par.autoPar
         self.lp                 = par.lp
-        self.hlp                = par.hlp
         self.kp_hidden_dim1     = par.kp_hidden_dim1
         self.kp_softmax_dim1    = par.kp_softmax_dim1
         self.kp_embedding_dim1  = par.kp_embedding_dim1
@@ -64,61 +81,16 @@ class TimeCalculation:
         self.kp_embedding_type  = par.kp_embedding_type #1: CR, 2: RC
         self.kp_projection_type = par.kp_projection_type #1: CR, 2: RC
 
-        #Power Breakdown Parameters
-        self.TDP                = exp_config.power_breakdown.TDP
-        self.DRAMPower          = exp_config.power_breakdown.DRAM * self.TDP
-        self.HBM_stack_bw       = exp_config.tech_config.HBM_stack_bw
-        self.HBM_stack_capacity = exp_config.tech_config.HBM_stack_capacity
-        self.mem_bw             = self.DRAMPower / self.dram_energy_per_byte * util.mem_scale
-        self.mem_size           = (self.mem_bw / util.mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
-
        
         #Define miniBatch size
-        self.miniB = math.ceil(self.B / self.dp)
+        self.miniB              = math.ceil(self.B / self.dp)
 
-        #Calculate architecture configurations based on power breakdown
-        #and technology parameters
-        self.corePower = exp_config.power_breakdown.core * self.TDP
-        self.L2Power   = exp_config.power_breakdown.L2 * self.TDP
-        self.shared_mem_power = exp_config.power_breakdown.shared_mem * self.TDP
-        self.IBPower  = exp_config.power_breakdown.IB * self.TDP
-        self.th     = self.corePower / self.energy_per_flop * util.th_scale
-        
-        self.L2_bank_bw  = exp_config.tech_config.L2_bank_bw
-        self.L2_bank_capacity = exp_config.tech_config.L2_bank_capacity
-        self.L2_bw    = (self.L2Power / self.L2_energy_per_byte)
-        self.L2_size  = (self.L2_bw / self.L2_bank_bw) * self.L2_bank_capacity 
-      
-        self.shared_mem_bank_bw = exp_config.tech_config.shared_mem_bank_bw
-        self.shared_mem_bank_capacity = exp_config.tech_config.shared_mem_bank_capacity
-        self.shared_mem_bw = (self.shared_mem_power / self.shared_mem_energy_per_byte)
-        self.shared_mem_size = (self.shared_mem_bw / self.shared_mem_bank_bw) * self.shared_mem_bank_capacity
-       
-
-
-        # Network Parameters
-        # IBK: interconnection bandiwdth across kernel parall dimension
-        # IBD: interconnection bandiwdth across data parall dimension
-        # IBM: interconnection bandiwdth across model parall dimension
-        # We are assuming same network bandwidth along all dimensons
-        # TODO: Parameterize this so we can explore different bandwidth along different dimensions
-        topology = Topology(exp_config) 
-        num_links = topology.getNumLinks()
-        self.IB = (0 if topology.grid_dim == 0 else self.IBPower / (num_links * self.internode_energy_per_byte)) 
-        self.IBK = self.IB
-        self.IBM = self.IB
-        self.IBD = self.IB
-
-        self.attached = True
-        self.debug = False
-        self.tot_time = 0
-
-        self.L2_tile_dim = 0
-        self.sm_tile_dim = 0
-        self.setTileDim()
-    
-        self.tot_flop = 0
-        self.tot_mem = 0
+   
+        #Statistics Param
+        self.tot_flop           = 0
+        self.tot_mem            = 0
+        self.tot_time           = 0
+        self.debug              = False
 
     #Number of parameters
     def tot_param(self):
@@ -145,14 +117,16 @@ class TimeCalculation:
             "Memory Size: {:.1f} GB\n"
             "L2 Bandwidth: {:.1f} TB/s\n"
             "L2 Size: {:.1f} MB\n"
+            "Shared Memory Bandwidth: {:.1f} MB\n"
             "Shared Memory Size: {:.1f} MB\n"
             "Interconnection Bandwidth: {:.1f} GB/s"
-            .format(self.th/1e12/util.th_scale, 
-                    self.mem_bw/(gigaByte)/util.mem_scale, 
-                    self.mem_size/(gigaByte), 
-                    self.L2_bw/(teraByte), 
-                    self.L2_size/(megaByte), 
-                    self.shared_mem_size/(megaByte),
+            .format(self.core.nominal_throughput/1e12, 
+                    self.mm.dynamic_throughput/(gigaByte), 
+                    self.mm.size/(gigaByte), 
+                    self.L2Mem.dynamic_throughput/(teraByte), 
+                    self.L2Mem.size/(megaByte), 
+                    self.sharedMem.dynamic_throughput/(megaByte),
+                    self.sharedMem.size/(megaByte),
                     self.IBK/(gigaByte)))
        
 
@@ -216,29 +190,15 @@ class TimeCalculation:
       print("\n\n====================")
       print("Parallelism Strategy")
       print("====================")
-      print("dp: {}, lp: {}, hlp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
+      print("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
              "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
              "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
              .format(self.dp,
-              self.lp, self.hlp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
+              self.lp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
               self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
               self.kp_projection_dim1, self.kp_projection_dim2))   
 
 
-    def setTileDim(self):
-        self.L2_tile_dim = 0
-        self.shared_tile_dim = 0
-
-        if (self.L2_size > 0):
-            self.L2_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.L2_size / self.precision) / 3), 2))))
-        if (self.shared_mem_size > 0):
-            self.sm_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.shared_mem_size / self.precision) / 3), 2))))
-        #print("L2Tile_dim: {}, SMTile_dim: {}".format(self.L2_tile_dim, self.sm_tile_dim))
-    
-    def getTileDim(self):
-        #assert(self.L2_tile_dim != 0)
-        #assert(self.sm_tile_dim != 0)
-        return self.L2_tile_dim, self.sm_tile_dim
 
     def roofline(self, flop, gmem, l2mem=0):
 
@@ -296,7 +256,8 @@ class TimeCalculation:
     def GEMM(self, A, B, C):
         GEMM_flop = 2 * A * B * C
         #2 for multiplly and add
-        X1, X2 = self.getTileDim()
+        X1 = self.L2_tile_dim
+        X2 = self.shared_mem_tile_dim
       
         if (algByte):
             GEMM_gmem = (A * B + B * C + A * C) * self.precision
@@ -1062,7 +1023,6 @@ class TimeCalculation:
         embedding_b = self.getEmbedding_b()
 
         lp = self.lp
-        hlp = self.hlp
         kp_hidden_dim1 = self.kp_hidden_dim1
         kp_hidden_dim2 = self.kp_hidden_dim2
         kp_softmax_dim1 = self.kp_softmax_dim1
@@ -1080,7 +1040,7 @@ class TimeCalculation:
         #as of now I return the minimum required assuming other layers
         #can fit in hidden layer memory.This might or might not be true
         embedding_gpu = kp_embedding_dim1 * kp_embedding_dim2 * dp
-        hidden_gpu = hlp * kp_hidden_dim1 * kp_hidden_dim2 * dp
+        hidden_gpu = lp * kp_hidden_dim1 * kp_hidden_dim2 * dp
         projection_gpu = kp_projection_dim1 * kp_projection_dim2 * dp
         softmax_gpu = kp_softmax_dim1 * kp_softmax_dim2 * dp
 
@@ -1089,10 +1049,9 @@ class TimeCalculation:
         #print("th: {}Tflops, mem_bw: {}GB/s, mem_size: {}GB, L2_bw: {}GB/s, L2_size: {}MB"
         #      .format(self.th/1e12 * tot_gpu, self.mem_bw/1e9 * tot_gpu, self.mem_size/1e9 * tot_gpu, self.L2_bw/1e9 * tot_gpu, self.L2_size/1e6 * tot_gpu))
         if self.debug:
-          print("dp: {}, lp: {}, hlp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}, kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding_dim1: {}, kp_embedding_dim2: {},  kp_hidden_type: {}, kp_softmax_type: {}, kp_embedding_type: {}\n".
+          print("dp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}, kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding_dim1: {}, kp_embedding_dim2: {},  kp_hidden_type: {}, kp_softmax_type: {}, kp_embedding_type: {}\n".
                 format(dp, 
                        lp, 
-                       hlp, 
                        kp_hidden_dim1, 
                        kp_hidden_dim2, 
                        kp_softmax_dim1, 
@@ -1125,28 +1084,28 @@ class TimeCalculation:
 
         #TODO: This part makes it specific to stack of RNNs
         #Replce it with critical path analysis in a given graph
-        if (W <= (Cf * L / hlp)):
+        if (W <= (Cf * L / lp)):
           if (Cb >= R):
-            time += ((L + L/hlp * (S - 1)) * Cf + W * (hlp - 1) +
-                     (L + L/hlp * (S - 1)) * Cb + W * (hlp - 1) + R)
+            time += ((L + L/lp * (S - 1)) * Cf + W * (lp - 1) +
+                     (L + L/lp * (S - 1)) * Cb + W * (lp - 1) + R)
           else:
-            time += ((L + L/hlp * (S - 1)) * Cf + W * (hlp - 1) + 
-                    (L + L/hlp * (S - 2) + 1) * Cb + R * (L/hlp))
+            time += ((L + L/lp * (S - 1)) * Cf + W * (lp - 1) + 
+                    (L + L/lp * (S - 2) + 1) * Cb + R * (L/lp))
         
-        elif (W >= (Cb * L / hlp)):
+        elif (W >= (Cb * L / lp)):
           if (Cb >= R):
-            time += (L * Cf + (S + hlp - 2) * W + 
-                    L * Cb + (S + hlp - 2) * W + R)
+            time += (L * Cf + (S + lp - 2) * W + 
+                    L * Cb + (S + lp - 2) * W + R)
           else:
-            time += (L * Cf + (S + hlp - 2) * W + 
-                    (L - L/hlp + 1) * Cb + (S + hlp - 2) * W + (L/hlp) * R)
+            time += (L * Cf + (S + lp - 2) * W + 
+                    (L - L/lp + 1) * Cb + (S + lp - 2) * W + (L/lp) * R)
         else:
           if (Cb >= R):
-            time += (L * Cf + (S + hlp - 2) * W +
-                    (L + L/hlp * (S - 1)) * Cb + W * (hlp - 1) + R)
+            time += (L * Cf + (S + lp - 2) * W +
+                    (L + L/lp * (S - 1)) * Cb + W * (lp - 1) + R)
           else:
-            time += (L * Cf + (S + hlp - 2) * W +
-                    (L + L/hlp * (S - 2) + 1) * Cb + R * (L/hlp))
+            time += (L * Cf + (S + lp - 2) * W +
+                    (L + L/lp * (S - 2) + 1) * Cb + R * (L/lp))
         
         
         self.tot_time = time
