@@ -5,7 +5,6 @@ class Parallelism():
     def __init__(self, exp_config):
         self.autoPar = exp_config.sch_config.auto
         self.lp    = exp_config.sch_config.lp
-        self.hlp    = exp_config.sch_config.hlp
         self.kp_hidden_dim1    = exp_config.sch_config.kp_hidden_dim1
         self.kp_softmax_dim1   = exp_config.sch_config.kp_softmax_dim1
         self.kp_embedding_dim1 = exp_config.sch_config.kp_embedding_dim1
@@ -52,7 +51,6 @@ class Parallelism():
                .format(self.M))
         if (tot_mem < self.M):
             self.lp = 1
-            self.hlp = 1
             self.kp_hidden_type = -1
             self.kp_softmax_type = -1
             self.kp_embedding_type = -1
@@ -67,9 +65,9 @@ class Parallelism():
             self.kp_projection_dim2 = 1
             
             L = self.L
-            hlp = math.ceil(hidden_mem / M)
-            self.hlp = (L if hlp > L else hlp)
-            self.kp_hidden     = (1 if hlp <= L else math.ceil(hidden_mem / L / M))
+            lp = math.ceil(hidden_mem / M)
+            self.lp = (L if lp > L else lp)
+            self.kp_hidden     = (1 if lp <= L else math.ceil(hidden_mem / L / M))
             self.kp_softmax    = math.ceil(softmax_mem / M)
             self.kp_embedding  = math.ceil(embedding_mem / M)
             self.kp_projection = math.ceil(projection_mem / M)
@@ -126,15 +124,15 @@ class Parallelism():
             #If Kernel parallelism is one for all components then finding how to group
             #layers together is a knap-sack problem with some dependency constraints st.
             #neighbouring layers are bagged together
-            if (self.hlp == 1 and self.kp_hidden == 1 and self.kp_embedding == 1 and 
+            if (self.lp == 1 and self.kp_hidden == 1 and self.kp_embedding == 1 and 
                 self.kp_projection == 1 and self.kp_softmax == 1 and tot_mem > M):
                 value = [embedding_mem, hidden_mem, projection_mem, softmax_mem]
                 num_bags = self.bag(value)
                 
-            elif (self.hlp > 1 and self.kp_hidden == 1 and self.kp_embedding == 1 and 
+            elif (self.lp > 1 and self.kp_hidden == 1 and self.kp_embedding == 1 and 
                   self.kp_projection == 1 and self.kp_softmax == 1 and tot_mem > M):
-                  value1 = [embedding_mem, hidden_mem / self.hlp] 
-                  value2 = [hidden_mem / self.hlp, projection_mem, softmax_mem] 
+                  value1 = [embedding_mem, hidden_mem / self.lp] 
+                  value2 = [hidden_mem / self.lp, projection_mem, softmax_mem] 
                   num_bags1 = self.bag(value1)
                   num_bags2 = self.bag(value2)
                   num_bags = num_bags1 + num_bags2

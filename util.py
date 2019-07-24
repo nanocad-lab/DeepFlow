@@ -1,9 +1,13 @@
 import math
+import sys
 
+core=0.7
+DRAM=0.7
+L2=1
+shared_mem=1
 
-th_scale=0.7
-mem_scale=0.7
-
+def printError(message):
+  sys.exit(message)
 
 def getHiddenMem(L, Dim1, Dim2, Dim3, S, precision):
     #Activations refer to output activations that need to be stored
@@ -56,34 +60,34 @@ def getTotMemReq(exp_config):
     D          = exp_config.model_config.layer_size
     projection = exp_config.model_config.projection
     S          = exp_config.model_config.seq_len
-    G         =  exp_config.model_config.num_gates
-    precision  = exp_config.arch_config.precision
+    G          = exp_config.model_config.num_gates
+    precision  = exp_config.sw_config.precision
     
     #MiniBatch
-    dp                  = exp_config.sch_config.dp
-    miniB = math.ceil(B / dp)
+    dp         = exp_config.sch_config.dp
+    miniB      = math.ceil(B / dp)
 
     hidden_mem, hidden_act, hidden_wt, hidden_point =  getHiddenMem(L=L, 
-        Dim1 = miniB, 
-        Dim2 = 2 * D, 
-        Dim3 = G * D, 
-        S = S, 
-        precision = precision)
+                                                       Dim1 = miniB, 
+                                                       Dim2 = 2 * D, 
+                                                       Dim3 = G * D, 
+                                                       S = S, 
+                                                       precision = precision)
     softmax_mem, softmax_act, softmax_wt, softmax_point =  getSoftmaxMem(B=miniB,
-        S=S, 
-        P=projection, 
-        V=V, 
-        precision = precision)
+                                                           S=S, 
+                                                           P=projection, 
+                                                           V=V, 
+                                                           precision = precision)
     projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(B=miniB, 
-        S=S, 
-        P=projection, 
-        D=D, 
-        precision = precision)
+                                                                       S=S, 
+                                                                       P=projection, 
+                                                                       D=D, 
+                                                                       precision = precision)
     embedding_mem, embedding_act, embedding_wt, embedding_point =  getEmbeddingMem(B=miniB, 
-        S=S, 
-        V=V, 
-        D=D, 
-        precision = precision)
+                                                                   S=S, 
+                                                                   V=V, 
+                                                                   D=D, 
+                                                                   precision = precision)
     
     tot_mem = hidden_mem + softmax_mem + embedding_mem + projection_mem
     
@@ -102,10 +106,10 @@ def getMemUsagePerCore(exp_config):
     projection          = exp_config.model_config.projection
     S                   = exp_config.model_config.seq_len
     G                   =  exp_config.model_config.num_gates
-    precision           = exp_config.arch_config.precision
+    precision           = exp_config.sw_config.precision
 
     #Parallelism Params
-    hlp    = exp_config.sch_config.hlp
+    lp                  = exp_config.sch_config.lp
     kp_hidden_dim1      = exp_config.sch_config.kp_hidden_dim1
     kp_softmax_dim1     = exp_config.sch_config.kp_softmax_dim1
     kp_embedding_dim1   = exp_config.sch_config.kp_embedding_dim1
@@ -124,7 +128,7 @@ def getMemUsagePerCore(exp_config):
     miniB               = math.ceil(B / dp)
 
 
-    hidden_mem, hidden_act, hidden_wt, point_act =  getHiddenMem(L=L/hlp, 
+    hidden_mem, hidden_act, hidden_wt, point_act =  getHiddenMem(L=L/lp, 
         Dim1 = miniB / (kp_hidden_dim1 if kp_hidden_type == 2 else  1), 
         Dim2 = 2 * D / (1 if kp_hidden_type == 2 else kp_hidden_dim1),  
         Dim3 = D * G / (kp_hidden_dim2 if kp_hidden_type == 2 else 1), 
