@@ -32,7 +32,7 @@ class Topology:
 
   def calcLinks1D(self, x, y, z):
     num_links = 0
-    if (x > 1):
+    if (x > 2):
       assert(y==1 and z==1)
       num_links = x
     elif (y > 2):
@@ -106,19 +106,19 @@ class Topology:
           grid_dim += 1
 
         if (grid_dim == 1):
-            num_links = calcLinks1D(self.dp, self.lp, self.kp_dim)
+            num_links = self.calcLinks1D(self.dp, self.lp, self.kp_dim)
         elif (grid_dim == 2):
             assert((data and kernel and layer) == False)
             if (data and kenrel):
-              num_links = calcLinks2D(self.dp, self.kp_dim)
+              num_links = self.calcLinks2D(self.dp, self.kp_dim)
             if (data and layer):
-              num_links = calcLinks2D(self.dp, self.lp)
+              num_links = self.calcLinks2D(self.dp, self.lp)
             if (layer and kernel):
-              num_links = calcLinks2D(self.lp, self.kp_dim)
+              num_links = self.calcLinks2D(self.lp, self.kp_dim)
 
         elif (grid_dim == 3):
             assert((data and kernel and layer) == True)
-            num_links = calcLinks3D(self.dp, self.kp_dim, self.lp)
+            num_links = self.calcLinks3D(self.dp, self.kp_dim, self.lp)
        
         return num_links
         print("num_links: {}".format(num_links))
