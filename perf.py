@@ -9,12 +9,11 @@ import config
 from parallelism import Parallelism
 from topology import Topology
 import util
-from hw_component import Core, DRAM, L2, SharedMem, Network
+from hw_component import Core, DRAM, L2, SharedMem, RegMem, Network
 from model import Model
 
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for validation
-mem_latency=50e-9 #50 nano sec
 tensorflow_overhead=750e-6 #0.75 u-seconds
 
 G=1 #1024.0*1024.0*1024.0
@@ -48,16 +47,25 @@ class TimeCalculation:
         self.mm                 = DRAM(exp_config) 
         self.mem_bw             = self.mm.getThroughput()
         self.mem_size           = self.mm.getSize()
+        self.mem_latency        = self.mm.getLatency()
         
         self.L2Mem              = L2(exp_config) 
         self.L2_bw              = self.L2Mem.getThroughput()
         self.L2_size            = self.L2Mem.getSize()
         self.L2_tile_dim        = self.L2Mem.getTileDim()
+        self.L2_latency         = self.L2Mem.getLatency()
 
         self.sharedMem          = SharedMem(exp_config) 
         self.shared_mem_bw      = self.sharedMem.getThroughput()
         self.shared_mem_size    = self.sharedMem.getSize()
         self.shared_mem_tile_dim= self.sharedMem.getTileDim()
+        self.shared_mem_latency = self.sharedMem.getLatency()
+
+        self.regMem             = RegMem(exp_config) 
+        self.reg_bw             = self.regMem.getThroughput()
+        self.reg_size           = self.regMem.getSize()
+        self.reg_tile_dim       = self.regMem.getTileDim()
+        self.reg_latency        = self.regMem.getLatency()
 
         self.network            = Network(exp_config)
         self.IBK                = self.network.kernel_throughput
@@ -122,6 +130,8 @@ class TimeCalculation:
             "L2 Size: {:.1f} MB\n"
             "Shared Memory Bandwidth: {:.1f} TB/s\n"
             "Shared Memory Size: {:.1f} MB\n"
+            "Register Memory Bandwidth: {:.1f} TB/s\n"
+            "Register Size: {:.1f} MB\n"
             "Interconnection Bandwidth (Data Dimension): {:.1f} GB/s"
             .format(self.core.nominal_throughput/1e12, 
                     self.mm.dynamic_throughput/(gigaByte), 
@@ -130,6 +140,8 @@ class TimeCalculation:
                     self.L2Mem.size/(megaByte), 
                     self.sharedMem.dynamic_throughput/(teraByte),
                     self.sharedMem.size/(megaByte),
+                    self.regMem.dynamic_throughput/(teraByte),
+                    self.regMem.size/(megaByte),
                     self.IBD/(gigaByte)))
        
 
@@ -203,7 +215,7 @@ class TimeCalculation:
 
 
 
-    def roofline(self, flop, gmem, l2mem=0):
+    def roofline(self, flop, gmem, l2mem=0, smem=0, rmem=0):
 
         self.tot_flop += flop
         self.tot_mem  += gmem
@@ -216,7 +228,10 @@ class TimeCalculation:
       
         time  = 0
         if comp_int < inflection_point: #mem-bound
-            time = (gmem / self.mem_bw) + mem_latency + (0 if self.L2_bw == 0 else (l2mem / self.L2_bw))
+            time = ((gmem / self.mem_bw) + self.mem_latency + 
+                    (0 if self.L2_bw == 0 else (l2mem / self.L2_bw)) + 
+                    (0 if self.shared_mem_bw == 0 else (smem / self.shared_mem_bw)) +
+                    (0 if self.reg_bw == 0 else (smem / self.reg_bw)))
         else: #compute-bound
             time = (flop / self.th)
         
@@ -230,11 +245,11 @@ class TimeCalculation:
         return time
 
     def getGEMMTime(self, A, B, C, name):
-        GEMM_flop, GEMM_gmem, GEMM_l2mem = self.GEMM(A, B, C)
-        GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t = self.GEMM(C, B, A)
+        GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem = self.GEMM(A, B, C)
+        GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t = self.GEMM(C, B, A)
         
-        GEMM_time = self.roofline(GEMM_flop, GEMM_gmem, GEMM_l2mem) + self.O
-        GEMM_time_t = self.roofline(GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t) + self.O
+        GEMM_time = self.roofline(GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem) + self.O
+        GEMM_time_t = self.roofline(GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t) + self.O
         
         transpose = False
         time = GEMM_time
@@ -256,11 +271,23 @@ class TimeCalculation:
     #This is the main function that captures the memory hierarchy impact
     #on the number of accesses to global memory considering not everything fits in 
     #L2 cache and also captures the effect of shared memory
-    def GEMM(self, A, B, C):
+    def GEMM(self, A_, B_, C_):
+        A = util.power2RoundUp(A_)
+        B = util.power2RoundUp(B_)
+        C = util.power2RoundUp(C_)
+        #A = A_
+        #B = B_
+        #C = C_
+
+
+        if self.debug:
+          print("Matrix dimension at Global Memory: {:,} x {:,} x {:,}".format(A, B, C))
+
         GEMM_flop = 2 * A * B * C
         #2 for multiplly and add
         X1 = self.L2_tile_dim
         X2 = self.shared_mem_tile_dim
+        X3 = self.reg_tile_dim
       
         if (algByte):
             GEMM_gmem = (A * B + B * C + A * C) * self.precision
@@ -286,28 +313,95 @@ class TimeCalculation:
              GEMM_gmem = (A * B * reload_AB + B * C * reload_BC + A * C * reload_AC) * self.precision
              if self.debug:
                 print("gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}\n", reload_AB, reload_AC, reload_BC)
+             if self.debug:
+                print("Matrix dimension at L2 Memory: {:,} x {:,} x {:,}".format(X1, X1, X1))
 
-             #L2memory accesses going through Shared memory
+             #Modeling Shared_memory
+             #number of L2memory accesses going through Shared memory
              reload_AB = 1
              reload_BC = 1
              reload_AC = 1
             
              if X2 > 0:
-                 if  B <= X2:
-                     reload_AB = 1
-                     reload_BC = math.ceil(A / X2)
-                     reload_AC = 1
-                 else:
-                     reload_AB = math.ceil(C / X2)
-                     reload_BC = math.ceil(A / X2)
-                     reload_AC = 1
+                As = X1
+                Bs = X1
+                Cs = X1
+                
+                if X2 > X1:
+                    X2 = X1
+
+                if  Bs <= X2:
+                    reload_AB = 1
+                    reload_BC = math.ceil(As / X2)
+                    reload_AC = 1
+                else:
+                    reload_AB = math.ceil(Cs / X2)
+                    reload_BC = math.ceil(As / X2)
+                    reload_AC = 1
+
+             num_repeat = A/X1 * C/X1
              
-             GEMM_l2mem = (A * B * reload_AB + B * C * reload_BC + A * C * reload_AC) * self.precision
-             GEMM_flop = GEMM_flop + A * C * (15 + 5 * math.ceil(B / X2))
+             GEMM_l2mem = (num_repeat *
+                           self.core.num_bundle * 
+                           (As * Bs * reload_AB + 
+                            Bs * Cs * reload_BC + 
+                            As * Cs * reload_AC) *
+                            self.precision)
+             if self.debug:
+                print("Matrix dimension at Shared Memory: {:,} x {:,} x {:,}".format(X2, X2, X2))
+
+             #Modeling Register file
+             #number of shared memory accesses through registers
+             #NOTE:For GPU hardware where the register file per SM is larger than shared memory,
+             #restreaming factor should be one.
+             reload_AB = 1
+             reload_BC = 1
+             reload_AC = 1
+             
+            
+             if X3 > 0:
+                Ar = X2
+                Br = X2 
+                Cr = X2
+
+                if X3 > X2:
+                    X3 = X2
+
+                if  Bs <= X2:
+                    reload_AB = 1
+                    reload_BC = math.ceil(Ar / X3)
+                    reload_AC = 0 # Results are usually directly written to higher-level 
+                else:
+                    reload_AB = math.ceil(Cr / X3)
+                    reload_BC = math.ceil(As / X3)
+                    reload_AC = 0
+             
+             num_repeat  *= As/X2 * Cs/X2 
+             GEMM_smem    = (num_repeat *
+                             (Ar * Br * reload_AB + 
+                              Br * Cr * reload_BC + 
+                              Ar * Cr * reload_AC) * 
+                              self.precision)
+
+             if self.debug:
+                print("Matrix dimension at Register Memory: {:,} x {:,} x {:,}".format(X3, X3, X3))
+
+             #number of accesses to register file
+             #TODO: Verify this is true...
+             GEMM_rmem    = GEMM_flop * (1 + 3 + 1)
+             #1: memory from read
+             #3: multiply add
+             #1: write to memory
+
+
+             #Heuristics for other stuff besides multiply and add (like address calculation)
+             GEMM_flop = GEMM_flop + As * Cs * (15 + 5 * math.ceil(Bs / X2))
+
+
              if self.debug:
                 print("l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}\n", reload_AB, reload_AC, reload_BC)
     
-        return GEMM_flop, GEMM_gmem, GEMM_l2mem
+        return GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem
 
     #Column-Row MM
     def getCf_kp1(self):
@@ -949,7 +1043,7 @@ class TimeCalculation:
 
     def getEmbedding_f(self):
         embedding_mem = 2 * (self.miniB * self.D * self.S * self.precision)
-        embedding_time = (embedding_mem)/ (self.mem_bw) + mem_latency + self.O
+        embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         if self.debug:
             print("Embedding_mem: {:,}".format(int(embedding_mem/G)))
         return embedding_time
@@ -960,7 +1054,7 @@ class TimeCalculation:
         data_transfer_time  = 0 if (self.dp == 1) else (((p2p_data_transfer) / self.IBD + self.LLD) * 2 * (self.dp -1 )) 
         
         embedding_mem = 2 * self.miniB * self.D * self.S * self.precision
-        embedding_mem_time = (embedding_mem / self.mem_bw) + mem_latency + self.O
+        embedding_mem_time = (embedding_mem / self.mem_bw) + self.mem_latency + self.O
 
 
         if self.debug:

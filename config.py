@@ -32,6 +32,7 @@ class L2Config:
     self.bank_capacity = l2_config_dict['bank_capacity']
     self.bank_bw = l2_config_dict['bank_bandwidth']
     self.controller_area_per_link = l2_config_dict['controller_area_per_link']
+    self.latency                  = l2_config_dict['latency']
 
 class SMConfig:
   def __init__(self, sm_config_dict):
@@ -41,6 +42,18 @@ class SMConfig:
     self.bank_capacity            = sm_config_dict['bank_capacity']
     self.bank_bw                  = sm_config_dict['bank_bandwidth']
     self.controller_area_per_link = sm_config_dict['controller_area_per_link']
+    self.latency                  = sm_config_dict['latency']
+
+class RegConfig:
+  def __init__(self, reg_config_dict):
+    self.dynamic_energy_per_bit   = reg_config_dict['dynamic_energy_per_bit']
+    self.static_power_per_bit     = reg_config_dict['static_power_per_bit']
+    self.area_per_bit             = reg_config_dict['area_per_bit']
+    self.bank_capacity            = reg_config_dict['bank_capacity']
+    self.bank_bw                  = reg_config_dict['bank_bandwidth']
+    self.controller_area_per_link = reg_config_dict['controller_area_per_link']
+    self.latency                  = reg_config_dict['latency']
+
 
 class NetworkConfig:
   def __init__(self, net_config_dict):
@@ -80,6 +93,7 @@ class TechConfig:
     self.DRAM = DRAMConfig(tech_config_dict['DRAM'])
     self.L2 = L2Config(tech_config_dict['L2'])
     self.shared_mem = SMConfig(tech_config_dict['shared_mem'])
+    self.reg_mem = RegConfig(tech_config_dict['reg_mem'])
     self.network = NetworkConfig(tech_config_dict['network'])
 
 class AreaBreakdownConfig:
@@ -89,6 +103,7 @@ class AreaBreakdownConfig:
     self.DRAM = config_dict['DRAM']
     self.L2 = config_dict['L2']
     self.shared_mem = config_dict['shared_mem']
+    self.reg_mem = config_dict['reg_mem']
     self.network = NetworkAreaConfig(config_dict['network'])
 
 class NetworkAreaConfig:
@@ -103,6 +118,7 @@ class PowerBreakdownConfig:
     self.DRAM = config_dict['DRAM']
     self.L2 = config_dict['L2']
     self.shared_mem = config_dict['shared_mem']
+    self.reg_mem = config_dict['reg_mem']
     self.network = NetworkPowerConfig(config_dict['network'])
 
 

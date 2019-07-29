@@ -20,6 +20,8 @@ class Memory(Base):
   def __init__(self, exp_config):
       super().__init__(exp_config)
       self.size                     = -1
+      self.tile_dim                 = -1
+      self.latency                  = -1
 
   def getSize(self):
       assert(self.size != -1)
@@ -28,6 +30,10 @@ class Memory(Base):
   def getTileDim(self):
       assert(self.tile_dim != -1)
       return self.tile_dim
+
+  def getLatency(self):
+      assert(self.latency != -1)
+      return self.latency
 
 class Core(Base):
   def __init__(self, exp_config):
@@ -80,6 +86,7 @@ class DRAM(Memory):
       self.area_per_byte              = exp_config.tech_config.DRAM.area_per_bit * 8
       self.stack_bw                   = exp_config.tech_config.DRAM.stack_bw
       self.stack_capacity             = exp_config.tech_config.DRAM.stack_capacity
+      self.latency                    = exp_config.tech_config.DRAM.latency
 
       
       self.calcArea()
@@ -122,6 +129,7 @@ class L2(Memory):
       self.bank_bw                    = exp_config.tech_config.L2.bank_bw
       self.bank_capacity              = exp_config.tech_config.L2.bank_capacity
       self.controller_area_per_link   = exp_config.tech_config.L2.controller_area_per_link
+      self.latency                    = exp_config.tech_config.L2.latency
       
       self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       self.num_banks                  = self.nominal_throughput // self.bank_bw
@@ -169,6 +177,7 @@ class SharedMem(Memory):
       self.bank_bw                    = exp_config.tech_config.shared_mem.bank_bw
       self.bank_capacity              = exp_config.tech_config.shared_mem.bank_capacity
       self.controller_area_per_link   = exp_config.tech_config.shared_mem.controller_area_per_link
+      self.latency                    = exp_config.tech_config.shared_mem.latency
       
       self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       self.num_banks                  = self.nominal_throughput // self.bank_bw
@@ -200,8 +209,59 @@ class SharedMem(Memory):
                                             self.cell_area / self.area_per_byte)
   def calcTileDim(self):
       self.tile_dim = 0
+      core                            = Core(self.exp_config)
+      self.size_per_bundle            = self.size / core.num_bundle 
       if (self.size > 0):
-          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size / self.precision) / 3), 2))))
+          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
+
+class RegMem(Memory):
+  def __init__(self, exp_config):
+      super().__init__(exp_config)
+      self.tot_power                  = exp_config.power_breakdown.reg_mem * self.TDP
+      self.tot_area                   = exp_config.area_breakdown.reg_mem * self.area_budget
+      self.dynamic_energy_per_byte    = exp_config.tech_config.reg_mem.dynamic_energy_per_bit * 8
+      self.static_power_per_byte      = exp_config.tech_config.reg_mem.static_power_per_bit * 8
+      self.area_per_byte              = exp_config.tech_config.reg_mem.area_per_bit * 8
+      self.bank_bw                    = exp_config.tech_config.reg_mem.bank_bw
+      self.bank_capacity              = exp_config.tech_config.reg_mem.bank_capacity
+      self.controller_area_per_link   = exp_config.tech_config.reg_mem.controller_area_per_link
+      self.latency                    = exp_config.tech_config.reg_mem.latency
+      
+      self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
+      self.num_banks                  = self.nominal_throughput // self.bank_bw
+      
+      self.calcArea()
+      self.calcSize()
+      self.calcActiveEnergy()
+      self.calcThroughput()
+      self.calcTileDim()
+
+
+  def calcArea(self):
+      #I/O, inter-bank, intra-bank overhead
+      #TODO: @Saptadeep, do you know how to capture the shared mem circutry overhead
+      core                            = Core(self.exp_config)
+      self.overhead_area              = self.num_banks * core.num_mcu_per_bundle * self.controller_area_per_link
+      self.cell_area                  = self.tot_area - self.overhead_area
+  
+  def calcActiveEnergy(self):
+      #TODO: @Saptaddeep: Can you verify if this is correct?
+      self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size
+
+  def calcThroughput(self):
+      self.dynamic_throughput         = self.dynamic_power / self.dynamic_energy_per_byte
+      self.throughput                 = self.nominal_throughput * util.reg_mem
+
+  def calcSize(self):
+      self.size                       = min(self.num_banks * self.bank_capacity,
+                                            self.cell_area / self.area_per_byte)
+  def calcTileDim(self):
+      self.tile_dim = 0
+      core                            = Core(self.exp_config)
+      self.size_per_bundle            = self.size / core.num_bundle 
+      if (self.size > 0):
+          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
+
 
 class Network(Base):
   def __init__(self, exp_config):

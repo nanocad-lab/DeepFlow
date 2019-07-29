@@ -30,7 +30,7 @@ tech_param:
         area_per_bit: 11e-10 #mm2
         stack_bandwidth: 225 GB/s
         stack_capacity: 4 GB
-        latency: 1e-6 
+        latency: 50e-9 
     L2:
         dynamic_energy_per_bit: 2.28e-15
         static_power_per_bit: 0
@@ -38,13 +38,23 @@ tech_param:
         bank_bandwidth: 4000 GB/s
         bank_capacity: 32 KB
         controller_area_per_link: 1e-3 #mm2 
+        latency: 0 
     shared_mem:
         dynamic_energy_per_bit: 2e-15
         static_power_per_bit: 0
         area_per_bit: 2e-8 #mm2
-        bank_bandwidth: 4000 GB/s
+        bank_bandwidth: 4 TB/s
         bank_capacity: 32 KB
         controller_area_per_link: 1e-3 #mm2 
+        latency: 0
+    reg_mem:
+        dynamic_energy_per_bit: 2e-15
+        static_power_per_bit: 0
+        area_per_bit: 1e-8 #mm2
+        bank_bandwidth: 8 TB/s
+        bank_capacity: 64 KB
+        controller_area_per_link: 1e-3 #mm2 
+        latency: 0 
     network:
         intra_node:
           topology: "torus"
@@ -75,6 +85,7 @@ area_breakdown:
     DRAM: 0.2
     L2: 0.3
     shared_mem: 0.1
+    reg_mem: 0.5
     network:
       intra_node: 0.1
       inter_node: 0
@@ -85,6 +96,7 @@ power_breakdown:
     DRAM: 0.155
     L2: 0.05
     shared_mem: 0.028
+    reg_mem: 0.15
     network:
       intra_node: 0.2
       inter_node: 0

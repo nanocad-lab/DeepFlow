@@ -5,6 +5,7 @@ core=0.7
 DRAM=0.7
 L2=1
 shared_mem=1
+reg_mem=1
 
 def printError(message):
   sys.exit(message)
@@ -159,3 +160,20 @@ def getMemUsagePerCore(exp_config):
     tot_mem = hidden_mem + softmax_mem + projection_mem + embedding_mem
       
     return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem
+
+
+def power2RoundUp(x):
+  #TODO: This does not sound like an ideal option
+  #Ideally we want to round up to a value which is a multiply of factor of 2 and a number
+  #y = math.floor(math.pow(2,(math.ceil(math.log(x,2)))))
+  log_power = math.ceil(math.log(x,2))
+  power_2   = [2**p for p in range(1, log_power)]
+  min_dist  = x
+  min_val   = 0
+  for i in power_2[::-1]: 
+    a = math.ceil(x/i)
+    dist = a * i - x
+    if (dist < min_dist):
+      min_val = a * i
+      min_dist = dist
+  return min_val
