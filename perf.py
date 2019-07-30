@@ -9,10 +9,11 @@ import config
 from parallelism import Parallelism
 from topology import Topology
 import util
+from hw_component import Core, DRAM, L2, SharedMem, RegMem, Network
+from model import Model
 
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for validation
-mem_latency=50e-9 #50 nano sec
 tensorflow_overhead=750e-6 #0.75 u-seconds
 
 G=1 #1024.0*1024.0*1024.0
@@ -21,35 +22,64 @@ G=1 #1024.0*1024.0*1024.0
 class TimeCalculation:
     def __init__(self, exp_config):
         #Model Parameters
-        self.B = exp_config.model_config.batch_size
-        self.V = exp_config.model_config.vocab_size
-        self.L = exp_config.model_config.num_layers
-        self.D = exp_config.model_config.layer_size
-        self.projection = exp_config.model_config.projection
-        self.S = exp_config.model_config.seq_len
-        self.G = exp_config.model_config.num_gates
-        self.NL = exp_config.model_config.num_non_linear
-        self.A = exp_config.model_config.num_add
-        self.P = self.NL + self.A
+        self.model              = Model(exp_config)
+        self.B                  = self.model.batch_size
+        self.V                  = self.model.vocab_size
+        self.L                  = self.model.num_layers
+        self.D                  = self.model.hidden_dim
+        self.projection         = self.model.projection
+        self.S                  = self.model.seq_len
+        self.G                  = self.model.num_gates
+        self.NL                 = self.model.num_non_linear
+        self.A                  = self.model.num_add
+        self.P                  = self.model.num_pointwise
         
-        #Architecture Parameters
-        self.O         = exp_config.arch_config.kernel_launch_overhead
-        self.precision = exp_config.arch_config.precision
-       
-        #Technology Parameters
-        self.dram_energy_per_byte         = exp_config.tech_config.DRAM_energy_per_bit_trans * 8
-        self.L2_energy_per_byte           = exp_config.tech_config.L2_energy_per_bit * 8
-        self.shared_mem_energy_per_byte   = exp_config.tech_config.shared_mem_energy_per_bit * 8
-        self.energy_per_flop              = exp_config.tech_config.core_energy_per_flop
-        self.internode_energy_per_byte    = exp_config.tech_config.internode_energy_per_bit * 8
-        self.ll                           = exp_config.tech_config.line_latency
+        #Software Parameters
+        self.O                  = exp_config.sw_config.kernel_launch_overhead
+        self.precision          = exp_config.sw_config.precision
+        self.attached           = True
+        
 
+        #Hardware Parameters
+        self.core               = Core(exp_config)
+        self.th                 = self.core.getThroughput()
+
+        self.mm                 = DRAM(exp_config) 
+        self.mem_bw             = self.mm.getThroughput()
+        self.mem_size           = self.mm.getSize()
+        self.mem_latency        = self.mm.getLatency()
+        
+        self.L2Mem              = L2(exp_config) 
+        self.L2_bw              = self.L2Mem.getThroughput()
+        self.L2_size            = self.L2Mem.getSize()
+        self.L2_tile_dim        = self.L2Mem.getTileDim()
+        self.L2_latency         = self.L2Mem.getLatency()
+
+        self.sharedMem          = SharedMem(exp_config) 
+        self.shared_mem_bw      = self.sharedMem.getThroughput()
+        self.shared_mem_size    = self.sharedMem.getSize()
+        self.shared_mem_tile_dim= self.sharedMem.getTileDim()
+        self.shared_mem_latency = self.sharedMem.getLatency()
+
+        self.regMem             = RegMem(exp_config) 
+        self.reg_bw             = self.regMem.getThroughput()
+        self.reg_size           = self.regMem.getSize()
+        self.reg_tile_dim       = self.regMem.getTileDim()
+        self.reg_latency        = self.regMem.getLatency()
+
+        self.network            = Network(exp_config)
+        self.IBK                = self.network.kernel_throughput
+        self.IBD                = self.network.data_throughput
+        self.IBM                = self.network.layer_throughput
+        self.LLK                = self.network.kernel_latency
+        self.LLD                = self.network.data_latency
+        self.LLM                = self.network.layer_latency
+        
         #Scheduling Parameters
         par                     = Parallelism(exp_config)
         par.findParallelStrategy()
         self.autoPar            = par.autoPar
         self.lp                 = par.lp
-        self.hlp                = par.hlp
         self.kp_hidden_dim1     = par.kp_hidden_dim1
         self.kp_softmax_dim1    = par.kp_softmax_dim1
         self.kp_embedding_dim1  = par.kp_embedding_dim1
@@ -64,61 +94,14 @@ class TimeCalculation:
         self.kp_embedding_type  = par.kp_embedding_type #1: CR, 2: RC
         self.kp_projection_type = par.kp_projection_type #1: CR, 2: RC
 
-        #Power Breakdown Parameters
-        self.TDP                = exp_config.power_breakdown.TDP
-        self.DRAMPower          = exp_config.power_breakdown.DRAM * self.TDP
-        self.HBM_stack_bw       = exp_config.tech_config.HBM_stack_bw
-        self.HBM_stack_capacity = exp_config.tech_config.HBM_stack_capacity
-        self.mem_bw             = self.DRAMPower / self.dram_energy_per_byte * util.mem_scale
-        self.mem_size           = (self.mem_bw / util.mem_scale / self.HBM_stack_bw) * self.HBM_stack_capacity
-
-       
         #Define miniBatch size
-        self.miniB = math.ceil(self.B / self.dp)
+        self.miniB              = math.ceil(self.B / self.dp)
 
-        #Calculate architecture configurations based on power breakdown
-        #and technology parameters
-        self.corePower = exp_config.power_breakdown.core * self.TDP
-        self.L2Power   = exp_config.power_breakdown.L2 * self.TDP
-        self.shared_mem_power = exp_config.power_breakdown.shared_mem * self.TDP
-        self.IBPower  = exp_config.power_breakdown.IB * self.TDP
-        self.th     = self.corePower / self.energy_per_flop * util.th_scale
-        
-        self.L2_bank_bw  = exp_config.tech_config.L2_bank_bw
-        self.L2_bank_capacity = exp_config.tech_config.L2_bank_capacity
-        self.L2_bw    = (self.L2Power / self.L2_energy_per_byte)
-        self.L2_size  = (self.L2_bw / self.L2_bank_bw) * self.L2_bank_capacity 
-      
-        self.shared_mem_bank_bw = exp_config.tech_config.shared_mem_bank_bw
-        self.shared_mem_bank_capacity = exp_config.tech_config.shared_mem_bank_capacity
-        self.shared_mem_bw = (self.shared_mem_power / self.shared_mem_energy_per_byte)
-        self.shared_mem_size = (self.shared_mem_bw / self.shared_mem_bank_bw) * self.shared_mem_bank_capacity
-       
-
-
-        # Network Parameters
-        # IBK: interconnection bandiwdth across kernel parall dimension
-        # IBD: interconnection bandiwdth across data parall dimension
-        # IBM: interconnection bandiwdth across model parall dimension
-        # We are assuming same network bandwidth along all dimensons
-        # TODO: Parameterize this so we can explore different bandwidth along different dimensions
-        topology = Topology(exp_config) 
-        num_links = topology.getNumLinks()
-        self.IB = (0 if topology.grid_dim == 0 else self.IBPower / (num_links * self.internode_energy_per_byte)) 
-        self.IBK = self.IB
-        self.IBM = self.IB
-        self.IBD = self.IB
-
-        self.attached = True
-        self.debug = False
-        self.tot_time = 0
-
-        self.L2_tile_dim = 0
-        self.sm_tile_dim = 0
-        self.setTileDim()
-    
-        self.tot_flop = 0
-        self.tot_mem = 0
+        #Statistics Param
+        self.tot_flop           = 0
+        self.tot_mem            = 0
+        self.tot_time           = 0
+        self.debug              = False
 
     #Number of parameters
     def tot_param(self):
@@ -145,15 +128,21 @@ class TimeCalculation:
             "Memory Size: {:.1f} GB\n"
             "L2 Bandwidth: {:.1f} TB/s\n"
             "L2 Size: {:.1f} MB\n"
+            "Shared Memory Bandwidth: {:.1f} TB/s\n"
             "Shared Memory Size: {:.1f} MB\n"
-            "Interconnection Bandwidth: {:.1f} GB/s"
-            .format(self.th/1e12/util.th_scale, 
-                    self.mem_bw/(gigaByte)/util.mem_scale, 
-                    self.mem_size/(gigaByte), 
-                    self.L2_bw/(teraByte), 
-                    self.L2_size/(megaByte), 
-                    self.shared_mem_size/(megaByte),
-                    self.IBK/(gigaByte)))
+            "Register Memory Bandwidth: {:.1f} TB/s\n"
+            "Register Size: {:.1f} MB\n"
+            "Interconnection Bandwidth (Data Dimension): {:.1f} GB/s"
+            .format(self.core.nominal_throughput/1e12, 
+                    self.mm.dynamic_throughput/(gigaByte), 
+                    self.mm.size/(gigaByte), 
+                    self.L2Mem.dynamic_throughput/(teraByte), 
+                    self.L2Mem.size/(megaByte), 
+                    self.sharedMem.dynamic_throughput/(teraByte),
+                    self.sharedMem.size/(megaByte),
+                    self.regMem.dynamic_throughput/(teraByte),
+                    self.regMem.size/(megaByte),
+                    self.IBD/(gigaByte)))
        
 
       M = self.mem_size
@@ -216,31 +205,17 @@ class TimeCalculation:
       print("\n\n====================")
       print("Parallelism Strategy")
       print("====================")
-      print("dp: {}, lp: {}, hlp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
+      print("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
              "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
              "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
              .format(self.dp,
-              self.lp, self.hlp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
+              self.lp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
               self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
               self.kp_projection_dim1, self.kp_projection_dim2))   
 
 
-    def setTileDim(self):
-        self.L2_tile_dim = 0
-        self.shared_tile_dim = 0
 
-        if (self.L2_size > 0):
-            self.L2_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.L2_size / self.precision) / 3), 2))))
-        if (self.shared_mem_size > 0):
-            self.sm_tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.shared_mem_size / self.precision) / 3), 2))))
-        #print("L2Tile_dim: {}, SMTile_dim: {}".format(self.L2_tile_dim, self.sm_tile_dim))
-    
-    def getTileDim(self):
-        #assert(self.L2_tile_dim != 0)
-        #assert(self.sm_tile_dim != 0)
-        return self.L2_tile_dim, self.sm_tile_dim
-
-    def roofline(self, flop, gmem, l2mem=0):
+    def roofline(self, flop, gmem, l2mem=0, smem=0, rmem=0):
 
         self.tot_flop += flop
         self.tot_mem  += gmem
@@ -253,7 +228,10 @@ class TimeCalculation:
       
         time  = 0
         if comp_int < inflection_point: #mem-bound
-            time = (gmem / self.mem_bw) + mem_latency + (0 if self.L2_bw == 0 else (l2mem / self.L2_bw))
+            time = ((gmem / self.mem_bw) + self.mem_latency + 
+                    (0 if self.L2_bw == 0 else (l2mem / self.L2_bw)) + 
+                    (0 if self.shared_mem_bw == 0 else (smem / self.shared_mem_bw)) +
+                    (0 if self.reg_bw == 0 else (smem / self.reg_bw)))
         else: #compute-bound
             time = (flop / self.th)
         
@@ -267,11 +245,11 @@ class TimeCalculation:
         return time
 
     def getGEMMTime(self, A, B, C, name):
-        GEMM_flop, GEMM_gmem, GEMM_l2mem = self.GEMM(A, B, C)
-        GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t = self.GEMM(C, B, A)
+        GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem = self.GEMM(A, B, C)
+        GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t = self.GEMM(C, B, A)
         
-        GEMM_time = self.roofline(GEMM_flop, GEMM_gmem, GEMM_l2mem) + self.O
-        GEMM_time_t = self.roofline(GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t) + self.O
+        GEMM_time = self.roofline(GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem) + self.O
+        GEMM_time_t = self.roofline(GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t) + self.O
         
         transpose = False
         time = GEMM_time
@@ -293,10 +271,23 @@ class TimeCalculation:
     #This is the main function that captures the memory hierarchy impact
     #on the number of accesses to global memory considering not everything fits in 
     #L2 cache and also captures the effect of shared memory
-    def GEMM(self, A, B, C):
+    def GEMM(self, A_, B_, C_):
+        A = util.power2RoundUp(A_)
+        B = util.power2RoundUp(B_)
+        C = util.power2RoundUp(C_)
+        #A = A_
+        #B = B_
+        #C = C_
+
+
+        if self.debug:
+          print("Matrix dimension at Global Memory: {:,} x {:,} x {:,}".format(A, B, C))
+
         GEMM_flop = 2 * A * B * C
         #2 for multiplly and add
-        X1, X2 = self.getTileDim()
+        X1 = self.L2_tile_dim
+        X2 = self.shared_mem_tile_dim
+        X3 = self.reg_tile_dim
       
         if (algByte):
             GEMM_gmem = (A * B + B * C + A * C) * self.precision
@@ -322,28 +313,95 @@ class TimeCalculation:
              GEMM_gmem = (A * B * reload_AB + B * C * reload_BC + A * C * reload_AC) * self.precision
              if self.debug:
                 print("gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}\n", reload_AB, reload_AC, reload_BC)
+             if self.debug:
+                print("Matrix dimension at L2 Memory: {:,} x {:,} x {:,}".format(X1, X1, X1))
 
-             #L2memory accesses going through Shared memory
+             #Modeling Shared_memory
+             #number of L2memory accesses going through Shared memory
              reload_AB = 1
              reload_BC = 1
              reload_AC = 1
             
              if X2 > 0:
-                 if  B <= X2:
-                     reload_AB = 1
-                     reload_BC = math.ceil(A / X2)
-                     reload_AC = 1
-                 else:
-                     reload_AB = math.ceil(C / X2)
-                     reload_BC = math.ceil(A / X2)
-                     reload_AC = 1
+                As = X1
+                Bs = X1
+                Cs = X1
+                
+                if X2 > X1:
+                    X2 = X1
+
+                if  Bs <= X2:
+                    reload_AB = 1
+                    reload_BC = math.ceil(As / X2)
+                    reload_AC = 1
+                else:
+                    reload_AB = math.ceil(Cs / X2)
+                    reload_BC = math.ceil(As / X2)
+                    reload_AC = 1
+
+             num_repeat = A/X1 * C/X1
              
-             GEMM_l2mem = (A * B * reload_AB + B * C * reload_BC + A * C * reload_AC) * self.precision
-             GEMM_flop = GEMM_flop + A * C * (15 + 5 * math.ceil(B / X2))
+             GEMM_l2mem = (num_repeat *
+                           self.core.num_bundle * 
+                           (As * Bs * reload_AB + 
+                            Bs * Cs * reload_BC + 
+                            As * Cs * reload_AC) *
+                            self.precision)
+             if self.debug:
+                print("Matrix dimension at Shared Memory: {:,} x {:,} x {:,}".format(X2, X2, X2))
+
+             #Modeling Register file
+             #number of shared memory accesses through registers
+             #NOTE:For GPU hardware where the register file per SM is larger than shared memory,
+             #restreaming factor should be one.
+             reload_AB = 1
+             reload_BC = 1
+             reload_AC = 1
+             
+            
+             if X3 > 0:
+                Ar = X2
+                Br = X2 
+                Cr = X2
+
+                if X3 > X2:
+                    X3 = X2
+
+                if  Bs <= X2:
+                    reload_AB = 1
+                    reload_BC = math.ceil(Ar / X3)
+                    reload_AC = 0 # Results are usually directly written to higher-level 
+                else:
+                    reload_AB = math.ceil(Cr / X3)
+                    reload_BC = math.ceil(As / X3)
+                    reload_AC = 0
+             
+             num_repeat  *= As/X2 * Cs/X2 
+             GEMM_smem    = (num_repeat *
+                             (Ar * Br * reload_AB + 
+                              Br * Cr * reload_BC + 
+                              Ar * Cr * reload_AC) * 
+                              self.precision)
+
+             if self.debug:
+                print("Matrix dimension at Register Memory: {:,} x {:,} x {:,}".format(X3, X3, X3))
+
+             #number of accesses to register file
+             #TODO: Verify this is true...
+             GEMM_rmem    = GEMM_flop * (1 + 3 + 1)
+             #1: memory from read
+             #3: multiply add
+             #1: write to memory
+
+
+             #Heuristics for other stuff besides multiply and add (like address calculation)
+             GEMM_flop = GEMM_flop + As * Cs * (15 + 5 * math.ceil(Bs / X2))
+
+
              if self.debug:
                 print("l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}\n", reload_AB, reload_AC, reload_BC)
     
-        return GEMM_flop, GEMM_gmem, GEMM_l2mem
+        return GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem
 
     #Column-Row MM
     def getCf_kp1(self):
@@ -523,7 +581,7 @@ class TimeCalculation:
 
 
     #Reduction and all-gather time estimation
-    def getR(self, Dim0 = None, Dim1 = None, p = None, ib = None, partial = None,
+    def getR(self, Dim0 = None, Dim1 = None, p = None, ib = None, ll = None, partial = None,
             allReduce = None):
         """Get partail or full reduction or allGather latency"""
         """Partial reduction means each gpu is only collecting a shard of 
@@ -537,6 +595,8 @@ class TimeCalculation:
             p = self.dp
         if (ib == None): 
             ib = self.IBD
+        if (ll == None): 
+            ll = self.LLD
         if (partial == None): 
             partial = False
         if (allReduce == None):
@@ -565,8 +625,7 @@ class TimeCalculation:
             #data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) * 
             #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
             factor = (1 if partial or not allReduce else 2)
-            print("!!!!!!!!!!!!!!!!!!!!!!****************factor: {}".format(factor))
-            data_transfer  = ((((self.precision * Dim0 * Dim1) / p) / ib) + self.ll) * factor * (p - 1)
+            data_transfer  = ((((self.precision * Dim0 * Dim1) / p) / ib) + ll) * factor * (p - 1)
             dt=((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
             
             data_prep_comp = (Dim0 * Dim1) / p
@@ -657,6 +716,7 @@ class TimeCalculation:
                                    Dim1 = n,
                                    p = dim1,
                                    ib = self.IBK,
+                                   ll = self.LLK,
                                    partial = True,
                                    allReduce = True)
         return GEMM_time, reduction_time
@@ -668,6 +728,7 @@ class TimeCalculation:
                                    Dim1 = n,
                                    p = dim1,
                                    ib = self.IBK,
+                                   ll = self.LLK,
                                    partial = False,
                                    allReduce = False)
 
@@ -688,6 +749,7 @@ class TimeCalculation:
                                    Dim1 = n,
                                    p = dim2,
                                    ib = self.IBK,
+                                   ll = self.LLK,
                                    partial = False,
                                    allReduce = False)
         return GEMM_time, reduction_time
@@ -698,6 +760,7 @@ class TimeCalculation:
                                        Dim1 = m,
                                        p = dim1,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = True,
                                        allReduce = False)
         #To calculate grad(wt), gather output matrix (A') across row within one column before MM
@@ -705,6 +768,7 @@ class TimeCalculation:
                                        Dim1 = n / dim2,
                                        p = dim1,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
 
@@ -713,6 +777,7 @@ class TimeCalculation:
                                        Dim1 = n / dim2,
                                        p = dim1,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
         ########################################################################################
@@ -721,6 +786,7 @@ class TimeCalculation:
                                        Dim1 = n,
                                        p = dim2,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
 
@@ -729,6 +795,7 @@ class TimeCalculation:
                                        Dim1 = n,
                                        p = dim2,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = True,
                                        allReduce = False)
                #To calculate grad(wt), partally gather weght matrix (W) across row within one column after MM
@@ -736,6 +803,7 @@ class TimeCalculation:
                                        Dim1 = k,
                                        p = dim2,
                                        ib = self.IBK,
+                                       ll = self.LLK,
                                        partial = False,
                                        allReduce = False)
 
@@ -975,7 +1043,7 @@ class TimeCalculation:
 
     def getEmbedding_f(self):
         embedding_mem = 2 * (self.miniB * self.D * self.S * self.precision)
-        embedding_time = (embedding_mem)/ (self.mem_bw) + mem_latency + self.O
+        embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         if self.debug:
             print("Embedding_mem: {:,}".format(int(embedding_mem/G)))
         return embedding_time
@@ -983,10 +1051,10 @@ class TimeCalculation:
 
     def getEmbedding_b(self):
         p2p_data_transfer = (self.precision * self.miniB * self.D * self.S)
-        data_transfer_time  = 0 if (self.dp == 1) else (((p2p_data_transfer) / self.IBD + self.ll) * 2 * (self.dp -1 )) 
+        data_transfer_time  = 0 if (self.dp == 1) else (((p2p_data_transfer) / self.IBD + self.LLD) * 2 * (self.dp -1 )) 
         
         embedding_mem = 2 * self.miniB * self.D * self.S * self.precision
-        embedding_mem_time = (embedding_mem / self.mem_bw) + mem_latency + self.O
+        embedding_mem_time = (embedding_mem / self.mem_bw) + self.mem_latency + self.O
 
 
         if self.debug:
@@ -1062,7 +1130,6 @@ class TimeCalculation:
         embedding_b = self.getEmbedding_b()
 
         lp = self.lp
-        hlp = self.hlp
         kp_hidden_dim1 = self.kp_hidden_dim1
         kp_hidden_dim2 = self.kp_hidden_dim2
         kp_softmax_dim1 = self.kp_softmax_dim1
@@ -1080,7 +1147,7 @@ class TimeCalculation:
         #as of now I return the minimum required assuming other layers
         #can fit in hidden layer memory.This might or might not be true
         embedding_gpu = kp_embedding_dim1 * kp_embedding_dim2 * dp
-        hidden_gpu = hlp * kp_hidden_dim1 * kp_hidden_dim2 * dp
+        hidden_gpu = lp * kp_hidden_dim1 * kp_hidden_dim2 * dp
         projection_gpu = kp_projection_dim1 * kp_projection_dim2 * dp
         softmax_gpu = kp_softmax_dim1 * kp_softmax_dim2 * dp
 
@@ -1089,10 +1156,9 @@ class TimeCalculation:
         #print("th: {}Tflops, mem_bw: {}GB/s, mem_size: {}GB, L2_bw: {}GB/s, L2_size: {}MB"
         #      .format(self.th/1e12 * tot_gpu, self.mem_bw/1e9 * tot_gpu, self.mem_size/1e9 * tot_gpu, self.L2_bw/1e9 * tot_gpu, self.L2_size/1e6 * tot_gpu))
         if self.debug:
-          print("dp: {}, lp: {}, hlp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}, kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding_dim1: {}, kp_embedding_dim2: {},  kp_hidden_type: {}, kp_softmax_type: {}, kp_embedding_type: {}\n".
+          print("dp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}, kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding_dim1: {}, kp_embedding_dim2: {},  kp_hidden_type: {}, kp_softmax_type: {}, kp_embedding_type: {}\n".
                 format(dp, 
                        lp, 
-                       hlp, 
                        kp_hidden_dim1, 
                        kp_hidden_dim2, 
                        kp_softmax_dim1, 
@@ -1125,28 +1191,28 @@ class TimeCalculation:
 
         #TODO: This part makes it specific to stack of RNNs
         #Replce it with critical path analysis in a given graph
-        if (W <= (Cf * L / hlp)):
+        if (W <= (Cf * L / lp)):
           if (Cb >= R):
-            time += ((L + L/hlp * (S - 1)) * Cf + W * (hlp - 1) +
-                     (L + L/hlp * (S - 1)) * Cb + W * (hlp - 1) + R)
+            time += ((L + L/lp * (S - 1)) * Cf + W * (lp - 1) +
+                     (L + L/lp * (S - 1)) * Cb + W * (lp - 1) + R)
           else:
-            time += ((L + L/hlp * (S - 1)) * Cf + W * (hlp - 1) + 
-                    (L + L/hlp * (S - 2) + 1) * Cb + R * (L/hlp))
+            time += ((L + L/lp * (S - 1)) * Cf + W * (lp - 1) + 
+                    (L + L/lp * (S - 2) + 1) * Cb + R * (L/lp))
         
-        elif (W >= (Cb * L / hlp)):
+        elif (W >= (Cb * L / lp)):
           if (Cb >= R):
-            time += (L * Cf + (S + hlp - 2) * W + 
-                    L * Cb + (S + hlp - 2) * W + R)
+            time += (L * Cf + (S + lp - 2) * W + 
+                    L * Cb + (S + lp - 2) * W + R)
           else:
-            time += (L * Cf + (S + hlp - 2) * W + 
-                    (L - L/hlp + 1) * Cb + (S + hlp - 2) * W + (L/hlp) * R)
+            time += (L * Cf + (S + lp - 2) * W + 
+                    (L - L/lp + 1) * Cb + (S + lp - 2) * W + (L/lp) * R)
         else:
           if (Cb >= R):
-            time += (L * Cf + (S + hlp - 2) * W +
-                    (L + L/hlp * (S - 1)) * Cb + W * (hlp - 1) + R)
+            time += (L * Cf + (S + lp - 2) * W +
+                    (L + L/lp * (S - 1)) * Cb + W * (lp - 1) + R)
           else:
-            time += (L * Cf + (S + hlp - 2) * W +
-                    (L + L/hlp * (S - 2) + 1) * Cb + R * (L/hlp))
+            time += (L * Cf + (S + lp - 2) * W +
+                    (L + L/lp * (S - 2) + 1) * Cb + R * (L/lp))
         
         
         self.tot_time = time

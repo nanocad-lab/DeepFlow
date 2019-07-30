@@ -9,23 +9,86 @@ model_param:
     num_non_linear: 5
     num_add: 8 
 
-arch_param:
+sw_param:
     kernel_launch_overhead: 37e-6
     precision: 4
 
 tech_param:
-    DRAM_energy_per_bit_trans: 6e-12
-    L2_energy_per_bit: 5e-15
-    shared_mem_energy_per_bit: 1e-15
-    core_energy_per_flop: 119e-13
-    internode_energy_per_bit: 10e-12
-    HBM_stack_capacity: 4 GB
-    HBM_stack_bw: 225 GB/s
-    L2_bank_capacity: 32 KB
-    L2_bank_bw: 4000 GB/s
-    shared_mem_bank_capacity: 32 KB 
-    shared_mem_bank_bw: 4000 GB/s 
-    line_latency: 16e-7 
+    core:
+        nominal_energy_per_mcu: 1e-11
+        nominal_flop_rate_per_mcu: 42
+        nominal_area_per_mcu: 0.9
+        nominal_frequency: 1.38e9
+        nominal_voltage: 1 
+        operating_frequency: 1.38e9 
+        operating_voltage: 1
+        operating_area_per_mcu: 0.9
+        num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
+    DRAM:
+        dynamic_energy_per_bit: 6e-12
+        static_power_per_bit: 0
+        area_per_bit: 11e-10 #mm2
+        stack_bandwidth: 225 GB/s
+        stack_capacity: 4 GB
+        latency: 50e-9 
+    L2:
+        dynamic_energy_per_bit: 2.28e-15
+        static_power_per_bit: 0
+        area_per_bit: 3e-8 #mm2
+        bank_bandwidth: 4000 GB/s
+        bank_capacity: 32 KB
+        controller_area_per_link: 1e-3 #mm2 
+        latency: 0 
+    shared_mem:
+        dynamic_energy_per_bit: 2e-15
+        static_power_per_bit: 0
+        area_per_bit: 2e-8 #mm2
+        bank_bandwidth: 4 TB/s
+        bank_capacity: 32 KB
+        controller_area_per_link: 1e-3 #mm2 
+        latency: 0
+    reg_mem:
+        dynamic_energy_per_bit: 2e-15
+        static_power_per_bit: 0
+        area_per_bit: 1e-8 #mm2
+        bank_bandwidth: 8 TB/s
+        bank_capacity: 64 KB
+        controller_area_per_link: 1e-3 #mm2 
+        latency: 0 
+    network:
+        intra_node:
+          topology: "torus"
+          latency: 16e-7 
+          nominal_frequency: 7.5e9
+          nominal_voltage: 1
+          nominal_energy_per_link: 10e-12
+          #nominal_area_per_link: 1
+          operating_frequency: 7.5e9
+          operating_voltage: 1
+          num_links_per_mm: 1
+          parallelMap: data, layer, kernel
+        inter_node:
+          topology: "torus"
+          latency: 16e-7
+          nominal_frequency: 7.5e9
+          nominal_voltage: 1
+          nominal_energy_per_link: 10e-12
+          #nominal_area_per_link: 1
+          operating_frequency: 7.5e9
+          operating_voltage: 1
+          num_links_per_mm: 
+          parallelMap:  
+
+area_breakdown:
+    area_budget: 815 #mm2
+    core: 0.3
+    DRAM: 0.2
+    L2: 0.3
+    shared_mem: 0.1
+    reg_mem: 0.5
+    network:
+      intra_node: 0.1
+      inter_node: 0
 
 power_breakdown:
     TDP: 300
@@ -33,14 +96,15 @@ power_breakdown:
     DRAM: 0.155
     L2: 0.05
     shared_mem: 0.028
-    IB: 0.2
+    reg_mem: 0.15
+    network:
+      intra_node: 0.2
+      inter_node: 0
 
 scheduling_param:
     auto: False 
-    topology: ring
-    dp: 1
+    dp: 2
     lp: 1
-    hlp: 1 #FIXME: should not be here, should be calculated based on hidden_dim1 and dim2
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1
     kp_softmax_dim1: 1
