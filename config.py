@@ -134,6 +134,14 @@ class NetworkPowerConfig:
 
     self.intra_node = config_dict['intra_node']
 
+class SystemHierarchyConfig:
+  def __init__(self, config_dict):
+    #A node is an accelerator which can itself be composed of many single cores
+    #This number does not say anything about number of cores within an accelerator.
+    #It is the number of accelerators per wafer.
+    self.num_nodes_per_wafer =  config_dict['num_nodes_per_wafer'] 
+
+
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
                           "num_layers", "layer_size", "seq_len", "projection", 
                           "num_gates", "num_non_linear", "num_add"])
@@ -159,7 +167,7 @@ SchedulingConfig = _namedtuple("scheduling_param", ["auto",
 
 FullConfig = _namedtuple("FullConfig",["model_config", "sw_config",
                          "tech_config", "power_breakdown", "sch_config", 
-                         "area_breakdown"])
+                         "area_breakdown", "system_config"])
 
 def convert(d):
   for key1, val1 in d.items():
@@ -219,7 +227,9 @@ def parse_config(filename):
   tech_config = TechConfig(config_dict['tech_param'])
   power_config = PowerBreakdownConfig(config_dict['power_breakdown'])
   area_config = AreaBreakdownConfig(config_dict['area_breakdown'])
+  system_config = SystemHierarchyConfig(config_dict['system_hierarchy'])
 
   return FullConfig(model_config=model_config, sw_config=sw_config, 
                     sch_config=sch_config, tech_config=tech_config, 
-                    power_breakdown=power_config, area_breakdown=area_config)
+                    power_breakdown=power_config, area_breakdown=area_config,
+                    system_config=system_config)

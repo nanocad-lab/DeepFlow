@@ -3,6 +3,10 @@ import math
 import util
 from topology import Topology
 
+class System:
+  def __init__(self, exp_config):
+      self.num_nodes_per_wafer      = exp_config.system_hierarchy.num_nodes_per_wafer
+
 class Base:  
   def __init__(self, exp_config):
       self.exp_config               = exp_config

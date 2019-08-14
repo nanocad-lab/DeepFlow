@@ -103,6 +103,9 @@ power_breakdown:
       intra_node: 0.2
       inter_node: 0
 
+system_hierarchy:
+  num_nodes_per_wafer: 128
+    
 scheduling_param:
     auto: False 
     dp: 2
