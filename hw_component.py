@@ -7,7 +7,7 @@ class Base:
   def __init__(self, exp_config):
       self.exp_config               = exp_config
       self.precision                = exp_config.sw_config.precision
-      self.area_budget              = exp_config.area_breakdown.area_budget
+      self.proc_chip_area_budget    = exp_config.area_breakdown.proc_chip_area_budget
       self.TDP                      = exp_config.power_breakdown.TDP
       self.throughput               = -1
   def calcThroughput(self):
@@ -39,7 +39,7 @@ class Core(Base):
   def __init__(self, exp_config):
       super().__init__(exp_config)
       self.tot_power                    = exp_config.power_breakdown.core * self.TDP
-      self.tot_area                     = exp_config.area_breakdown.core * self.area_budget
+      self.tot_area                     = exp_config.area_breakdown.core * self.proc_chip_area_budget
       
       self.nominal_voltage              = exp_config.tech_config.core.nominal_voltage
       self.nominal_freq                 = exp_config.tech_config.core.nominal_frequency
@@ -49,9 +49,11 @@ class Core(Base):
       self.nominal_energy_per_mcu       = exp_config.tech_config.core.nominal_energy_per_mcu
       
       self.operating_voltage            = exp_config.tech_config.core.operating_voltage
+
+      self.threshold_voltage            = exp_config.tech_config.core.threshold_voltage
       #Assumption: frequency scales linearly with voltage
-      self.operating_freq               = (self.nominal_freq * self.operating_voltage / 
-                                           self.nominal_voltage)
+      #SP: Changed the frequency scaling model to the non-linear one. F ~ (Vdd-Vth)^2/Vdd
+      self.operating_freq               = (self.nominal_freq * (self.operating_voltage - self.threshold_voltage)**2 * self.nominal_voltage / (self.operating_voltage * (self.nominal_voltage- self.threshold_voltage)**2))
       self.operating_area_per_mcu       = exp_config.tech_config.core.operating_area_per_mcu
       self.num_mcu_per_bundle           = exp_config.tech_config.core.num_mcu_per_bundle
       self.num_mcu                      = self.tot_area // self.operating_area_per_mcu
@@ -67,10 +69,11 @@ class Core(Base):
       self.nominal_energy_per_flop      = (self.nominal_energy_per_mcu / 
                                            self.nominal_flop_rate_per_mcu)
       #Assumption: energy per flop does not scale with mcu area
-      #TODO: @Saptadeep: does this assumption make sense?
+      #TODO: @Saptadeep: does this assumption make sense? SP: Yes, but I am not sure if we want to change area per MCU as it usually doesn't change with voltage or frequency. 
+
+      #Changed energy per flop scaling model to be proportional to square of voltage
       self.energy_per_flop              = (self.nominal_energy_per_flop * 
-                                           (self.operating_voltage / self.nominal_voltage) * 
-                                           (self.operating_freq / self.nominal_freq))
+                                           ((self.operating_voltage / self.nominal_voltage)**2))
   def calcThroughput(self):
       self.nominal_throughput           = min(self.tot_power / self.energy_per_flop, 
                                               self.operating_flop_rate_per_mcu * self.operating_freq * self.num_mcu)
@@ -80,12 +83,13 @@ class DRAM(Memory):
   def __init__(self, exp_config):
       super().__init__(exp_config)
       self.tot_power                  = exp_config.power_breakdown.DRAM * self.TDP
-      self.tot_area                   = exp_config.area_breakdown.DRAM * self.area_budget
+      self.tot_area                   = exp_config.area_breakdown.node_area_budget - self.proc_chip_area_budget
       self.dynamic_energy_per_byte    = exp_config.tech_config.DRAM.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = exp_config.tech_config.DRAM.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.DRAM.area_per_bit * 8
       self.stack_bw                   = exp_config.tech_config.DRAM.stack_bw
       self.stack_capacity             = exp_config.tech_config.DRAM.stack_capacity
+      self.area_per_stack             = exp_config.tech_config.DRAM.area_per_stack
       self.latency                    = exp_config.tech_config.DRAM.latency
 
       
@@ -112,6 +116,8 @@ class DRAM(Memory):
       self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       self.size                       = min((self.nominal_throughput / self.stack_bw) * self.stack_capacity,
                                                self.cell_area / self.area_per_byte)
+      self.size                       = self.tot_area//self.area_per_stack * self.stack_capacity
+
   def calcTileDim(self):
       self.tile_dim = 0
       if (self.size > 0):
@@ -122,7 +128,7 @@ class L2(Memory):
   def __init__(self, exp_config):
       super().__init__(exp_config)
       self.tot_power                  = exp_config.power_breakdown.L2 * self.TDP
-      self.tot_area                   = exp_config.area_breakdown.L2 * self.area_budget
+      self.tot_area                   = exp_config.area_breakdown.L2 * self.proc_chip_area_budget
       self.dynamic_energy_per_byte    = exp_config.tech_config.L2.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = exp_config.tech_config.L2.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.L2.area_per_bit * 8
@@ -170,7 +176,7 @@ class SharedMem(Memory):
   def __init__(self, exp_config):
       super().__init__(exp_config)
       self.tot_power                  = exp_config.power_breakdown.shared_mem * self.TDP
-      self.tot_area                   = exp_config.area_breakdown.shared_mem * self.area_budget
+      self.tot_area                   = exp_config.area_breakdown.shared_mem * self.proc_chip_area_budget
       self.dynamic_energy_per_byte    = exp_config.tech_config.shared_mem.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = exp_config.tech_config.shared_mem.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.shared_mem.area_per_bit * 8
@@ -218,7 +224,7 @@ class RegMem(Memory):
   def __init__(self, exp_config):
       super().__init__(exp_config)
       self.tot_power                  = exp_config.power_breakdown.reg_mem * self.TDP
-      self.tot_area                   = exp_config.area_breakdown.reg_mem * self.area_budget
+      self.tot_area                   = exp_config.area_breakdown.reg_mem * self.proc_chip_area_budget
       self.dynamic_energy_per_byte    = exp_config.tech_config.reg_mem.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = exp_config.tech_config.reg_mem.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.reg_mem.area_per_bit * 8
@@ -315,7 +321,7 @@ class SubNetwork(Base):
   def __init__(self, exp_config, net_config, power_breakdown, area_breakdown):
       super().__init__(exp_config)
       self.tot_power                  = power_breakdown * self.TDP
-      self.tot_area                   = area_breakdown  * self.area_budget
+      self.tot_area                   = area_breakdown  * self.proc_chip_area_budget
       self.topology                   = Topology(net_config, exp_config)
       self.latency                    = net_config.latency
       self.nominal_freq               = net_config.nominal_freq
@@ -333,8 +339,7 @@ class SubNetwork(Base):
 
   def calcEnergyPerBit(self):
       self.operating_energy_per_link  = (self.nominal_energy_per_link * 
-                                         (self.operating_freq / self.nominal_freq) *
-                                         (self.operating_voltage / self.nominal_voltage))
+                                         (self.operating_voltage / self.nominal_voltage)**2)
       energy_per_bit                  = self.operating_energy_per_link
       return energy_per_bit
 
@@ -343,7 +348,7 @@ class SubNetwork(Base):
         throughput                = 0
       else:
         self.power_per_p2p2_connection = self.tot_power / self.topology.num_links
-        node_width                     = math.sqrt(self.area_budget)
+        node_width                     = math.sqrt(self.proc_chip_area_budget)
         throughput                     = min(self.power_per_p2p2_connection / self.energy_per_bit,
                                              (node_width *
                                               self.num_links_per_mm *

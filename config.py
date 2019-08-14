@@ -10,6 +10,7 @@ class CoreConfig:
     self.nominal_area_per_mcu = core_config_dict['nominal_area_per_mcu']
     self.nominal_frequency = core_config_dict['nominal_frequency']
     self.nominal_voltage = core_config_dict['nominal_voltage']
+    self.threshold_voltage = core_config_dict['threshold_voltage']
     self.operating_frequency = core_config_dict['operating_frequency']
     self.operating_voltage = core_config_dict['operating_voltage']
     self.operating_area_per_mcu = core_config_dict['operating_area_per_mcu']
@@ -22,6 +23,7 @@ class DRAMConfig:
     self.area_per_bit = mem_config_dict['area_per_bit']
     self.stack_capacity = mem_config_dict['stack_capacity']
     self.stack_bw = mem_config_dict['stack_bandwidth']
+    self.area_per_stack = mem_config_dict['area_per_stack']
     self.latency = mem_config_dict['latency']
 
 class L2Config:
@@ -98,12 +100,13 @@ class TechConfig:
 
 class AreaBreakdownConfig:
   def __init__(self, config_dict):
-    self.area_budget = config_dict['area_budget']
+    self.proc_chip_area_budget = config_dict['proc_chip_area_budget']
     self.core = config_dict['core']
-    self.DRAM = config_dict['DRAM']
+    #self.DRAM = config_dict['DRAM']
     self.L2 = config_dict['L2']
     self.shared_mem = config_dict['shared_mem']
     self.reg_mem = config_dict['reg_mem']
+    self.node_area_budget = config_dict['node_area_budget']
     self.network = NetworkAreaConfig(config_dict['network'])
 
 class NetworkAreaConfig:

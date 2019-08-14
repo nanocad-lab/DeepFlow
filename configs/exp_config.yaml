@@ -20,16 +20,18 @@ tech_param:
         nominal_area_per_mcu: 0.9
         nominal_frequency: 1.38e9
         nominal_voltage: 1 
-        operating_frequency: 1.38e9 
+        operating_frequency: 1.38e9
+        threshold_voltage: 0.25 
         operating_voltage: 1
-        operating_area_per_mcu: 0.9
+        operating_area_per_mcu: 1
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
-        dynamic_energy_per_bit: 6e-12
+        dynamic_energy_per_bit: 3.6e-12
         static_power_per_bit: 0
         area_per_bit: 11e-10 #mm2
         stack_bandwidth: 225 GB/s
         stack_capacity: 4 GB
+        area_per_stack: 100 #mm2
         latency: 50e-9 
     L2:
         dynamic_energy_per_bit: 2.28e-15
@@ -65,7 +67,7 @@ tech_param:
           #nominal_area_per_link: 1
           operating_frequency: 7.5e9
           operating_voltage: 1
-          num_links_per_mm: 1
+          num_links_per_mm: 100
           parallelMap: data, layer, kernel
         inter_node:
           topology: "torus"
@@ -76,19 +78,19 @@ tech_param:
           #nominal_area_per_link: 1
           operating_frequency: 7.5e9
           operating_voltage: 1
-          num_links_per_mm: 
+          num_links_per_mm: 40
           parallelMap:  
 
 area_breakdown:
-    area_budget: 815 #mm2
+    proc_chip_area_budget: 815 #mm2
     core: 0.3
-    DRAM: 0.2
     L2: 0.3
     shared_mem: 0.1
     reg_mem: 0.5
     network:
       intra_node: 0.1
       inter_node: 0
+    node_area_budget: 1230 #mm2
 
 power_breakdown:
     TDP: 300
