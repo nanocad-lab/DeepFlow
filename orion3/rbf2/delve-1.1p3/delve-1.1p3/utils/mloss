@@ -1,0 +1,977 @@
+#! /bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: mloss,v 1.24.2.17 1996/11/12 16:50:21 revow Exp $
+#
+# This script evaluates the performance of a learning algorithm on a
+# number of test instances. It generates "loss" and "prediction"
+# files.  For a full description of what this means, see the "delve"
+# documentation.
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+#		overlapping delve directory hierarchy.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1995-1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Parse the environment variables and the command line. Set up the
+# "usage" variable so we can give meaningful error messages.
+#
+# The procedure "parseOptiosn" leaves all options in the array
+# named $optionsName.
+# ----------------------------------------------------------------------
+
+set options(loss)	"A L Q S Z" ;
+set options(instances)	"all"
+set options(cpFile)	"cpred" ;
+set options(pFile)	"pred" ;
+set options(lFile)	"loss" ;
+
+set usage "usage: [file tail $argv0] \[ options \] \[ path \]
+    Where 'options' are:
+	-d	Turn on error stack traces for debugging.
+	-h	Print this help message.
+	-i list	Set the list of instances to calculate the loss for.
+	-l list	Set the loss functions to be calculated to 'list'.
+	-q       Run quietly.
+
+    And 'path' is:
+	The true path of a method's dataset, prototask, or task
+	directory in which to generate loss files.  If 'path' is not
+	specified, it defaults to the current working directory.
+
+        Prediction files have the root names 'guess', 'prob' or 'ptarg',
+	and may optionally have an extension specifying the loss
+	measure to be used (A, S, Z, Q or L) and a mandatory extension
+	giving the instance number. Files of the 'guess' and 'ptarg'
+	forms may have a leading 'c' indicating that the predictions
+	are made in the coded domain. Files of the 'prob' and 'ptarg'
+	forms may have a leading 'l' indicating that the probabilities
+	(or densities) are given in the log domain.
+
+	Decoded file are named in a similar manner without the initial
+	'c'.  Loss files are named 'loss.l.n'.  The default loss
+	functions are '$options(loss)'."
+
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ![lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -d		{ delve_debug 1 }
+	    -h		{ puts "$usage" ; exit 0 }
+	    -i		{ set options(instances) [lpop list] }
+	    -l		{
+		regsub -all "\[ \t]" [lpop list] "" string ;
+		set options(loss) [split $string {}] ;
+	    }
+	   -q		{delve_quiet 1}
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    return $list ;
+}
+
+# ----------------------------------------------------------------------
+# Initializes the temporary file handling.  Makes sure "error" and
+# "exit" delete all the temporary files.
+# ----------------------------------------------------------------------
+
+proc initTmpFiles {} {
+    foreach cmd {error exit} {
+	rename $cmd ${cmd}_real ;
+	proc $cmd args "
+            global tmpFiles_priv ;
+            if \[info exists tmpFiles_priv] {
+	        funlink \[array names tmpFiles_priv] ;
+            }
+            eval ${cmd}_real \$args
+        "
+    }
+}
+
+# ----------------------------------------------------------------------
+# Marks "file" as a temporary file (for this session).  All temporary
+# files can be deleted by calling "cleanupTmpFiles" before exiting.
+# ----------------------------------------------------------------------
+
+proc tmpFile { file } {
+    global tmpFiles_priv ;
+    set tmpFiles_priv($file)	1 ;
+}
+
+# ----------------------------------------------------------------------
+# Normalizes a list of numbers and returns the resulting list ;
+# ----------------------------------------------------------------------
+
+proc normalize { list } {
+    set sum	[sum $list] ;
+    foreach value $list {
+	lappend result [expr { double($value)/$sum }] ;
+    }
+    return $result ;
+}
+
+# ----------------------------------------------------------------------
+# Decodes a guess file and returns the true path of the new file.  It
+# will only decode the file once per session.
+# ----------------------------------------------------------------------
+
+proc decodeFile { path fromFile toFile } {
+    global transformed ;
+
+    set cpath [m_cpath $path] ;
+
+    if { [m_file exists $cpath/$toFile]
+	 && [info exists transformed($cpath,$fromFile,$toFile)] } {
+	return [m_getFile $cpath/$toFile] ;
+    }
+
+    pwrap "  decoding $fromFile..." {
+	set tmpFile	decode.tmp
+	tmpFile $tmpFile ;
+
+	set fromFileId	[delve_openForRead [m_getFile $cpath/$fromFile]] ;
+	set toFileId	[open $path/$tmpFile w] ;
+	acdc_decodeFile	[m_info $cpath targets] $fromFileId $toFileId ;
+	close $fromFileId ;
+	close $toFileId ;
+
+	frename $path/$tmpFile $path/$toFile ;
+    }
+    set transformed($cpath,$fromFile,$toFile) 1 ;
+    m_getFile $cpath/$toFile ;
+}
+
+# ----------------------------------------------------------------------
+# Decodes a file containing the log probabilities of the target values
+# and returns the true path of the new file.  It will only decode the
+# file once per session.
+# ----------------------------------------------------------------------
+
+proc decodeLptargFile { path fromFile toFile } {
+    global transformed ;
+
+    set cpath [m_cpath $path] ;
+
+    if { [m_file exists $cpath/$toFile]
+	 && [info exists transformed($cpath,$fromFile,$toFile)] } {
+	return [m_getFile $cpath/$toFile] ;
+    }
+
+    pwrap "  decoding $fromFile..." {
+	set offset      0.0 ;
+	foreach attr [m_info $cpath targets] {
+	    switch -- [acdc_method $attr] {
+		"nm-abs" { set dev [acdc_options $attr -absDev] }
+		"nm-sqr" { set dev [acdc_options $attr -stdDev] }
+		default {
+		    error "can't decode the log probability of \"[acdc_method $attr]\" encoded attribute \"$attr\"" ;
+		}
+	    }
+	    set offset   [expr { $offset + log($dev) }] ;
+	}
+    
+	set tmpFile	decode.tmp
+	tmpFile $tmpFile ;
+
+	set fromFileId	[delve_openForRead [m_getFile $cpath/$fromFile]] ;
+	set toFileId	[open $path/$tmpFile w] ;
+	set lineNum	0 ;
+	while { [gets $fromFileId line] >= 0 } {
+	    if { [llength $line] != 1 } {
+		error "wrong \# of values in log probability file, line $lineNum" ;
+	    }
+	    puts $toFileId [expr { $line - $offset }] ;
+	    incr lineNum ;
+	}
+	close $fromFileId ;
+	close $toFileId ;
+
+	frename $path/$tmpFile $path/$toFile ;
+    }
+    set transformed($cpath,$fromFile,$toFile) 1 ;
+    m_getFile $cpath/$toFile ;
+}
+
+# ----------------------------------------------------------------------
+# Decodes a file containing the probabilities of the target values and
+# returns the true path of the new file.  It will only decode the file
+# once per session.
+# ----------------------------------------------------------------------
+
+proc decodePtargFile { path fromFile toFile } {
+    global transformed ;
+
+    set cpath [m_cpath $path] ;
+
+    if { [m_file exists $cpath/$toFile]
+	 && [info exists transformed($cpath,$fromFile,$toFile)] } {
+	return [m_getFile $cpath/$toFile] ;
+    }
+
+    pwrap "  decoding $fromFile..." {
+	set denominator      1.0 ;
+	foreach attr [m_info $cpath targets] {
+	    switch -- [acdc_method $attr] {
+		"nm-abs" { set dev [acdc_options $attr -absDev] }
+		"nm-sqr" { set dev [acdc_options $attr -stdDev] }
+		default  {
+		    error "can't decode the probability of \"[acdc_method $attr]\" encoded attribute \"$attr\"" ;
+		}
+	    }
+	    set denominator	[expr { $denominator*$dev }] ;
+	}
+
+	set tmpFile	decode.tmp
+	tmpFile $tmpFile ;
+
+	set fromFileId	[delve_openForRead [m_getFile $cpath/$fromFile]] ;
+	set toFileId	[open $path/$tmpFile w] ;
+	set lineNum	0 ;
+	while { [gets $fromFileId line] >= 0 } {
+	    if { [llength $line] != 1 } {
+		error "wrong \# of values in probability file, line $lineNum" ;
+	    }
+	    puts $toFileId [expr { $line/$denominator }] ;
+	    incr lineNum ;
+	}
+	close $fromFileId ;
+	close $toFileId ;
+
+	frename $path/$tmpFile $path/$toFile ;
+    }
+    set transformed($cpath,$fromFile,$toFile) 1 ;
+    m_getFile $cpath/$toFile ;
+}
+
+# ----------------------------------------------------------------------
+# Converts a file containing all of the probabilities to on just
+# containning the targets.  It will only decode the file once per
+# session. If log is true, the normalization will assume that all of
+# thee prob file contains log probabilities.
+# ----------------------------------------------------------------------
+
+proc convertProbToPtarg { path targetFile probFile ptargFile {log 0} } {
+    global transformed ;
+
+    set cpath [m_cpath $path] ;
+
+    if { [m_file exists $cpath/$ptargFile]
+	 && [info exists transformed($cpath,$probFile,$ptargFile)] } {
+	return [m_getFile $cpath/$ptargFile] ;
+    }
+
+    pwrap "  extracting target probabilities from $probFile..." {
+	#
+	# Save the number of target values, the values in each range, plus
+	# the range itself for use on each line of the files.
+	#
+	
+	set numProbs	0 ;
+	set numTargets	0 ;
+	foreach attr [m_info $cpath targets] {
+	    set range($numTargets)	{} ;
+	    foreach element [acdc_options $attr -range] {
+		if { [string compare [range type $element] "enumerated"] } {
+		    eval lappend range($numTargets)     [range list $element] ;
+		} else {
+		    lappend range($numTargets) $element ;
+		}
+	    }
+	    set rangeLen($numTargets)  [llength $range($numTargets)] ;
+	    set rangeLenm($numTargets) [expr { $rangeLen($numTargets) - 1 }] ;
+	    incr numProbs	$rangeLen($numTargets) ;
+	    incr numTargets ;
+	}
+	
+	# 
+	# Set up the command for extracting the particular probability
+	#
+	
+	if $log {
+	    set extractCmd {
+		set lprobList	$probList ;
+		set max		[eval max $lprobList] ;
+		set probList	{} ;
+		foreach lprob $lprobList {
+		    lappend probList	[expr exp($lprob-$max)] ;
+		}
+		expr { log([lindex $probList $tidx]/[sum $probList]) }
+	    }
+	} else {
+	    set extractCmd {
+		expr { [lindex $probList $tidx]/double([sum $probList]) } ;
+	    }
+	}
+	
+	# 
+	# Break out of the loop on the first end of file
+	#
+	
+	set targetFileId	[delve_openForRead $targetFile] ;
+	set probFileId		[delve_openForRead $probFile] ;
+	set ptargFileId		[open $ptargFile w] ;
+	set lineNum		0 ;
+	while { [gets $probFileId line(prob)] >= 0
+		&& [gets $targetFileId line(target)] >= 0 } {
+	    incr lineNum ;
+	    
+	    if { [llength $line(target)] != $numTargets } {
+		error "wrong \# of values in target file at line $lineNum ($numTargets)"
+	    }
+	    if { [llength $line(prob)] != $numProbs } {
+		error "wrong \# of values in probability file at line $lineNum"
+	    }
+	    
+	    set result	{} ;
+	    for { set idx 0 } { $idx < $numTargets } { incr idx } {
+		# 
+		# For each target attribute, pop the target value and the
+		# probabilities off their respective lines, then add the
+		# correctly normalized value for the target to the result.
+		#
+		
+		set tidx	[lsearch $range($idx) [lpop line(target)]] ;
+		if { $tidx < 0 } {
+		    error "value out of range in target file at line $lineNum"
+		}
+		
+		set probList	[lrange $line(prob) 0 $rangeLenm($idx)] ;
+		lappend result	[eval $extractCmd] ;
+	    }
+	    puts $ptargFileId $result ;
+	}
+	
+	if { ![eof $probFileId] || [gets $targetFileId line(target)] >= 0 } {
+	    error "probability and target files don't have the same number of lines"
+	}
+	close $probFileId ;
+	close $targetFileId ;
+	close $ptargFileId ;
+    }
+    set transformed($cpath,$probFile,$ptargFile) 1 ;
+    m_getFile $cpath/$ptargFile ;
+}
+
+
+# ----------------------------------------------------------------------
+# Converts an lprob file to a prob file.  Does NO NORMALIZATION, but
+# does avoid overflow.  It will only transform the file once per
+# session.
+# ----------------------------------------------------------------------
+
+proc convertLprobToProb { path fromFile toFile } {
+    global transformed ;
+    
+    set cpath [m_cpath $path] ;
+    
+    if { [m_file exists $cpath/$toFile]
+	 && [info exists transformed($cpath,$fromFile,$toFile)] } {
+	return [m_getFile $cpath/$toFile] ;
+    }
+    
+    pwrap "  exponentiating values in $fromFile..." {
+	#
+	# Save the number of probabilites and the length of the ranges.
+	#
+	
+	set numProbs	0 ;
+	set numTargets	0 ;
+	foreach attr [m_info $cpath targets] {
+	    set range	{} ;
+	    foreach element [acdc_options $attr -range] {
+		if { [string compare [range type $element] "enumerated"] } {
+		    eval lappend range     [range list $element] ;
+		} else {
+		    lappend range $element ;
+		}
+	    }
+	    set rangeLen($numTargets)  [llength $range] ;
+	    set rangeLenm($numTargets) [expr { $rangeLen($numTargets) - 1 }] ;
+	    incr numProbs	$rangeLen($numTargets) ;
+	    incr numTargets ;
+	}
+	
+	
+	set fromFileId	[delve_openForRead [m_getFile $cpath/$fromFile]] ;
+	set toFileId	[open $path/$toFile w] ;
+	set lineNum	0 ;
+	while { [gets $fromFileId line] >= 0 } {
+	    incr lineNum ;
+	
+	    if { [llength $line] != $numProbs } {
+		error "wrong \# of values in probability file at line $lineNum"
+	    }
+
+	    for { set idx 0 } { $idx < $numTargets } { incr idx } {
+		set lprobList	[lrange $line 0 $rangeLenm($idx)] ;
+		set max		[eval max $lprobList] ;
+		set probList	{} ;
+		foreach lprob $lprobList {
+		    lappend probList	[expr exp($lprob-$max)] ;
+		}
+		set line	[lrange $line $rangeLen($idx) end] ;
+	    }
+	    puts $toFileId $probList ;
+	}
+	close $fromFileId ;
+	close $toFileId ;
+    }
+    set transformed($cpath,$fromFile,$toFile) 1 ;
+    m_getFile $cpath/$toFile ;
+}
+    
+    
+# ----------------------------------------------------------------------
+# Performs a mathematical transformation on all values in a file.  It will
+# only transform the file once per session.
+# ----------------------------------------------------------------------
+    
+proc transformFile { conversion path fromFile toFile } {
+    global transformed ;
+
+   set failVal -1e10
+
+    set cpath [m_cpath $path] ;
+	
+    if { [m_file exists $cpath/$toFile]
+	 && [info exists transformed($cpath,$fromFile,$toFile)] } {
+	return [m_getFile $cpath/$toFile] ;
+    }
+	
+    pwrap "  taking $conversion of values in $fromFile..." {
+	set tmpFile	decode.tmp
+	tmpFile $tmpFile ;
+
+	set fromFileId	[delve_openForRead [m_getFile $cpath/$fromFile]] ;
+	set toFileId	[open $path/$tmpFile w] ;
+        set lineNo 0
+	while { [gets $fromFileId line] >= 0 } {
+	    set result	{} ;
+	   incr lineNo
+	    foreach value $line {
+	       if {[ catch {set res [expr "${conversion}($value)"]}] == 0} {
+		lappend result $res
+	       } else {
+		  puts "Warning - Infinite log loss on line $lineNo in $fromFile"
+		  lappend result $failVal
+	       }
+	    }
+	    puts $toFileId $result ;
+	}
+	close $fromFileId ;
+	close $toFileId ;
+
+	frename $path/$tmpFile $path/$toFile ;
+    }
+    set transformed($cpath,$fromFile,$toFile) 1 ;
+    m_getFile $cpath/$toFile ;
+}
+    
+    
+# ----------------------------------------------------------------------
+# Calculates a simple loss given the "cpath", the file id to write to,
+# the file id to read guesses from, and the file id to read targets
+# from.
+# ----------------------------------------------------------------------
+    
+proc doSimpleLoss { cpath measure guessFileId targetFileId  lossFileId } {
+    switch -exact $measure {
+	A { set lossCmd {expr { abs($guess - $target) }} }
+	S { set lossCmd {expr { ($guess-$target)*($guess-$target) }} }
+	Z { set lossCmd {expr { $guess != $target }} }
+	default {
+	    error "$measure is not a simple loss measure" ;
+	}
+    }
+
+    set numTargets	[llength [m_info $cpath targets]] ;
+    set lineNum	0 ;
+    while { [gets $guessFileId line(guess)] >= 0
+	    && [gets $targetFileId line(target)] >= 0 } {
+	incr lineNum ;
+	    
+	if { [llength $line(target)] != $numTargets } {
+	    error "wrong \# of values in target file at line $lineNum"
+	}
+	if { [llength $line(guess)] != $numTargets } {
+	    error "wrong \# of values in guess file at line $lineNum"
+	}
+	    
+	set list	{} ;
+	foreach guess $line(guess) {
+	    if { [string compare $guess "?"] == 0 } {
+		if { [string compare [m_info $cpath optional] {}] == 0 } {
+		    error "guesses are not optional, guess file, line $lineNum"
+		}
+		lappend list [m_info $cpath optional] ;
+	    } else {
+		set target [lpop line(target)] ;
+		lappend list [eval $lossCmd] ;
+	    }
+	}
+	puts $lossFileId [average $list] ;
+    }
+	
+    if { ![eof $guessFileId] || [gets $targetFileId line(target)] >= 0 } {
+	error "guess and target files don't have the same number of lines"
+    }
+}
+
+# ----------------------------------------------------------------------
+# Calculates the negative log probability loss given the "cpath", the
+# file id to write to and the file id to read log probabilities from.
+# ----------------------------------------------------------------------
+
+proc doNegLogProbLoss { cpath lpTargFileId lossFileId } {
+    set lineNum	0 ;
+    while { [gets $lpTargFileId line] >= 0 } {
+	incr lineNum ;
+	set list	{} ;
+	foreach lptarg $line {
+	    if { [string compare $lptarg "?"] == 0 } {
+		if { [string compare [m_info $cpath optional] {}] == 0 } {
+		    error "guesses are not optional, lptarg file, line $lineNum"
+		}
+		lappend list [m_info $cpath optional] ;
+	    } else {
+		lappend list [expr { -$lptarg }] ;
+	    }
+	}
+	puts $lossFileId [average $list] ;
+    }
+}
+
+# ----------------------------------------------------------------------
+# Calculates the "Q" loss given the "cpath", the file id to
+# write to, the file id to read probabilities from, and the file id to
+# read targets from.
+# ----------------------------------------------------------------------
+
+proc doSquaredProbLoss { cpath probFileId targetFileId lossFileId } {
+    #
+    # Save the number of target values, the values in each range, plus
+    # the range itself for use on each line of the files.
+    #
+    
+    set numProbs	0 ;
+    set numTargets	0 ;
+    foreach attr [m_info $cpath targets] {
+	set range($numTargets)	{} ;
+	foreach element [acdc_options $attr -range] {
+	    if { [string compare [range type $element] "enumerated"] } {
+		eval lappend range($numTargets)     [range list $element] ;
+	    } else {
+		lappend range($numTargets) $element ;
+	    }
+	}
+	set rangeLen($numTargets)  [llength $range($numTargets)] ;
+	set rangeLenm($numTargets) [expr { $rangeLen($numTargets) - 1 }] ;
+	incr numProbs	$rangeLen($numTargets) ;
+	incr numTargets ;
+    }
+    
+    # 
+    # Break out of the loop on the first end of file
+    #
+    
+    set lineNum	0 ;
+    while { [gets $probFileId line(prob)] >= 0
+	    && [gets $targetFileId line(target)] >= 0 } {
+	incr lineNum ;
+	
+	if { [llength $line(target)] != $numTargets } {
+	    error "wrong \# of values in target file at line $lineNum"
+	}
+	if { [llength $line(prob)] != $numProbs } {
+	    error "wrong \# of values in probability file at line $lineNum"
+	}
+	
+	set loss	0.0 ;
+	for { set idx 0 } { $idx < $numTargets } { incr idx } {
+	    # 
+	    # For each target attribute, pop the target value and the
+	    # probabilities off their respective lines, then add the
+	    # correctly normalized value for the target to the result.
+	    #
+	    
+	    set tidx		[lsearch $range($idx) [lpop line(target)]] ;
+	    if { $tidx < 0 } {
+		error "value out of range in target file at line $lineNum" ;
+	    }
+	    
+	    set probList	[normalize \
+				     [lrange $line(prob) 0 $rangeLenm($idx)]] ;
+	    set prob		[lindex $probList $tidx] ;
+	    set loss		[expr { $loss + (1.0-$prob)*(1.0-$prob) }] ;
+	    foreach prob [lreplace $probList $tidx $tidx] {
+		set loss	[expr { $loss + $prob*$prob }] ;
+	    }
+	    set line(prob)	[lrange $line(prob) $rangeLen($idx) end] ;
+	}
+	puts $lossFileId $loss ;
+    }
+    
+    if { ![eof $probFileId] || [gets $targetFileId line(target)] >= 0 } {
+	error "probability and target files don't have the same number of lines"
+    }
+}
+
+# ----------------------------------------------------------------------
+# Returns the extension to use for prediction files for a given loss
+# measure and instance.
+# ----------------------------------------------------------------------
+
+proc predFileExtension { cpath measure instance } {
+    switch $measure {
+	"A"	-
+	"S"	-
+	"Z"	{
+	    set regexp "c?guess.$measure.\[0-9]+" ;
+	}
+	"Q"	{
+	    set regexp "l?prob.$measure.\[0-9]+" ;
+	}
+	"L"	{
+	    set regexp "((l?prob)|(c?ptarg)|(c?lptarg)).$measure.\[0-9]+" ;
+	}
+    }
+    foreach file [m_readdir $cpath] {
+	if [regexp $regexp $file] {
+	    return $measure.$instance ;
+	}
+    }
+    return $instance ;
+}
+
+# ----------------------------------------------------------------------
+# Returns 1 if doing the given loss measure makes sense for the given
+# target attributes; 0 otherwise.
+# ----------------------------------------------------------------------
+
+proc lossAllowed { attrList lossChar } {
+    switch -glob $lossChar {
+	[AS]	{
+	    set allowed	[list real integer] ;
+	}
+	Z	{
+	    set allowed	[list binary ordinal nominal integer] ;
+	}
+	default	{
+	    set allowed	[list real binary ordinal nominal integer] ;
+	}
+    }
+    foreach list [eval acdc_list $attrList] {
+	set type	[lindex $list 0] ;
+	if { [lsearch $allowed $type] < 0 } {
+	    return 0 ;
+	}
+    }
+    return 1 ;
+}
+
+# ----------------------------------------------------------------------
+# The real "mloss". Does it for one task instance and one loss measure
+# only.
+# ----------------------------------------------------------------------
+
+proc mloss1 { path measure instance } {
+    #
+    # The delve path to find files in.
+    #
+    
+    set cpath [m_cpath $path] ;
+    
+    #
+    # Load in the normalization constants used to encode the
+    # attributes. 
+    #
+    
+    set regexp \
+	{^normalization options ((mean)|(stdDev)|(median)|(absDev)) (.*) (.*)}
+    for_file line [m_getFile $cpath/normalize.$instance] {
+	if [regsub $regexp $line {acdc_options \6 -\1 \7} new] {
+	    eval $new ; 
+	} else {
+	    error "unknown line in $cpath/normalize.$instance: \"$line\"" ;
+	}
+    }
+
+    #
+    # Before we go start generating loss files, find out if we are
+    # supposed to be using the loss specific prediction files, or the
+    # generic ones.  Set the extension for the prediction files based
+    # on that.
+    #
+    
+    set ext [predFileExtension $cpath $measure $instance] ;
+
+    #
+    # Now the big switch used to get the prediction files and generate
+    # the loss files.  Use a temporary file to hold the decoded
+    # prediction files and loss files while being generated so we
+    # don't over-write files if input files are corrupted.
+    #
+
+    switch $measure {
+	"A"	-
+	"S"	-
+	"Z"	{
+	    if { [m_file exists $cpath/cguess.$ext] } {
+		set guessFile [decodeFile $path cguess.$ext guess.$ext] ;
+	    } elseif { [m_file exists $cpath/guess.$ext] } {
+		set guessFile [m_getFile $cpath/guess.$ext]
+	    } else {
+		return ;
+	    }
+
+	    set targetFile [decodeFile $path targets.$instance \
+ 				targets.$instance.tmp] ;
+	    tmpFile $targetFile ;
+	    
+	    pwrap "  creating loss.$measure.$instance..." {
+		set tmpFile	loss.tmp
+		tmpFile $tmpFile ;
+
+		set guessFid	[delve_openForRead $guessFile] ;
+		set targetFid	[delve_openForRead $targetFile] ;
+		set lossFid	[open $path/$tmpFile w] ;
+
+		doSimpleLoss $cpath $measure $guessFid $targetFid $lossFid ;
+
+		close $lossFid ;
+		close $guessFid ;
+		close $targetFid ;
+
+		frename $path/$tmpFile $path/loss.$measure.$instance ;
+	    }
+	}
+	
+	"Q"	{
+	    if { [m_file exists $cpath/prob.$ext] } {
+		if { [m_file exists $cpath/lprob.$ext] } {
+		    error "both \"prob.$ext\" and \"lprob.$ext\" exist\""
+		}
+		set probFile [m_getFile $cpath/prob.$ext] ;
+	    } elseif { [m_file exists $cpath/lprob.$ext] } {
+		set probFile [convertLprobToProb $path \
+				  lprob.$ext prob.$ext.tmp] ;
+		tmpFile $probFile ;
+	    } else {
+		return ;
+	    }
+
+	    set targetFile [decodeFile $path targets.$instance \
+				targets.$instance.tmp] ;
+	    tmpFile $targetFile ;
+	    
+	    pwrap "  creating loss.$measure.$instance..." {
+		set tmpFile	loss.tmp
+		tmpFile $tmpFile ;
+
+		set probFid	[delve_openForRead $probFile] ;
+		set targetFid	[delve_openForRead $targetFile] ;
+		set lossFid	[open $path/$tmpFile w] ;
+
+		doSquaredProbLoss $cpath $probFid $targetFid $lossFid ;
+
+		close $lossFid ;
+		close $probFid ;
+		close $targetFid ;
+
+		frename $path/$tmpFile $path/loss.$measure.$instance ;
+	    }
+	}
+	
+	"L"	{
+	    if { [m_file exists $cpath/cptarg.$ext] } {
+		foreach base {clptarg lptarg prob lprob} {
+		    if { [m_file exists $cpath/$base.$ext] } {
+			error "both \"cptarg.$ext\" and \"$base.$ext\" exist\""
+		    }
+		}
+
+		set ptargfile	[decodePtargFile $path cptarg.$ext ptarg.$ext];
+		set lptargFile	[transformFile log $path \
+				     [file tail $ptargFile] lptarg.$ext.tmp] ;
+		tmpFile $lptargFile ;
+		
+	    } elseif { [m_file exists $cpath/ptarg.$ext] } {
+		foreach base {clptarg lptarg prob lprob} {
+		    if { [m_file exists $cpath/$base.$ext] } {
+			error "both \"ptarg.$ext\" and \"$base.$ext\" exist\""
+		    }
+		}
+		set lptargFile	[transformFile log $path \
+				     ptarg.$ext lptarg.$ext.tmp] ;
+		tmpFile $lptargFile ;
+
+	    } elseif { [m_file exists $cpath/clptarg.$ext] } {
+		foreach base {cptarg ptarg prob lprob} {
+		    if { [m_file exists $cpath/$base.$ext] } {
+			error "both \"clptarg.$ext\" and \"$base.$ext\" exist\""
+		    }
+		}
+
+		set lptargFile	[decodeLptargFile $path \
+				     clptarg.$ext lptarg.$ext] ;
+		
+	    } elseif { [m_file exists $cpath/lptarg.$ext] } {
+		foreach base {ptarg prob lprob} {
+		    if { [m_file exists $cpath/$base.$ext] } {
+			error "both \"lptarg.$ext\" and \"$base.$ext\" exist\""
+		    }
+		}
+		set lptargFile	[m_getFile $cpath/lptarg.$ext] ;
+
+	    } elseif { [m_file exists $cpath/prob.$ext] } {
+		foreach base {ptarg lptarg lprob} {
+		    if { [m_file exists $cpath/$base.$ext] } {
+			error "both \"prob.$ext\" and \"$base.$ext\" exist\""
+		    }
+		}
+		
+		set targetFile [decodeFile $path \
+				    targets.$instance targets.$instance.tmp] ;
+		tmpFile $targetFile ;
+		set ptargFile [convertProbToPtarg $path \
+				   $targetFile prob.$ext ptarg.$ext.tmp 0] ;
+		tmpFile $ptargFile ;
+		set lptargFile [transformFile log $path \
+				    [file tail $ptargFile] lptarg.$ext.tmp] ;
+		tmpFile $lptargFile ;
+		
+	    } elseif { [m_file exists $cpath/lprob.$ext] } {
+		foreach base {ptarg lptarg prob} {
+		    if { [m_file exists $cpath/$base.$ext] } {
+			error "both \"lprob.$ext\" and \"$base.$ext\" exist\""
+		    }
+		}
+		set targetFile [decodeFile $path \
+				    targets.$instance targets.$instance.tmp] ;
+		tmpFile $targetFile ;
+		set lptargFile [convertProbToPtarg $path \
+				    $targetFile lprob.$ext lptarg.$ext.tmp 1] ;
+		tmpFile $lptargFile ;
+
+	    } else {
+		return ;
+	    }
+	    
+	    pwrap "  creating loss.$measure.$instance..." {
+		set tmpFile	loss.tmp
+		tmpFile $tmpFile ;
+
+		set lptargFid	[delve_openForRead $lptargFile] ;
+		set lossFid	[open $path/$tmpFile w] ;
+
+		doNegLogProbLoss $cpath $lptargFid $lossFid ;
+
+		close $lossFid ;
+		close $lptargFid ;
+
+		frename $path/$tmpFile $path/loss.$measure.$instance ;
+	    }
+	}
+	default	{
+	    error "unknown loss measure \"$measure\"" ;
+	}
+    }
+}
+
+# ----------------------------------------------------------------------
+# Iteratively calls "mloss" for all subdirectories.
+# ----------------------------------------------------------------------
+
+proc mloss { path lossList instList force } {
+    set cpath [m_cpath $path] ;
+    set type  [m_type $cpath] ;
+
+    switch $type {
+	root		{ set subdirs [m_info $cpath methods] }
+	method		{ set subdirs [m_info $cpath datasets] }
+	dataset		{ set subdirs [m_info $cpath prototasks] }
+	prototask	{ set subdirs [m_info $cpath tasks] }
+	default		{ set subdirs {} }
+    }
+
+    foreach subdir $subdirs {
+	if [m_file exists $cpath/$subdir] {
+	    mloss [cleanpath $path/$subdir] $lossList $instList $force
+	}
+    }
+    if { [string compare $type "task"] != 0 } {
+	return ;
+    }
+
+    #
+    # Find all the possible instances from the "test" files in the
+    # directory, then call mloss passing in the instance list.
+    #
+
+    if { [string compare $instList "all"] == 0 } {
+	set instList	{} ;
+	set pattern	"^test\\.\[0-9\]+$" ;
+	foreach file [m_readdir $cpath] {
+	    if [regexp $pattern $file] {
+		lappend instList [string range [file extension $file] 1 end] ;
+	    }
+	}
+    }
+    
+    if { [string compare $path "."] != 0 } {
+	puts "$path" ;
+    }
+
+    m_info $cpath task
+    
+    foreach loss $lossList {
+	if [lossAllowed [m_info $cpath targets] $loss] {
+	    foreach inst $instList {
+		mloss1 $path $loss $inst ;
+	    }
+	}
+    }
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line.
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+# ----------------------------------------------------------------------
+# And here we go...
+# ----------------------------------------------------------------------
+
+if { [llength $argv] == 0 } {
+    set path "." ;
+} elseif { [llength $argv] == 1 } {
+    set path [cleanpath [lindex $argv 0]] ;
+} else {
+    error $usage ;
+}
+
+initTmpFiles ;
+
+mloss $path $options(loss) $options(instances) 1 ;
+
+exit 0

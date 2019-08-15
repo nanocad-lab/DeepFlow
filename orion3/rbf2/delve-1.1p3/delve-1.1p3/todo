@@ -1,0 +1,40 @@
+$Id: todo,v 1.25.2.9 1996/06/13 17:12:30 drew Exp $
+
+Sorted by priority
+
+For version 1.0
+===============
+
+- nothing
+
+For version 1.1
+===============
+
+- Modify "mstats" so that it can generate "loss" files from "cguess" etc,
+  on the fly, without having the "Test-set-stats" files
+  explicitly around. (Difficult)
+
+- Write the "mtable" and "mcheck" scripts. (Difficult)
+
+- In the dataset specification files the "missing value indicator" "?"
+  should be allowed. (Moderate to difficult).
+
+- Implement censored values. (Difficult)
+
+- Implement attribute '0', the index of the case (Moderate).
+
+- Implement sequential prototasks and stratification. (Moderate)
+
+- Implement commonality indices. (Difficult)
+
+- Implement non-standard task instances. (Moderate)
+
+- Allow invertible operations (like log(x), exp(x) and 
+  squeeze(x)=sign(x)*log(1+|x|)) on attributes in the
+  Prototask.spec files. (Difficult)
+
+- make 'loss.Z' files contain '0' or '1', not '0.0 and '1.0'. This is
+  probably not important; in the case where more than on target attribute
+  is to be predicted the average (or will it be sum?) loss may not be
+  integer. (Easy, but is this really desirable?)
+

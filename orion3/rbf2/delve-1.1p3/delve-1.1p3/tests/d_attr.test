@@ -1,0 +1,588 @@
+# Commands covered:  d_attr
+#
+# This file contains a collection of tests for one or more of the
+# commands added for delve.  Sourcing this file into Tcl runs
+# the tests and generates output for errors.  No output means no errors
+# were found.
+#
+# Copyright (c) 1991-1993 The Regents of the University of California.
+# Copyright (c) 1994 Sun Microsystems, Inc.
+# Copyright (c) 1996 University of Toronto
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: d_attr.test,v 1.2.2.1 1996/06/13 15:24:16 drew Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+test acdc-1.1 {creating a new attribute} {
+    set attr [d_attr create real copy ] ;
+    list
+} ""
+test acdc-1.2 {encoding using an existing attribute} {
+    d_attr encode $attr "this is a test"
+} "this is a test"
+
+test acdc-1.3 {decoding using an existing attribute} {
+    d_attr decode $attr "this is a test too"
+} "this is a test too"
+
+test acdc-1.4 {deleting an existing attribute} {
+    d_attr delete $attr
+} ""
+
+test acdc-2.1 {creating and deleting an angular attribute} {
+    d_attr delete [d_attr create angular copy]
+} ""
+
+test acdc-2.2 {check angular attribute encoding methods} {
+    d_attr delete [d_attr create angular copy]
+    d_attr delete [d_attr create angular ignore]
+    d_attr delete [d_attr create angular rectan 360]
+} ""
+
+test acdc-2.3 {check bad angular attribute encoding methods} {
+    list [catch {d_attr create angular normalized 0.0 1.0} msg] $msg
+} "1 {can't use normalized encoding for angular attributes}"
+
+test acdc-2.4 {check angular-copy encoding} {
+    set attr [d_attr create angular copy] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    d_attr delete $attr ;
+    set result ;
+} "a a" ;
+
+test acdc-2.5 {check angular-ignore encoding} {
+    set attr [d_attr create angular ignore] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result \
+	[catch {d_attr decode $attr [d_attr encode $attr "a"]} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{} 1 {can't decode ignore encoded variables}" ;
+
+test acdc-2.6 {check angular-rectan encoding} {
+    set attr [d_attr create angular rectan 360] ;
+    set result {} ;
+    lappend result [d_attr encode $attr 180] ;
+    lappend result [d_attr encode $attr 360] ;
+    lappend result [d_attr encode $attr 45] ;
+    lappend result \
+	[catch {d_attr decode $attr [d_attr encode $attr "180"]} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{0.0 -1.0} {0.0 1.0} {0.707107 0.707107} 1 {can't decode rectan encoded variables}" ;
+
+test acdc-3.1 {creating and deleting a binary attribute} {
+    d_attr delete [d_attr create binary copy]
+} ""
+
+test acdc-3.2 {check binary attribute encoding methods} {
+    d_attr delete [d_attr create binary copy]
+    d_attr delete [d_attr create binary ignore]
+    d_attr delete [d_attr create binary binary-symmetric {yes no}]
+    d_attr delete [d_attr create binary binary-passive {yes no} no]
+} ""
+
+test acdc-3.3 {check bad binary attribute encoding methods} {
+    list [catch {d_attr create binary normalized 0.0 1.0} msg] $msg
+} "1 {can't use normalized encoding for binary attributes}"
+
+test acdc-3.4 {check binary-copy encoding} {
+    set attr [d_attr create binary copy] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    d_attr delete $attr ;
+    set result ;
+} "a a" ;
+
+test acdc-3.5 {check binary-ignore encoding} {
+    set attr [d_attr create binary ignore] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result \
+	[catch {d_attr decode $attr [d_attr encode $attr "a"]} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{} 1 {can't decode ignore encoded variables}" ;
+
+test acdc-3.6 {check binary-symmetric encoding} {
+    set attr [d_attr create binary binary-symmetric {yes no}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr yes] ;
+    lappend result [d_attr encode $attr no] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "no"]] ;
+    lappend result [catch {d_attr encode $attr "maybe"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "-1 1 no 1 {bad value to encode \"maybe\": should be yes or no}"
+
+test acdc-3.7 {check binary-passive encoding} {
+    set attr [d_attr create binary binary-passive {yes no} no] ;
+    set result {} ;
+    lappend result [d_attr encode $attr yes] ;
+    lappend result [d_attr encode $attr no] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "no"]] ;
+    lappend result [catch {d_attr encode $attr "maybe"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "1 0 no 1 {bad value to encode \"maybe\": should be yes or no}"
+
+test acdc-3.8 {check binary-passive encoding with bad passive value} {
+    list [catch {d_attr create binary binary-passive {yes no} maybe} msg] $msg ;
+} "1 {bad passive value \"maybe\": should be yes or no}"
+
+test acdc-3.9 {check binary-passive encoding with wrong size range} {
+    list [catch {d_attr create binary binary-passive {yes no maybe} maybe} msg] $msg ;
+} "1 {expected two values in range, but got 3}"
+
+test acdc-4.1 {creating and deleting a nominal attribute} {
+    d_attr delete [d_attr create nominal copy]
+} ""
+
+test acdc-4.2 {check nominal attribute encoding methods} {
+    d_attr delete [d_attr create nominal copy]
+    d_attr delete [d_attr create nominal ignore]
+    d_attr delete [d_attr create nominal one-up {a b c}]
+    d_attr delete [d_attr create nominal zero-up {a b c}]
+    d_attr delete [d_attr create nominal one-up  {a b c}]
+    d_attr delete [d_attr create nominal thermometer {a b c}]
+} ""
+
+test acdc-4.3 {check bad nominal attribute encoding methods} {
+    list [catch {d_attr create nominal normalized 0.0 1.0} msg] $msg
+} "1 {can't use normalized encoding for nominal attributes}"
+
+test acdc-4.4 {check nominal-copy encoding} {
+    set attr [d_attr create nominal copy] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "a a 0 d" ;
+
+test acdc-4.5 {check nominal-ignore encoding} {
+    set attr [d_attr create nominal ignore] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    lappend result \
+	[catch {d_attr decode $attr [d_attr encode $attr "a"]} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{} 0 {} 1 {can't decode ignore encoded variables}" ;
+
+test acdc-4.6 {check nominal-one-of-n encoding} {
+    set attr [d_attr create nominal one-of-n {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{1 0 0} {0 1 0} {0 0 1} a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-4.7 {check nominal-one-of-n encoding with passive value} {
+    set attr [d_attr create nominal one-of-n {a b c} b] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{1 0} {0 0} {0 1} a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-4.8 {check nominal-zero-up encoding} {
+    set attr [d_attr create nominal zero-up {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "0 1 2 a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-4.9 {check nominal-one-up encoding} {
+    set attr [d_attr create nominal one-up {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "1 2 3 a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-4.10 {check nominal-themometer encoding} {
+    set attr [d_attr create nominal thermometer {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{-1.0 -1.0} {1.0 -1.0} {1.0 1.0} a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-4.11a {check nominal-themometer encoding with bad scale} {
+    list [catch {d_attr create nominal thermometer {a b c} d} msg] \
+	$msg ;
+} "1 {expected floating-point number but got \"d\"}"
+
+test acdc-4.11b {check nominal-themometer encoding with scale} {
+    set attr [d_attr create nominal thermometer {a b c} .3] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{-0.3 -0.3} {0.3 -0.3} {0.3 0.3} a b c 1 {bad value to encode \"d\": should be a, b, or c}"
+
+test acdc-5.1 {creating and deleting a ordinal attribute} {
+    d_attr delete [d_attr create ordinal copy]
+} ""
+
+test acdc-5.2 {check ordinal attribute encoding methods} {
+    d_attr delete [d_attr create ordinal copy]
+    d_attr delete [d_attr create ordinal ignore]
+    d_attr delete [d_attr create ordinal one-of-n {a b c}]
+    d_attr delete [d_attr create ordinal zero-up {a b c}]
+    d_attr delete [d_attr create ordinal one-up {a b c}]
+    d_attr delete [d_attr create ordinal thermometer {a b c}]
+} ""
+
+test acdc-5.3 {check bad ordinal attribute encoding methods} {
+    list [catch {d_attr create ordinal normalized 0.0 1.0} msg] $msg
+} "1 {can't use normalized encoding for ordinal attributes}"
+
+test acdc-5.4 {check ordinal-copy encoding} {
+    set attr [d_attr create ordinal copy] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "a a 0 d" ;
+
+test acdc-5.5 {check ordinal-ignore encoding} {
+    set attr [d_attr create ordinal ignore] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    lappend result \
+	[catch {d_attr decode $attr [d_attr encode $attr "a"]} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{} 0 {} 1 {can't decode ignore encoded variables}" ;
+
+test acdc-5.6 {check ordinal-one-of-n encoding} {
+    set attr [d_attr create ordinal one-of-n {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{1 0 0} {0 1 0} {0 0 1} a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-5.7 {check ordinal-one-of-n encoding with passive value} {
+    set attr [d_attr create ordinal one-of-n {a b c} b] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{1 0} {0 0} {0 1} a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-5.8 {check ordinal-zero-up encoding} {
+    set attr [d_attr create ordinal zero-up {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "0 1 2 a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-5.9 {check ordinal-one-up encoding} {
+    set attr [d_attr create ordinal one-up {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "1 2 3 a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-5.10 {check ordinal-themometer encoding} {
+    set attr [d_attr create ordinal thermometer {a b c}] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{-1.0 -1.0} {1.0 -1.0} {1.0 1.0} a b c 1 {bad value to encode \"d\": should be a, b, or c}" ;
+
+test acdc-5.11a {check ordinal-themometer encoding with bad scale} {
+    list [catch {d_attr create ordinal thermometer {a b c} d} msg] \
+	$msg ;
+} "1 {expected floating-point number but got \"d\"}"
+
+test acdc-5.11b {check ordinal-themometer encoding with scale} {
+    set attr [d_attr create ordinal thermometer {a b c} 0.3] ;
+    set result {} ;
+    lappend result [d_attr encode $attr a] ;
+    lappend result [d_attr encode $attr b] ;
+    lappend result [d_attr encode $attr c] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "b"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "c"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{-0.3 -0.3} {0.3 -0.3} {0.3 0.3} a b c 1 {bad value to encode \"d\": should be a, b, or c}"
+
+test acdc-6.1 {creating and deleting a integer attribute} {
+    d_attr delete [d_attr create integer copy]
+} ""
+
+test acdc-6.2 {check integer attribute encoding methods} {
+    d_attr delete [d_attr create integer copy]
+    d_attr delete [d_attr create integer ignore]
+    d_attr delete [d_attr create integer normalized 0.0 1.0]
+} ""
+
+test acdc-6.3 {check bad integer attribute encoding methods} {
+    list [catch {d_attr create integer one-of-n 0.0 1.0} msg] $msg
+} "1 {can't use one-of-n encoding for integer attributes}"
+
+test acdc-6.4 {check integer-copy encoding} {
+    set attr [d_attr create integer copy] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "a a 0 d" ;
+
+test acdc-6.5 {check integer-ignore encoding} {
+    set attr [d_attr create integer ignore] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    lappend result \
+	[catch {d_attr decode $attr [d_attr encode $attr "a"]} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{} 0 {} 1 {can't decode ignore encoded variables}" ;
+
+test acdc-6.6a {check integer-normalized encoding} {
+    set attr [d_attr create integer normalized 0 11] ;
+    set result {} ;
+    lappend result [d_attr encode $attr 0] ;
+    lappend result [d_attr encode $attr 5] ;
+    lappend result [d_attr encode $attr 11] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "1"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "5"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "11"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "0.0 0.454545 1.0 1 5 11 1 {expected integer but got \"d\"}" ;
+
+test acdc-6.6b {check integer-normalized encoding with zero variance} {
+    set attr [d_attr create integer normalized 11 0] ;
+    set result {} ;
+    lappend result [d_attr encode $attr 11] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "11"]] ;
+    lappend result [catch {d_attr encode $attr "5"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "11.0 11 1 {bad value to encode \"5\": should be 11.0}" ;
+
+test acdc-7.1 {creating and deleting a real attribute} {
+    d_attr delete [d_attr create real copy]
+} ""
+
+test acdc-7.2 {check real attribute encoding methods} {
+    d_attr delete [d_attr create real copy]
+    d_attr delete [d_attr create real ignore]
+    d_attr delete [d_attr create real normalized 0.0 1.0]
+} ""
+
+test acdc-7.3 {check bad real attribute encoding methods} {
+    list [catch {d_attr create real one-of-n 0.0 1.0} msg] $msg
+} "1 {can't use one-of-n encoding for real attributes}"
+
+test acdc-7.4 {check real-copy encoding} {
+    set attr [d_attr create real copy] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "a"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "a a 0 d" ;
+
+test acdc-7.5 {check real-ignore encoding} {
+    set attr [d_attr create real ignore] ;
+    set result {} ;
+    lappend result [d_attr encode $attr "a"] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    lappend result \
+	[catch {d_attr decode $attr [d_attr encode $attr "a"]} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "{} 0 {} 1 {can't decode ignore encoded variables}" ;
+
+test acdc-7.6a {check real-normalized encoding} {
+    set attr [d_attr create real normalized 0 11] ;
+    set result {} ;
+    lappend result [d_attr encode $attr 0] ;
+    lappend result [d_attr encode $attr 5] ;
+    lappend result [d_attr encode $attr 11] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "1"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "5"]] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "11"]] ;
+    lappend result [catch {d_attr encode $attr "d"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "0.0 0.454545 1.0 1.0 5.0 11.0 1 {expected floating-point number but got \"d\"}" ;
+
+test acdc-7.6b {check real-normalized encoding with zero variance} {
+    set attr [d_attr create real normalized 11 0] ;
+    set result {} ;
+    lappend result [d_attr encode $attr 11] ;
+    lappend result [d_attr decode $attr [d_attr encode $attr "11"]] ;
+    lappend result [catch {d_attr encode $attr "5"} msg] $msg;
+    d_attr delete $attr ;
+    set result ;
+} "11.0 11.0 1 {bad value to encode \"5\": should be 11.0}" ;
+
+test acdc-8-1a {check out error message for bad value with empty range} {
+    set attr [d_attr create nominal one-of-n {}] ;
+    set result [list [catch {d_attr encode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to encode \"5\": range is empty}"
+
+test acdc-8-1b {check out error message for bad passive value with empty range} {
+    list [catch {d_attr create nominal one-of-n {} 5} msg] $msg ;
+} "1 {bad passive value \"5\": range is empty}"
+
+test acdc-8-1c {check out error message for bad value with empty range} {
+    set attr [d_attr create nominal one-of-n {}] ;
+    set result [list [catch {d_attr decode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to decode \"5\": range is empty}"
+
+test acdc-8-2a {check out error message for bad value with 1 value in range} {
+    set attr [d_attr create nominal one-of-n {a}] ;
+    set result [list [catch {d_attr encode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to encode \"5\": should be a}"
+
+test acdc-8-2b {check out error message for bad passive value with 1 value in range} {
+    list [catch {d_attr create nominal one-of-n {a} 5} msg] $msg ;
+} "1 {bad passive value \"5\": should be a}"
+
+test acdc-8-2c {check out error message for bad value with 1 value in range} {
+    set attr [d_attr create nominal one-of-n {a}] ;
+    set result [list [catch {d_attr decode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to decode \"5\": should be 1}"
+
+test acdc-8-3a {check out error message for bad value with 2 values in range} {
+    set attr [d_attr create nominal one-of-n {a b}] ;
+    set result [list [catch {d_attr encode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to encode \"5\": should be a or b}"
+
+test acdc-8-3b {check out error message for bad passive value with 2 values in range} {
+    list [catch {d_attr create nominal one-of-n {a b} 5} msg] $msg ;
+} "1 {bad passive value \"5\": should be a or b}"
+
+test acdc-8-3c {check out error message for bad value with 2 value in range} {
+    set attr [d_attr create nominal one-of-n {a b}] ;
+    set result [list [catch {d_attr decode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to decode \"5\": should be 1 0 or 0 1}"
+
+test acdc-8-4 {check out error message for bad value with many values in range} {
+    set attr [d_attr create nominal one-of-n {a b c d e}] ;
+    set result [list [catch {d_attr encode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to encode \"5\": should be a, b, c, d, or e}"
+
+test acdc-8-4b {check out error message for bad passive value with many values in range} {
+    list [catch {d_attr create nominal one-of-n {a b c d e} 5} msg] $msg ;
+} "1 {bad passive value \"5\": should be a, b, c, d, or e}"
+
+test acdc-8-4c {check out error message for bad value with many values in range} {
+    set attr [d_attr create nominal one-of-n {a b c d e}] ;
+    set result [list [catch {d_attr decode $attr "5"} msg] $msg] ;
+    d_attr delete $attr ;
+    set result ;
+} "1 {bad value to decode \"5\": should be 1 0 0 0 0, 0 1 0 0 0, 0 0 1 0 0, 0 0 0 1 0, or 0 0 0 0 1}"
+
+

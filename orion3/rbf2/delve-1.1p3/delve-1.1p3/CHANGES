@@ -1,0 +1,171 @@
+----------------- Released 1.0a1, 96/05/17 -----------------------
+
+96/05/28 (internal change) Replaced calls to all Extended Tcl commands
+with calls to equivalent Tcl, or Unix commands (with the exception of
+'random') (dvc).
+
+96/05/29 (internal change) Changed all C level calls to TclX 'handle'
+routines to use Tcl 'Hash Table' routines instead (dvc).
+
+96/05/30 (feature change) Changed dinfo, dls, etc. to no longer check
+if the 'Dataset.data' file exists.  This may not be wise, but it
+allows people to delete it if disk space is scarce (dvc).
+
+96/05/30 (feature change) Attributes ranges can now have lists of
+ranges (dvc).
+
+96/06/03 (bug fix) If the full path to the installation directories
+doesn't exist, non-existent parent directories are created (dvc).
+
+96/06/03 (feature change) Mloss now computes the Z loss only for tasks
+with all categorical or integer targets (dvc).
+
+96/06/03 (feature change) Mgendata no longer creates the 'targets.i'
+or 'test.i' files if there are no target values or input values
+respectively (dvc).
+
+96/06/03 (bug fix) Cleaned up the formatting of the input and target
+attributes produced by dinfo and minfo when the lists of attributes
+are empty (dvc).
+
+96/06/04 (feature change) Added pseudo-random number generator based
+on a general lagged Fibonnacci generator using subtraction (dvc).
+
+96/06/05 (bug fix) Fixed bug in Delve file unlinking command
+'funlink': now it doesn't die if the list of files to delete is empty
+(dvc).
+
+96/06/05 (feature change) Removed all remaining TclX dependencies from
+Makefiles, configure scripts etc. (dvc).
+
+96/06/05 (new feature) Added '-d' flag for all scripts: Aids
+debugging by printing stack traces when an error occurs.  Only works
+for Tcl version 7.5 or higher (ignored for earlier versions) (dvc).
+
+96/06/05 (feature change) Changed dls so that it assumes that it's
+printing output to a tty if it can't be sure it isn't (dvc).
+
+96/06/10 (bug fix) Fixed bug where mgendata attempted to calculate
+normalization statistics for input attributes, even when there were no
+real/integer attributes in the list (dvc).
+
+96/06/10 (feature change) Changed mloss so that 'S' and 'A' loss are
+only allow for tasks with all real or integer targets, and 'Z' loss is
+only allowed for tasks with all integer, ordinal, nominal, or binary
+targets (dvc).
+
+96/06/10 (new feature) Added an optional field for the Dataset.spec
+file: "title".  It has a default value of "no title", and is displayed
+by both dinfo and minfo (dvc).
+
+96/06/10 (bug fix) Changed so that mloss doesn't overwrite a loss or
+guess file if the corresponding guess or cguess file is garbled (dvc).
+
+96/06/11 (feature change) Changed the format of the 'Test-set-stats'
+file so that it now contains statistics with the math already
+performed on them, plus new keywords so that the values have
+semi-meaningful names.  The new file format allows us to add new
+statistics without breaking older versions (dvc).
+*** INCOMPATIBILITY with Delve 1.0a1 ***
+
+96/06/12 (new feature) Added normalization of loss statistics
+calculated using the zero one loss and the squared probability loss
+measures (dvc).
+
+96/06/12 (new feature) Added normalization of loss statistics
+calculated using the negative log probability loss for categorical
+target attributes (dvc).
+
+96/06/13 (feature change) Changed the thermometer coding to always use
+n-1 values where the first value in the range is encoded as all
+negative numbers (i.e. changed to always assume the first value is
+passive).  Also changed to allow scaling of the values in the encoding
+by the a function of the number of values in the attribute's range.
+By default values are now scaled by sqrt(n-1) (e.g. what used to
+encode as "-1 -1 1" would now encode as "-0.57735 -0.57735 0.57735")
+(dvc).
+*** INCOMPATIBILITY with Delve 1.0a1 ***
+
+96/06/13 (feature change) Changed 'mgendata' to allow specifification
+of any number of cases for testing, some of which may however be
+thrown away in order to make all the test sets for a given task be the
+same size.  We also now allow the number of cases remaining for
+training to *not* be a multiple of all the training set sizes (again,
+trailing cases are thrown away) (dvc).
+
+96/06/14 (bug fix) Fixed a bug in 'acdc_delete' that caused *all*
+attribute encodings to be deleted if you tried to delete just one.
+This meant that mgendata could break if you tried to run it over an
+entire prototask directory (dvc). 
+
+----------------- Released 1.0, 96/06/14 -----------------------
+
+96/06/25 (bug fix) Fixed bug in normalizeLossStats for 'L' loss
+measure in compare mode.  First expected loss wasn't being normalized
+at all (dvc).
+
+96/06/25 (new feature) Added '--with-cc' and '--with-cflags' options to
+the configure script so users can over-ride the default C compiler and
+flags (dvc).
+
+96/06/25 (bug fix) Fixed various routines in the path module that
+generated errors if data or method directories were empty by adding
+'-nocomplain' to the glob command (dvc).
+
+---------------- Released patch 1.0p1, 96/06/25 ----------------
+
+
+(1 Oct 1996 Mike takes over administration of Delve)
+
+1 Oct 96 (new feature) Compressed files handling. Many of Delve's files can
+be left in compressed form and they will be uncompressed 'on the fly' provided
+there exists an uncompression utility that can write to stdout. Currently .Z
+.z .gz and .zip are recognized extensions (But I dont know of a utility that
+can handle .zip files) (mr)
+
+1 Nov 96 (new feature) -v option added to dinfo to report the current
+software version number. Also dinfo now  reports the total number of cases at
+the dataset level. (mr)
+
+21 Nov 96 (bug fix) in mstats. Gracefully handle situation in which estimated
+variances of expected performance difference is zero (Print p= undefined) (mr)
+
+23 Nov 96 (bug fix) Encoding in mgendata. Fixed situation of encoding with a
+passive=value, where value contains an '=' sign, eg passive=<=50. (mr)
+
+5 Dec 96. (new feature) dinfo reports the task types found in a dataset. It
+does it by examining the prior information (type) of the task targets. (mr)
+---------------- Released version 1.1, 6 Dec 1996 ----------------
+
+8 Jan 97 (bug fix) The DELVE_UNCOMPRESS environment variable was not being
+read properly (library/utils.tcl)
+
+---------------- Release patch 1.1p1 9 January 1997 ----------------------
+
+28 Jan 97 (added feature) Make dinfo -v report patch level in addition
+to delve version number
+
+22 Apr 97 (bug fix) The attribute list was not being cleared between task
+generations. This resulted in Coding-used files containing extra attributes
+when  multiple tasks were generated with mgendata. Changes in acdc.tcl and
+taskGen.tcl
+
+22 Apr 97 (Feature enhancement) Make the reporting of errors more meaningful
+in for_file (utils.tcl
+
+11 June 97 (bug fix) The 22 Apr bug fix introduced another bug - cleared
+attributes that are loaded from an encoding file. Fixed this by clearing
+attributes directly in mgendata.
+
+---------------- Release patch 1.1p2 11 June 1997 ----------------------
+
+22 November 1997 Fixes to make compatible with tcl version 8.*
+tcl_precision, some configuration changes for dynamic loadable libraries
+and making sure integer calculations return integers
+
+---------------- Release patch 1.1p3 27 November 1997 ----------------
+
+
+September 1997 Added suport for client-server version - Delve server running
+on would extend the 'delve path system' unreleased version 1.2
+----------------------------------------------------------------------

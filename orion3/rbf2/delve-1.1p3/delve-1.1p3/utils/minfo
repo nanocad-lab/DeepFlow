@@ -1,0 +1,340 @@
+#!/bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: minfo,v 1.6.2.10 1996/11/12 16:47:39 revow Exp $
+#
+# This script prints nicely formatted information about the Delve
+# datasets, prototasks, or tasks as they are used by a method.  For a
+# full description of what this means, see the "delve" documentation.
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+# 		overlapping delve directory hierarchy.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1995-1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+#----------------------------------------------------------------------#
+
+# ----------------------------------------------------------------------
+# The string "usage" has a nicely formatted message describing the
+# usage of the script. It is used in error and help messages.
+# ----------------------------------------------------------------------
+
+set options(all)	0 ;
+set options(key)	{} ;
+set options(query)	0 ;
+set options(terse)	0 ;
+
+set usage "usage: [file tail $argv0] \[ options \] \[ mpath \]
+    Where 'options' are:
+	-a	Print all available information.
+	-d	Turn on error stack traces for debugging.
+	-h	Print this help message.
+	-k keys Return information about the fields in the list of
+		'keys'.
+	-q 	Return the keys for the information fields instead of
+		the information.
+	-t 	Use terse formatting.
+
+    And the path argument is:
+	A valid Delve method path. Information is returned about the
+	root directory, method, dataset, prototask, or task it refers
+	to.  If not specified, the path defaults to the current
+	derectory which must be a Delve method directory."
+
+# ----------------------------------------------------------------------
+# The procedure "parseOptions" parses all the command line options in
+# "list" and leaves the result in the array "options". If an error
+# occurs, it uses "usage" in the error message. The procedure returns
+# all arguments left in "list" after removing options. Default options
+# are set here as well.
+# ----------------------------------------------------------------------
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ! [lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -a		{ set options(all) 	1 }
+	    -d		{ delve_debug 1 }
+	    -h		{ puts "$usage" ; exit 0 }
+	    -k		{ set options(key) [string tolower [lpop list]] }
+	    -q		{ set options(query) 	1 }
+	    -t		{ set options(terse) 	1 }
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    if { $options(all) && ![lempty $options(key)] } {
+	error "can't specify both \"-a\" and \"-k\"" ;
+    }
+    return $list ;
+}
+
+#----------------------------------------------------------------------#
+# A procedure for formatting nicely a particular piece of info. Needs
+# three things: "cpath", the canonical data path; "key", the key used
+# to get the info; and "value", the value for the information.
+#----------------------------------------------------------------------#
+
+proc m_formatInfo { cpath key value } {
+    #
+    # The title for the field.  This is the key name with the first
+    # letter capitalized, and all "-" characters changed to spaces.
+    #
+
+    set Key	[string toupper [string index $key 0]][string range $key 1 end]
+    regsub -all -- {-} $Key { } Key ;
+    set result "$Key: " ;
+
+    #
+    # Now for the actual formatting of the value.  The default is to
+    # just append the value, but some keys are handled specially.
+    #
+
+    switch -- $key {
+	attributes -
+	inputs  {
+	    if { [llength $value] == 0 } {
+		append result "none\n" ;
+	    } else {
+		append result "\n[formatAttributeTitle $cpath]\n" ;
+		set column 1 ;
+		foreach idx $value {
+		    append result "[formatAttribute $cpath $idx column]\n"
+		}
+	    }
+	}
+	targets {
+	    if { [llength $value] == 0 } {
+		append result "none\n" ;
+	    } else {
+		regsub relevance [formatAttributeTitle $cpath] noise-lev title
+		append result "\n$title\n" ;
+		set column 1 ;
+		foreach idx $value {
+		    append result "[formatAttribute $cpath $idx column]\n"
+		}
+	    }
+	}
+	delve_path -
+	methods -
+	datasets -
+	prototasks -
+	tasks {
+	    if [lempty $value] {
+		set value "none" ;
+	    }
+	    append result "\n\t[join $value \n\t]" ;
+	}
+	default	{
+	    append result "$value\n" ;
+	}
+    }
+    
+    string trimright $result ;
+}
+
+# ----------------------------------------------------------------------
+# A utility procedure for formatting attribute info. Datasets and
+# prototasks use the same format. Tasks use a different formatting.
+# ----------------------------------------------------------------------
+
+proc formatAttribute { cpath attr args } {
+    if { [string compare [m_type $cpath] "task"] == 0 } {
+	if [lempty args] {
+	    set column 1 ;
+	} else {
+	    upvar $args column ;
+	}
+
+	set result {} ;
+	foreach name [acdc_names $attr] {
+	    append result [format " %3d %3d  %-13s" $column $attr $name] ;
+	    incr column ;
+	    if [info exists duplicate] {
+		append result "                ...\n" ;
+		continue ;
+	    }
+
+	    set list	[lindex [acdc_list $attr] 0] ;
+	    set type	[lindex $list 0] ;
+	    append result [format " %-8s %-7s" $type \
+			      [m_info $cpath prior,level,$attr]] ;
+	    append result [format "  %-9s" [acdc_method $attr]] ;
+
+	    set options {} ;
+	    set prefix  {} ;
+	    foreach key {passive center unit} {
+		set value [acdc_options $attr -$key] ;
+		if { [string compare $value {}] != 0 } {
+		    append options "$prefix$key = \"$value\"" ;
+		    set prefix ", " ;
+		}
+	    }
+    
+	    if { [string compare $options {}] == 0 } {
+		set options "   -" ;
+	    }
+	    append result " $options\n" ;
+	    set duplicate 1 ;
+	}
+
+    } else {
+	append result [format "%6s" 	$attr] ;
+	append result [format "  %-8s"	[m_info $cpath code,$attr]] ;
+	append result [format "  %-3s"	[m_info $cpath nature,$attr]] ;
+	append result [format "%-12s" 	[m_info $cpath range,$attr]] ;
+
+	set indent	34 ;
+	set pos		[string length $result] ;
+	if { $pos > $indent } {
+	    append result "\n" ;
+	    set pos	0 ;
+	}
+	append result [format "%[expr { $indent - $pos }]s" " "] ;
+
+	set pos	$indent ;
+	foreach word [m_info $cpath comment,$attr] {
+	    incr pos [string length "$word "] ;
+	    if { $pos >= 80 } {
+		append result [format "\n%${indent}s" { }] ;
+		set pos $indent ;
+	    }
+	    append result "$word " ;
+	}
+    }
+    return [string trimright $result] ;
+}
+
+# ----------------------------------------------------------------------
+# A utility procedure for formatting the title for the attribute
+# info. Datasets and prototasks use the same format. Tasks use a
+# different formatting.
+# ----------------------------------------------------------------------
+
+proc formatAttributeTitle { cpath } {
+    if { [string compare [m_type $cpath] "task"] == 0 } {
+	append result " col attr name          type   relevance coding  options"
+    } else {
+	append result [format "%6s" "#"] ;
+	append result [format "  %-7s" "name"] ;
+	append result [format "  %-4s" "c/u"] ;
+	append result [format "%-12s"  "range"] ;
+	append result [format "%[expr { 34 - [string length $result]}]s" " "] ;
+	append result [format "%s"   "description"] ;
+    }
+
+    return $result ;
+}
+
+#----------------------------------------------------------------------#
+# Returns a list of keys to format for the given canonical path.
+#----------------------------------------------------------------------#
+
+proc m_keys { cpath { all 0 } } {
+    switch [m_type $cpath] {
+	root	{
+	    if $all {
+		return [list delve_path methods] ;
+	    } else {
+		return [list methods] ;
+	    }
+	}
+	method	{
+	  return [list datasets] ;
+	}
+	dataset {
+	    if $all {
+		return [list dataset title origin usage order \
+			    number-of-attributes attributes prototasks] ;
+	    } else {
+		return [list dataset title origin usage order \
+			    number-of-attributes prototasks]
+	    }
+	}
+	prototask {
+	    return [list prototask origin cases order test-set-size \
+	     training-set-sizes maximum-number-of-instances \
+	     inputs targets tasks] ;
+	}
+	task {
+	    return [list task training-set-size inputs targets] ;
+	}
+    }
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line.
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+#----------------------------------------------------------------------#
+# Figure out the canonical path name for the module.
+#----------------------------------------------------------------------#
+
+if { [llength $argv] == 0 } {
+    set path "." ;
+} elseif { [llength $argv] == 1 } {
+    set path [lindex $argv 0] ;
+} else {
+    error $usage ;
+}
+
+#
+# Clean-up the path, then convert it to an absolute dpath.
+#
+
+set path [cleanpath $path] ;
+
+if { [string compare [string index $path 0] "/"] == 0 } {
+  set cpath	$path ;
+} else {
+    set cpath	[m_cpath $path] ;
+}
+
+if { ![m_exists $cpath] } {
+    error "$path does not exist" ;
+}
+
+#----------------------------------------------------------------------#
+# Now we can get the keys, and the info associated with each one. 
+#----------------------------------------------------------------------#
+
+if [lempty $options(key)] {
+    set keys [m_keys $cpath $options(all)] ;
+} else {
+    set keys $options(key) ;
+}
+
+if { $options(query) } {
+    puts $keys ;
+
+} else {
+    foreach key $keys {
+	set info [m_info $cpath $key] ;
+
+	if $options(terse) {
+	    puts $info ;
+	} else {
+	    puts [m_formatInfo $cpath $key $info] ;
+	}
+    }
+}
+
+exit 0 ;

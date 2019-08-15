@@ -1,0 +1,446 @@
+%
+% $Id: sec8.tex,v 1.24.2.4 1996/11/25 14:34:09 revow Exp $
+%
+\newcommand{\MSa}{{\rm MS}_a}
+\newcommand{\MSb}{{\rm MS}_b}
+\newcommand{\MSe}{{\rm MS}_\varepsilon}
+\renewcommand{\SS}{{\rm SS}}
+\newpage
+
+\section{ANALYSING THE RESULTS}\label{sec-analysis}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ ANALYSING THE RESULTS}]
+      {\fancyplain{}{\thesection.\ ANALYSING THE RESULTS}}
+
+Suppose we have applied several learning methods to one or more tasks,
+and used the \mloss{} command to evaluate the losses for the
+predictions they produced, as described in the previous section.  We
+can now use the \mstats{} command to compute summaries of losses, and
+perform tests of statistical significance on observed differences.  We
+hope that in this way we will be able to draw interesting conclusions
+about the relative performance of these learning methods on these
+tasks.
+
+The \mstats{} command addresses two basic questions.  First, how can
+we compute an estimate of the performance of a method on some task,
+together with an indication of uncertainly in the estimate?  Second,
+how can we judge whether an observed difference in performance between
+two methods is statistically significant?  This section will explain
+the theory of the statistical procedures used to answer these
+questions, and the commands that implement these procedures.
+
+A task is the basic unit for which an expected loss can be defined.
+However we cannot apply our learning methods directly to tasks, since
+no specific training cases are associated with a task. Instead we
+apply our methods to a set of task instances and use the observed
+performance these particular instances to estimate the expected
+performance on the task. Note, in particular, that we are generally
+not interested in the performance on a certain set of test cases, nor
+in the performance when using particular training sets. Rather, we
+wish to estimate the expected performance on a new test case when the
+learning method has been trained on a new training set, both of which
+are randomly drawn from the same distributions as are the available
+task instances.
+
+In order to form estimates that are appropriate for this context, we
+use a set of statistical techniques known as ANOVA (for ANalysis Of
+VAriance).  In each experiment, we try several training sets and for
+each training set we evaluate the losses for many test cases. The
+appropriate analysis depends on whether a single common test set or a
+hierarchical design with disjoint test sets was used.  The analysis
+for the hierarchical model is simplest, so we begin with that.
+
+\subsection{Analysing the hierarchical loss model}
+
+In the hierarchical model, the losses for a particular set of task
+instances and a particular learning method are modeled by:
+\beq
+y_{ij}=\mu+a_i+\varepsilon_{ij},
+\label{eq-loss-model-h}
+\eeq
+where $y_{ij}$ is the loss on training set $i$ and test case
+$j$ (from the $i$'th test set --- remember, in the hierarchical model
+there is a separate test set for each training set). There are $I$
+instances, each of which contain $J$ test cases. The overall mean loss
+is given by $\mu$. The parameter $a_i$ is a random variable which
+explains the variation in losses due to individual training sets. The
+$\varepsilon_{ij}$ parameters account for the residual variation in
+the losses which are unexplained by the model.
+
+The loss model in eq.~(\ref{eq-loss-model-h}) captures the notion that
+individual training sets may not be equally well suited to learn the
+true relationship of the data. As an example, it may be that one
+particular training set contains an outlier, which can be accounted
+for by the corresponding $a_i$ taking on a large positive value. The
+residuals $\varepsilon_{ij}$ account for the variability in losses
+that are unexplained by the contributions from training set factor
+$a$.  This variability may be due to variation in the ``difficulty''
+of test cases (either in general, or when a particular training set is
+used).  Any stochastic aspects of the learning method can also 
+contribute to the variability in either the $a_i$ or the $\varepsilon_{ij}$,
+as discussed below.
+
+We propose using simple independent Gaussian assumptions about the
+model parameters:
+\beq
+a_i\sim {\cal N}(0, \sigma_a^2) \hspace{4cm}
+\varepsilon_{ij}\sim {\cal N}(0, \sigma_\varepsilon^2).
+\label{eq-model-h}
+\eeq
+These assumptions are primarily based on simplicity requirements for
+the following analysis of the results. For many loss functions the
+distributions of the above variables may not be well approximated by
+Gaussians. However, it is generally believed that the $t$-test which
+will be used in the following are fairly robust to violations of
+normality.  Finally, it seems that more sophisticated models become
+very complicated to analyse, which is why we have settled for this
+simple model as our standard recommendation in \delve{}. Note that the
+loss files are available, so that a more ambitious analysis can be
+performed if desired.
+
+The parameter in which we are primarily interested is $\mu$, the
+overall mean performance of the method.  An estimate for it, $\hat\mu$,
+can be found as follows:
+%
+\beq
+\hat\mu\ =\  {1 \over IJ} \sum_{i,\,j} y_{ij} \ =\  \bar y
+ \hspace*{2cm}{\rm SD}(\hat\mu)\ =\ 
+\Big(\frac{\sigma_a^2}{I}+\frac{\sigma_\varepsilon^2}{IJ}\Big)^{1/2}. 
+\label{res:hier}
+\eeq
+%
+This above standard error is in terms of the true values of the
+$\sigma$ parameters.  In practice, we will have to substitute estimates
+for the $\sigma$ parameters. 
+
+We introduce the following partial means:
+%
+\beq
+\bar y_i\ =\ \frac{1}{J}\sum_j y_{ij}\hspace*{2cm}
+\eeq
+%
+and the ``mean squared error'' for $a$ and $\varepsilon$ and their
+expectations
+%
+\beq
+\MSa\ =\ \frac{J}{I-1}\sum_i(\bar y_i-\bar y)^2 & \hspace{2cm}
+& E[\MSa]\ =\ J\sigma_a^2+\sigma_\varepsilon^2\\
+\MSe\ =\ \frac{1}{I(J-1)}\sum_i\sum_j(y_{ij}-\bar y_{i})^2 &
+& E[\MSe]\ =\ \sigma_\varepsilon^2.
+\eeq
+%
+We can now use the following minimum variance unbiased estimators for
+the $\sigma$ values
+%
+\beq
+\hat\sigma_\varepsilon^2\ =\ \MSe
+ \hspace*{2cm} \hat\sigma_a^2\ =\ \frac{\MSa-\MSe}{J}.
+\eeq
+%
+Unfortunately, $\hat\sigma_a^2$ may be negative, in which case we set
+it to zero. The estimated values may be substituted back into
+eq.~(\ref{res:hier}) to estimate the uncertainty associated with the
+average loss.
+
+In order to compare two learning methods, the same model can be
+applied to the \emph{differences} between the losses from two learning
+methods, identified by $k$ and $k'$
+%
+\beq
+y_{ij}\ =\ y_{ijk}-y_{ijk'}\ =\ \mu+a_i+\varepsilon_{ij},
+\eeq
+%
+with similar Gaussian and independence assumptions as in
+eq.~(\ref{eq-model-h}).  In this case $\mu$ is the expected difference
+in performance and $a_i$ will be the difference effect due to training
+sets. Since the overall estimate for the mean can be seen as arising
+from $I$ independent estimates from each of the instances, we can test
+whether the estimate for $\mu$ is should be considered significantly
+different from zero using a $t$-test. This is effectively a paired $t$-test
+for whether the expected performance of the two methods is different,
+with the pairing being performed by modeling the differences in losses. 
+The appropriate $t$ statistic to use is
+%
+\beq
+t\ =\ \bar y\Big(\frac{1}{I(I-1)}\sum_i(\bar y_i-\bar y)^2\Big)^{-1/2}
+\ =\ \bar y\Big(\frac{\MSa}{J(I-1)}\Big)^{-1/2},
+\eeq
+with $I-1$ degrees of freedom.
+
+In cases where the methods to be analysed have stochastic elements,
+these give rise to variation in the losses that are not explicitly
+accounted for in the above analysis. There may be stochastic elements
+in both the training of the method and in the predictions. For
+example, many neural network methods are initialized with random
+weights which gives rise to stochasticity in the training phase.
+
+Although these stochastic elements are not explicitly modeled, the
+additional variability that they lead to will still show up in this
+model. Some training conventions should be followed so that it always
+shows up in the same way.  If your learning method is stochastic, you
+should use a different random number seed for every training set. This
+will result in the variation due to stochastic training being lumped
+together with the training set effects in the analysis. Similarly, if
+your prediction procedure is stochastic, you should use random numbers
+that are independent for each combination of training set and test
+case, so that the effects of stochastic predictions will be lumped
+together with the effects of test cases.  Following these conventions,
+the present analysis will take these stochastic effects into account
+in a consistent way, but you will not be able to separate the
+stochastic training and prediction effects from the other sources of
+variability. In future versions of \delve{} we may support explicit
+evaluation of stochastic training effects, since it may often be of
+interest to know how much performance varies with things such as
+random initialization of model parameters.  However, this extra
+information will come at the cost of having to run methods multiple
+times on identical training and test sets, but with different random
+number seeds.
+
+\subsection{Analysis of experiments with common test sets}
+
+When using a common test set the nested model described in the
+previous section is no longer applicable. Instead, we model the losses
+for a particular set of task instances and a particular learning
+method by:
+\beq
+y_{ij}\ =\ \mu+a_i+b_j+\varepsilon_{ij},
+\label{eq-loss-model-c}
+\eeq
+where $y_{ij}$ is the loss on training set $i$ and test case $j$.
+The overall mean loss is given by $\mu$. The parameters $a_i$ and
+$b_j$ are random variables that explain the variation in losses due to
+individual training sets and test cases respectively. The
+$\varepsilon_{ij}$ parameters are the residual variation in losses,
+which are unexplained by the model.
+
+The loss model in eq.~(\ref{eq-loss-model-c}) captures both effects of
+training sets $a_i$ and test cases $b_j$. In the case of a common test
+set, we have computed the loss for each test case using each of the
+$I$ training sets, and can thus explicitly estimate the effects of the
+different test cases in general (as opposed to their effect in
+combination with a particular training set). As before, the residuals
+$\varepsilon_{ij}$ account for the variability of the losses
+unaccounted for by the model, such as interactions between training
+sets and test cases.  If the methods being tested have stochastic
+elements, variation due to this will also show up somewhere, as discussed 
+below.
+
+We again propose using simple independent Gaussian assumptions about the
+model parameters:
+\beq
+a_i\sim {\cal N}(0, \sigma_a^2) \hspace{2cm} b_j\sim {\cal N}(0, \sigma_b^2)
+\hspace{2cm} \varepsilon_{ij}\sim {\cal N}(0, \sigma_\varepsilon^2).
+\label{eq-model}
+\eeq
+As before, these assumptions are primarily based on simplicity
+requirements for the following analysis of the results.  For many loss
+functions the distributions of the above variables may not be well
+approximated by Gaussians. However, it is generally believed that the
+F-test which will be used in the following is fairly robust to
+violations of normality.
+
+We wish to find an estimate, $\hat \mu$, for the expected loss of the 
+learning method, as well as a standard error associated with
+this estimate.  As our estimate for the expected loss, we can
+use the average loss. We can estimate the standard deviation for this
+estimate based on the model defined by eq.~(\ref{eq-loss-model-c}) 
+and (\ref{eq-model}):
+\beq
+\hat \mu \ =\  \bar y \hspace{2cm}
+\mbox{SD}(\hat \mu) \ =\  \left(\frac{\sigma^2_\varepsilon}{IJ}+
+\frac{\sigma_b^2}{J}+\frac{\hat\sigma_a^2}{I}\right)^{1/2},
+\label{eq-mean}
+\eeq
+where $I$ is the number of training sets and $J$ the number of test
+cases. The expected mean is simply the overall average loss. To
+evaluate the standard error we first need to estimate the values of
+the $\sigma$ parameters. Here and in the following we will use the property
+that when training sets are set up using the \delve{} standard scheme
+(see section \ref{sec-scheme}), the training sets are disjoint subsets
+of the entire data set. We introduce the overall mean and the marginal
+means:
+\beq
+\bar y\ =\ \frac{1}{IJ}\sum_i\sum_j y_{ij} \hspace{2cm}
+\bar y_i\ =\ \frac{1}{J} \sum_j y_{ij} \hspace{2cm}
+\bar y_j\ =\ \frac{1}{I} \sum_i y_{ij},
+\eeq
+and the the ``mean squared error'' for $a$, $b$ and $\varepsilon$ and
+their expectations:
+\beq
+\MSa\ =\ \frac{J}{I-1}\sum_i(\bar y_i-\bar y)^2 \hspace{4cm}
+&E[\MSa]\ =\ J\sigma_a^2+\sigma_\varepsilon^2\\
+\MSb\ =\ \frac{I}{J-1}\sum_j(\bar y_j-\bar y)^2 \hspace{4cm}
+&E[\MSb]\ =\ I\sigma_b^2+\sigma_\varepsilon^2\\
+\MSe\ =\ \frac{1}{(I-1)(J-1)}
+\sum_i\sum_j\big((y_{ij}-\bar y)-(\bar y_i-\bar y)-(\bar y_j-\bar y)\big)^2 
+&E[\MSe]\ =\ \sigma_\varepsilon^2
+\eeq
+Now we can use the empirical values of $\MSa$, $\MSb$ and $\MSe$ to
+estimate values for the $\sigma$'s:
+\beq
+\hat \sigma_\varepsilon^2\ =\ \MSe
+\ \ \ \ \ \hat \sigma_b^2\ =\ \frac{\MSb-\MSe}{I}
+\ \ \ \ \ \hat \sigma_a^2\ =\ \frac{\MSa-\MSe}{J}
+\eeq
+These estimators are uniform minimum variance unbiased estimators.
+Unfortunately however, the estimates for $\sigma_a^2$ and $\sigma_b^2$
+are not guaranteed to be positive, so we set them to zero if they are
+negative.  We can then substitute back these variance estimates in
+eq.~\ref{eq-mean} to get an estimate for the standard error for the
+estimated mean performance.
+
+Note that the estimated standard error $\hat\sigma$ diverges if we
+only have a single training set (as is common practise!).  This effect
+is caused by the hopeless task of trying to empirically estimate a
+variance based on a single observation. At least two training sets
+must be used, and probably more if accurate estimates of uncertainty
+are to be achieved.
+
+Another important question is whether we have good evidence that
+one learning methods is better than another. To settle this
+question we again use the model from eq.~(\ref{eq-model}), only this
+time we model the difference between the losses of the two models, $k$
+and $k'$:
+\beq
+y_{ijk}-y_{ijk'}\ =\ \mu+a_i+b_j+\varepsilon_{ij},
+\eeq
+under the same assumptions as above. The question now is whether the
+estimated overall mean difference $\hat\mu$ is significantly different
+from zero. We can test this hypothesis using a quasi-F test [Lindman,
+Harold R., ``Analysis of Variance in Experimental Design'',
+Springer-Verlag, 1992], which uses the F statistic and degrees of
+freedom:
+\beq
+F_{\nu_1,\nu_2}&\ =\ &(\SS_m+\MSe)/(\MSa+\MSb),
+\mbox{\ \ \ where\ \ \ }\SS_m \ =\  IJ\bar y^2\\
+\nu_1&\ =\ &(\SS_m+\MSe)^2/(\SS_m^2+\MSe^2/((I-1)(J-1)))\\
+\nu_2&\ =\ &(\MSa+\MSb)^2/(\MSa^2/(I-1)+\MSb^2/(J-1)).
+\eeq
+The result of the F-test is a p-value, which is the probability that
+given the null-hypothesis ($\mu=0$) is true, we would
+observed a difference in average performance of this magnitude
+(positive or negative), or of a more extreme magnitude. In general, a 
+low p-value produces high confidence that
+the learning method with better performance in this experiment 
+actually has better performance.  If the p-value is not low (say,
+greater than 0.05), it is not implausible that the method whose
+performance appeared better in this experiment could actually
+be worse in reality.
+
+As is the case with the hierarchical model, the common test set model
+will pick up the variability due to stochastic training and stochastic
+predictions, even though they are not modeled explicitly.  Whenever
+you apply a stochastic method you should initialize it with a
+different random seed. The uncertainty due to stochastic training will
+then be lumped together with the training set effects in the model,
+and the effects of stochastic predictions will by lumped together with
+the interaction effects.  Thus, the present analysis will take these
+stochastic effects into account, but you will not be able to separate
+the effects according to their causes. In future versions of \delve{}
+we may support explicit evaluation of the stochastic training set
+effect, if the method has been run several times on the same training set
+with different random seeds.
+
+
+\subsection{Obtaining performance statistics:~~The \mstats{} command}
+\label{analysis-mstats}
+
+The \mstats{} command implements the calculations described in the two
+previous sections. When used to estimate the expected loss for a
+particular task, \mstats{} is called from within the task directory,
+or is given the path to such a directory in the \delve{} hierarchy.
+The command will look for \file{loss}{l.x} files in this directory,
+and produce the statistics derived from these files. You may specify
+the desired loss functions with the `\texttt{-l}' option. As an
+example, we can analyse the performance of a linear regression method
+in the \texttt{demo/age/std.128} task, using absolute error loss:
+
+\begin{Session}
+unix> mstats -l A /lin-1/demo/age/std.128
+/lin-1/demo/age/std.128
+Loss: A (Absolute error)
+                                                    Raw value   Standardized
+
+                         Estimated expected loss:    15.0988      0.893246
+                     Standard error for estimate:   0.667719     0.0395023
+
+     SD from training sets & stochastic training:    1.49368     0.0883662
+SD from test cases & stoch. pred. & interactions:    13.0755      0.773547
+
+    Based on 8 disjoint training sets, each containing 128 cases and
+             8 disjoint test sets, each containing 128 cases.
+\end{Session}
+
+Here, the values reported correspond to the parameters of the model in
+eq.~(\ref{eq-loss-model-h}); the overall mean performance is followed by
+the standard error on this estimate. Also the standard deviations for
+different sources of variability are printed.
+
+In the second column, the values have been standardized, an a manner
+appropriate for the loss function. The standardized domain is designed
+such that a simple \emph{baseline} method has a nearly pre-specified
+performance. This makes the standardized losses easier to interpret
+than the raw losses. Note however, that these standardizations are
+obtained by imagining the baseline methods applied to the union of all
+\emph{test cases}, such that applying the same simple methods to actual
+training instances will typically yield a standardized error a little
+larger than might be expected. (We are forced to accept this, since
+the standardizations must be the same for all instances in a task,
+whereas the training sets usually differ.)
+
+For the `S', `A', `Z' and `Q' loss types, we obtain standardized
+losses by division by the baseline loss. For squared error loss, the
+baseline method is prediction of the mean. For absolute error loss,
+the baseline is prediction of the median. For 0/1-loss, the baseline
+method is to always predict the majority class, yielding a loss of
+$1-p^*$, where $p^*$ is the frequency of the majority class.  The
+baseline method for squared probability loss predicts the empirical
+class probabilities as observed in the test cases, giving a loss of
+$1-\sum_i p_i^2$, where $p_i$ is the frequency of the $i$'th class
+over the test cases. Thus, these simple methods (which don't utilise
+the inputs) will have a standardized losses of close to $1.0$ and
+better methods will have losses closer to $0.0$.
+
+For log probability loss, the baseline method depends on whether the
+targets are discrete or continuous. For continuous targets the
+baseline method produces a Gaussian predictive distribution with mean
+and variance set to the empirical mean and variance of the test
+cases. Thus, the standardized losses are obtained by subtracting
+$\frac{1}{2}\log(2\pi\sigma^2)+\frac{1}{2}$ from the raw values.  For
+discrete targets, the baseline method sets the class probabilities in
+accordance with the test frequencies; the standardized values are
+consequently obtained by subtracting $-\sum_i p_i\log(p_i)$ from the
+raw values, where $p_i$ is the frequencies of class $i$ in the test
+set. Thus, methods which perform as well as the baseline methods will
+have a standardized loss of around $0$ and better methods will have
+negative losses. The negative value of the standardized loss can be
+interpreted as the amount of information (measured in nats) that the
+method predicts about the targets relative to the baseline method.
+
+Specifying the `\texttt{-c}' option to \mstats{} causes it to compare
+losses with the method named after the `\texttt{-c}' option.  For
+example we can compare the linear method with a $k$-nearest-neighbor
+method with respect to absolute-error loss on the
+\texttt{/demo/age/std.128} task as follows:
+
+\begin{Session}
+unix> mstats -l A -c knn-cv-1 /lin-1/demo/age/std.128
+/lin-1/demo/age/std.128
+Loss: A (Absolute error)
+                                                    Raw value   Standardized
+
+               Estimated expected loss for lin-1:    15.0988      0.893246
+           Estimated expected loss for /knn-cv-1:    13.2854      0.785965
+                   Estimated expected difference:     1.8134      0.107281
+          Standard error for difference estimate:   0.350707     0.0207478
+
+     SD from training sets & stochastic training:   0.505922     0.0299304
+SD from test cases & stoch. pred. & interactions:    9.65323      0.571086
+
+    Significance of difference (t-test), p = 0.00129409
+
+    Based on 8 disjoint training sets, each containing 128 cases and
+             8 disjoint test sets, each containing 128 cases.
+\end{Session}
+

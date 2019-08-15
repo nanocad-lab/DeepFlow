@@ -1,0 +1,321 @@
+# Commands covered:  range, isInt, isFloat, isInf
+#
+# This file contains a collection of tests for one or more of the
+# commands added for delve.  Sourcing this file into Tcl runs
+# the tests and generates output for errors.  No output means no errors
+# were found.
+#
+# Copyright (c) 1991-1993 The Regents of the University of California.
+# Copyright (c) 1994 Sun Microsystems, Inc.
+# Copyright (c) 1996 University of Toronto
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: range.test,v 1.2 1996/05/03 18:45:20 drew Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+test range-1.1 {range contains: wrong no. of args} {
+    list [catch {range contains range} msg] $msg ;
+} "1 {wrong \# args: should be \"range contains range value\"}"
+
+test range-1.2 {range contains: enumerated range, value in the range} {
+    range contains {a b c d} d
+} "1" ;
+
+test range-1.3 {range contains: enumerated range, value outside the range} {
+    range contains {a b c d} e
+} "0" ;
+
+test range-1.4 {range contains: integer range, non-integer values} {
+    list [range contains {1..10} 13.5] \
+	[range contains {1..10} 2.0] \
+	[range contains {1..10} a] ;
+} "0 0 0" ;
+
+test range-1.5 {range contains: real range, non-real values} {
+    list [range contains {[1,10]} "this is a string"] \
+	[range contains {[1,10]} a] ;
+} "0 0" ;
+
+test range-1.6 {range contains: combinations where value is below lower limit} {
+    list \
+	[range contains {[Inf,Inf]}	10] \
+	[range contains {(10,Inf]}	10] \
+	[range contains {(10,100]} 	9] 
+} "0 0 0" ;
+
+test range-1.7 {range contains: combinations where value is above upper limit} {
+    list \
+	[range contains {[-Inf,-Inf]}	100] \
+	[range contains {(-Inf,100)}	100] \
+	[range contains {(10,100)} 	101] 
+} "0 0 0" ;
+
+test range-1.8 {range contains: all that's left over} {
+    range contains {[-10,1000]}	100 ;
+} "1" ;
+
+test range-1.8a {range contains: all that's left over, but with infinity} {
+    range contains {[-Inf,Inf]}	100 ;
+} "1" ;
+
+
+test range-2.1 {range finite: wrong no. of args} {
+    list [catch {range finite range 3} msg] $msg ;
+} "1 {wrong \# args: should be \"range finite range\"}"
+
+test range-2.2 {range finite: enumerated range} {
+    range finite {1 2 3 4 5} ;
+} "1" ;
+
+test range-2.3 {range finite: infinite ranges} {
+    list \
+	[range finite {-Inf..100}] \
+	[range finite {1..Inf}] \
+	[range finite {-Inf..-Inf}] \
+	[range finite {Inf..Inf}] ;
+} "0 0 0 0" ;
+
+test range-2.4 {range finite: empty or single value ranges} {
+    list \
+	[range finite {Inf..100}] \
+	[range finite {1..-Inf}] \
+	[range finite {1..0}] \
+	[range finite {[0,0]}] ;
+} "1 1 1 1" ;
+
+test range-2.5 {range finite: real vs. integer ranges} {
+    list \
+	[range finite {1..100}] \
+	[range finite {[1,100]}] ;
+} "1 0" ;
+
+test range-3.1 {range limits: wrong no. of args} {
+    list [catch {range limits range 3} msg] $msg ;
+} "1 {wrong \# args: should be \"range limits range\"}"
+
+test range-3.2 {range limits: integer ranges} {
+    list \
+	[range limits {1..10}] \
+	[range limits { 1 ..10	}] \
+	[range limits {1	.. 10}] \
+	[range limits {1.. 10}] \
+	[range limits {1..	10}] ;
+
+} "{1 10} {1 10} {1 10} {1 10} {1 10}" ;
+
+test range-3.3 {range limits: real ranges} {
+    list \
+	[range limits {[1.0,10]}] \
+	[range limits {(1.0,10]}] \
+	[range limits {(1.0,10)}] \
+	[range limits {[1.0,10)}] \
+	[range limits {[ 1.0	,10	]}] \
+	[range limits {(1.0 ,10]}] \
+	[range limits {(1.0,	10)}] \
+	[range limits {[1.0, 10)}] ;
+
+} "{1.0 10} {1.0 10} {1.0 10} {1.0 10} {1.0 10} {1.0 10} {1.0 10} {1.0 10}" ;
+
+test range-3.4 {range limits: enumerated ranges} {
+    list [catch {range limits {a b c d}} msg] $msg ;
+} "1 {range \"a b c d\" doesn't have limits}"
+
+test range-4.1 {range list: wrong no. of args} {
+    list [catch {range list range 3} msg] $msg ;
+} "1 {wrong \# args: should be \"range list range\"}"
+
+test range-4.2 {range list: infinite range} {
+    list [catch {range list (1.0,2.0)} msg] $msg ;
+} "1 {can't list an infinite range: \"(1.0,2.0)\"}"
+
+test range-4.3 {range list: enumerated range} {
+    range list {a b c d} ;
+} "a b c d" ;
+
+test range-4.4 {range list: empty ranges} {
+    list \
+	[range list {(Inf,100)}] \
+	[range list {(100,-Inf)}] \
+	[range list {(1000,100)}] \
+	[range list {(100,100]}] \
+	[range list {[100,100)}] \
+	;
+} "{} {} {} {} {}" ;
+
+test range-4.5 {range list: one value ranges} {
+    list \
+	[range list {[100,100]}] \
+	[range list {100..100}] \
+	;
+} "100 100" ;
+
+test range-4.6 {range list: integer ranges} {
+    range list {1..3} ;
+} "1 2 3" ;
+
+test range-5.1 {range openlower: wrong no. of args} {
+    list [catch {range openlower range 3} msg] $msg ;
+} "1 {wrong \# args: should be \"range openlower range\"}"
+
+test range-5.2 {range openlower: enumerated range} {
+    list [catch {range openlower "a b c d"} msg] $msg ;
+} "1 {enumerated ranges are neither opened or closed}" ;
+
+test range-5.3 {range openlower: various combinations} {
+    list \
+	[range openlower {1..2}] \
+	[range openlower {[1,3]}] \
+	[range openlower {(1,3]}] \
+	[range openlower {[1,3)}] \
+	[range openlower {(1,3)}] \
+	[range openlower { [ 1,3	) }] \
+	[range openlower { (	1,3 )	}] \
+	;
+} "1 1 0 1 0 1 0" ;
+
+test range-6.1 {range openupper: wrong no. of args} {
+    list [catch {range openupper range 3} msg] $msg ;
+} "1 {wrong \# args: should be \"range openupper range\"}"
+
+test range-6.2 {range openupper: enumerated range} {
+    list [catch {range openupper "a b c d"} msg] $msg ;
+} "1 {enumerated ranges are neither opened or closed}" ;
+
+test range-6.3 {range openupper: various combinations} {
+    list \
+	[range openupper {1..2}] \
+	[range openupper {[1,3]}] \
+	[range openupper {(1,3]}] \
+	[range openupper {[1,3)}] \
+	[range openupper {(1,3)}] \
+	[range openupper { [ 1,3	) }] \
+	[range openupper { (	1,3 ]	}] \
+	;
+} "1 1 1 0 0 0 1" ;
+
+test range-7.1 {range type: wrong no. of args} {
+    list [catch {range type range 3} msg] $msg ;
+} "1 {wrong \# args: should be \"range type range\"}"
+
+test range-7.2 {range type: enumerated} {
+    list \
+	[range type {a b c d e}] \
+	[range type {a b c d e]}] \
+        [range type {(a b c d e}] \
+        [range type {a b [c d e]}] \
+	;
+} "enumerated enumerated enumerated enumerated" ;
+
+test range-7.3 {range type: real with non-real lower limit} {
+    list [catch {range type (a,3.0)} msg] $msg ;
+} "1 {expected floating-point limit in range \"(a,3.0)\" but got \"a\"}" ;
+
+test range-7.4 {range type: real with non-real upper limit} {
+    list [catch {range type (3.0,b)} msg] $msg ;
+} "1 {expected floating-point limit in range \"(3.0,b)\" but got \"b\"}" ;
+
+test range-7.4 {range type: various real ranges} {
+    list \
+	[range type {(1.0,3.0)}] \
+	[range type { (1.0	,3.0 )}] \
+	[range type {(1.0, 3.0)		}] \
+	[range type { ( 1.0 , 3.0 ) }] \
+	;
+} "real real real real" ;
+
+test range-7.5 {range type: integer with non-integer lower limit} {
+    list [catch {range type a..3} msg] $msg ;
+} "1 {expected integer limit in range \"a..3\" but got \"a\"}" ;
+
+test range-7.6 {range type: integer with non-integer upper limit} {
+    list [catch {range type 3..b} msg] $msg ;
+} "1 {expected integer limit in range \"3..b\" but got \"b\"}" ;
+
+test range-7.7 {range type: various integer ranges} {
+    list \
+	[range type {1..3}] \
+	[range type { 1	..3 }] \
+	[range type { 1.. 3		}] \
+	[range type {  1 .. 3  }] \
+	;
+} "integer integer integer integer" ;
+
+test range-8.1 {unknown range option} {
+    list [catch {range style range} msg] $msg ;
+} "1 {bad option \"style\": should be contains, finite, limits, list, openlower, openupper, or type}"
+
+;
+
+test isint-1.1 {isInt: various valid integers} {
+    list \
+	[isInt	0] \
+	[isInt	145] \
+	[isInt	0145] \
+	[isInt	+145] \
+	[isInt	-145] \
+	[isInt	{ 145	}] \
+	[isInt	Inf] \
+	[isInt	-Inf] \
+	;
+} "1 1 1 1 1 1 1 1" ;
+
+test isint-1.2 {isInt: various invalid integers} {
+    list \
+	[isInt	1.0] \
+	[isInt	1.5] \
+	[isInt	"one hundred"] \
+	[isInt	1e0] \
+	[isInt	{0 145}] \
+	;
+} "0 0 0 0 0" ;
+
+test isfloat-1.1 {isFloat: various valid floating-point values} {
+    list \
+	[isFloat	0] \
+	[isFloat	+0] \
+	[isFloat	-0] \
+	[isFloat	0145] \
+	[isFloat	0.0] \
+	[isFloat	.0] \
+	[isFloat	{ 0.0	}] \
+	[isFloat	1.0e35] \
+	[isFloat	1.0E35] \
+	[isFloat	1.0e-35] \
+	[isFloat	1.0E-35] \
+	[isFloat	+1.0e35] \
+	[isFloat	-1.0E35] \
+	[isFloat	Inf] \
+	[isFloat	-Inf] \
+	;
+} "1 1 1 1 1 1 1 1 1 1 1 1 1 1 1" ;
+
+test isfloat-1.2 {isFloat: various invalid floating-point values} {
+    list \
+	[isFloat	"one hundred"] \
+	[isFloat	1e] \
+	[isFloat	e] \
+	[isFloat	2e34.5] \
+	;
+} "0 0 0 0" ;
+
+test isinf-1.1 {isInf: various valid infinities} {
+    list \
+	[isInf	inf] \
+	[isInf	-inf] \
+	[isInf	{ Inf	}] \
+	[isInf	-Inf] \
+	[isInf	iNF] \
+	[isInf	-iNf] \
+	;
+} "1 1 1 1 1 1" ;
+
+test isinf-1.2 {isInf: various invalid infinities} {
+    list \
+	[isInf	infinity] \
+	[isInf	oo] \
+	;
+} "0 0" ;
+

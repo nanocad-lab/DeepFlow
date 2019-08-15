@@ -1,0 +1,1433 @@
+%
+% appC.tex - Appendix containing a reference to the DELVE utilities.
+%
+% $Id: appC.tex,v 1.48.2.6 1996/11/29 21:33:26 revow Exp $
+%
+
+%
+% Some commonly used strings.
+%
+
+\newcommand{\tcl}{\textbf{Tcl}}
+\newcommand{\dpath}{dpath}
+\newcommand{\mpath}{mpath}
+\newcommand{\lossfile}[2]{\texttt{loss\textit{.#1.#2}}}
+
+%
+% \synopsis{command}{description}
+%
+% A command for formatting ``synopsis'' descriptions consistently.
+% First arg contains the command name, second arg contains the command
+% description.
+%
+
+\newcommand{\synopsis}[2]{%
+\newpage%
+\subsection*{\rule{0pt}{20pt}\texttt{\textbf{#1}} --- #2}%
+\addcontentsline{toc}{subsection}{%
+\texttt{\textbf{\protect\makebox[11.5ex][l]{#1}}} #2}%
+\rhead[\texttt{#1}]{\texttt{#1}}%
+\lhead[\texttt{#1}]{\texttt{#1}}%
+}
+
+%
+% \Usage{command}{args}
+%
+% Prints a command usage description. 
+
+\newcommand{\oo}{$[\,$}
+\newcommand{\oc}{$\,]$}
+\newcommand{\alt}{\hspace{-1pt}{\tt |}}
+\newcommand{\AND}{\hspace{8pt}}
+\newcommand{\litr}[1]{\hspace{2pt}{\tt #1}\hspace{0pt}}
+
+\newcommand{\Usage}[2]{%
+	\begin{list}{}{}\item[]%
+	{\tt #1}\hspace{8pt}{\em #2}%
+	\end{list}}
+
+%
+% \begin{ttdescription} item_list \end{ttdescription}
+%
+% An environment like ``description'', but it typesets the label in
+% typewriter font, and starts the description on a new line if the
+% label is longer than than the label width.
+%
+
+\newlength{\Optionlen}
+\newcommand{\Optionlabel}[1]{%
+	\settowidth{\Optionlen}{\texttt{#1}}%
+	\ifdim \Optionlen >\labelwidth%
+		\parbox[b]{\labelwidth}{\makebox[0pt][l]{\texttt{#1}}\\\mbox{}}%
+	\else%
+		\texttt{#1}%
+	\fi%
+	\hfil\relax}
+\newenvironment{ttdescription}%
+	{\begin{list}{}{%
+		\settowidth{\leftmargin}{\texttt{xxxxxxxx}}%
+		\setlength{\labelwidth}{\leftmargin}%
+		\addtolength{\labelwidth}{-\labelsep}%
+		\renewcommand{\makelabel}{\Optionlabel}}}%
+	{\end{list}}
+
+%
+% The body of the appendix
+%
+
+\newpage
+\section{DESCRIPTIONS OF DELVE COMMANDS}\label{app-commands}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ DESCRIPTIONS OF DELVE COMMANDS}]
+      {\fancyplain{}{\thesection.\ DESCRIPTIONS OF DELVE COMMANDS}}
+
+This appendix is a detailed reference for the commands that make up
+the \delve{} working environment.  You will not necessarily need to
+use all these commands every day, as some of them are needed only by
+people creating new datasets or prototasks.
+
+\subsection*{Introduction to \delve{} commands}
+\addcontentsline{toc}{subsection}{Introduction to \delve{} commands}
+Before describing the individual \delve{} commands, we will describe
+the common aspects that they all share. 
+
+\subsubsection*{Command syntax}
+All \delve{} utilities have a common calling syntax, along the lines of:
+
+\Usage{command}{\oo option \oc \AND argument~\ldots}
+
+Portions enclosed by ``$[$'' and ``$]$'' are optional; things before
+``\ldots'' can be repeated several times.  A vertical bar, ``\texttt{|}'',
+separates alternatives, only one of which should be present.
+
+The \texttt{command} is the name of the \delve{} utility, for example
+\dinfo{}.  Commands are named so that those that act on dataset
+directories have names that begin with the letter `\texttt{d}', while
+those that act on method directories have names beginning with
+`\texttt{m}'.
+
+The options are used to modify the behaviour of the \texttt{command}.
+They take the usual Unix form --- a dash followed by a single
+character, for example: ``\texttt{-h}''.  Some options also take a
+single argument.  In this case the argument must immediately follow
+the option, separated by one or more blank spaces, for example:
+\mbox{``\texttt{-i foo}''}.  If the argument contains spaces it must be
+quoted: \mbox{\texttt{-i "this arg has spaces"}}.
+
+The arguments differ in number and meaning for each command.  However,
+all commands recognize the two following options: 
+\begin{ttdescription}
+\item[-h]
+    This causes the command to print a short help message describing
+    its usage and options, after which it exits normally without
+    doing anything else.
+\item[--]
+    This marks the end of the options for the command.  The arguments
+    following this one will be treated as regular command arguments
+    even if they start with a \texttt{-}.
+\end{ttdescription}
+
+\subsubsection*{Data and method path names}
+Throughout this appendix, we refer to data path names, or \emph{dpaths} and
+method path names, or \emph{mpaths}.  These paths look just like normal
+unix path names, but they differ in two important aspects:\vspace{-4pt}
+\begin{itemize}
+\item
+    Dpaths and mpaths are defined only for files that
+    exist inside the \delve{} directory hierarchy.  Dpaths
+    point into the \texttt{data} part of the hierarchy; mpaths
+    point into the \texttt{methods} part.
+\item
+    A dpath or mpath may identify a file or directory in any
+    of the active \texttt{delve} directories.  Dpaths and mpaths
+    for directories can even resolve to several locations
+    within different \texttt{delve} directories (though this is
+    not supposed to happen for dpaths and mpaths identifying files).
+\end{itemize}\vspace{-4pt}
+
+The \delve{} hierarchy is the collection of all the active
+\texttt{delve} directories. A \texttt{delve} directory must have a
+name that starts with the five characters ``\texttt{delve}'', and it
+must have two subdirectories called \texttt{data} and
+\texttt{methods}.  \delve{} decides on the set of active
+\texttt{delve} directories as follows.  First of all, if your current
+working directory is inside a \texttt{\delve} directory, that
+\texttt{delve} directory will be considered active, for as long as you
+remain in it.  In addition, you may provide a list of \texttt{delve}
+directories in your \texttt{DELVE\_PATH} environment variable.  If you
+do not have such an environment variable, \delve{} will use a default
+list of directories that was fixed when \delve{} was installed.
+
+The \texttt{DELVE\_PATH} environment variable, if set, should
+contain a colon separated list of \delve{} directories. You can use the
+command ``\texttt{dinfo -k delve\_path /}'' to find out which directories
+are currently in your \texttt{DELVE\_PATH}, or what the default list
+of directories is, if you have not set your \texttt{DELVE\_PATH}.
+
+All the files relating to \delve{} datasets, methods, and the results
+of applying methods to data are kept in the \delve{} hierarchy. Files
+relating to datasets, but not to any particular method, are stored in
+the \texttt{data} part of the hierarchy, and hence have a \dpath.
+Methods and the results of applying methods are stored in the
+\texttt{methods} part of the hierarchy, and hence have an \mpath.  An
+mpath that points to a file or directory relating to the results of a
+method on a particular dataset, prototask, or task can also be used to
+identify the corresponding information in the \texttt{data} part
+of the hierarchy.
+
+Dpaths and mpaths may be ``absolute'', starting with a ``/'' character,
+or they may be specified relative to the current directory.
+
+Some examples may clarify these naming conventions. Consider the case
+where you have a directory called \texttt{/usr/local/lib/delve}.
+Inside this directory are the directories \texttt{data} and
+\texttt{methods} (and any number of other files and directories).
+This is a valid \delve{} directory.
+
+Inside the \texttt{data} directory there is another directory called
+\texttt{demo}.  Its absolute unix path name is:
+\texttt{/usr/local/lib/delve/data/demo}; however, its \dpath{} is
+simply \texttt{/demo}.  It does not have a \mpath{} because it is not
+in the \texttt{methods} directory.  If your current directory were
+\texttt{demo}, its relative Unix path would be ``\texttt{.}'', as would
+its relative \dpath.
+
+Assume the \texttt{methods} directory contained
+\texttt{lin-1/demo}. Its absolute unix path name would be:
+\texttt{/usr/local/lib/delve/methods/lin-1/demo}; however, its
+\mpath{} would be \texttt{/lin-1/demo}.  It would not have a \dpath{}
+because it is not in the \texttt{data} directory.  If your current
+directory were \texttt{lin-1/demo}, its relative unix path would be
+``\texttt{.}''. This would also be its relative \mpath. Similarly, the
+relative path name of \texttt{lin-1} in both schemes would be
+``\texttt{..}''.
+
+Finally, note that commands that create files inside a directory need
+to know the \emph{true} pathname for the directory, \emph{not} just a
+dpath or mpath, since the latter might resolve to more than Unix
+directory.
+
+\newpage
+
+%
+% The ``dcheck'' command
+%
+
+\synopsis{dcheck}{Validate \delve{} data files}
+
+{\em Note: This command is not yet implemented.}
+
+The \dcheck{} command is used to verify that the data and specifications
+for a dataset and its prototasks are legal and consistent.
+
+\subsubsection*{Command Summary}
+\Usage{dcheck}{\oo \litr{-l}\oc \AND \oo dpath \alt mpath \oc}
+
+The path given \dcheck{} must identify a dataset, a prototask for a
+dataset, or a prior file for a prototask.  The default is
+``\texttt{.}'', the current directory, which must identify a 
+dataset or prototask.  If a dataset is specified, its
+\texttt{Dataset.spec} and \texttt{Dataset.data} files are checked for
+errors.  Unless `\texttt{-l}' is specified, all the prototasks for the
+dataset are also checked.  A single prototask can be checked by giving
+a path to that prototask.  When a prototask is checked, the
+\texttt{Prototask.spec} file is checked for consistency with the
+\texttt{Dataset.spec}, and, unless `\texttt{-l}' is specified, all the
+\texttt{.prior} files for the prototask are also checked for errors.
+A single \texttt{.prior} file can be checked by giving its pathname.
+
+The \dcheck{} command recognizes the \texttt{-h} ``help'' option described in
+the introduction to this section, as well as:
+\begin{ttdescription}
+\item[-l] 
+    This causes \dcheck{} to run locally.  If a dataset is specified,
+    only information on the dataset itself is checked, not information
+    on its prototasks.  If a prototask is specified, only information on
+    the prototask itself is checked, not information in prior files for the
+    prototask.
+\end{ttdescription}
+
+%
+% The ``dgenorder'' command
+%
+
+\synopsis{dgenorder}{Generate random order for a prototask}
+
+The \dgenorder{} command is used to set up a random ordering of cases
+in a prototask.  This will usually be necessary only for natural or
+cultivated datasets, not for simulated or artificial ones, for which
+the order will presumably already be random.
+
+\subsubsection*{Command Summary}
+\Usage{dgenorder}{\oo path\oc}
+
+The argument given must be the true path name of a prototask directory
+(\emph{not} the dpath for a prototask); the default is `.', the
+current directory.  The \dgenorder{} command creates a file called
+\texttt{Random-order} within this directory that contains a random
+ordering of cases in the prototask.  This file has one line for each
+case used by the prototask, with each line containing a number from
+one up to the total number of cases in the prototask.
+
+This \texttt{Random-order} file is meant to be used as the ordering
+file in the specification for a prototask.  Use of a random ordering
+is advisable whenever the prototask is not sequential (where the
+ordering is meaningful), unless the ordering is already known for
+certain to be random (as would often be the case for simulated and
+artificial data).
+
+{\em Note: For prototasks with commonality indexes, or for which
+training sets are to be stratified, \dgenorder{} will have to do
+something cleverer, but such things are not implemented yet.}
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath
+    \texttt{/{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath
+    \texttt{/{\rm\em dataset}} in a \delve{} standard format.  
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Random-order]
+    this is the output file produced by the command.
+\end{ttdescription}
+
+%
+% The ``dgenproto'' command
+%
+
+\synopsis{dgenproto}{Generate prototask data files}
+
+Prototasks are composed of a subset of the cases in a dataset, and a
+subset of the attributes in each case.  The prototask data file is an
+intermediate file between the dataset data file and the task data
+files.  It will be generated ``on the fly'' if it doesn't exist, but
+some time will be saved each time it is needed if the creator (or
+installer) of a prototask creates it once and for all, using the
+\dgenproto{} command.  (On the other hand, keeping such prototask data 
+files around permanently takes up disk space.)
+
+\subsubsection*{Command Summary}
+\Usage{dgenproto}{\oo \litr{-i}\oc \AND \oo path\oc}
+
+The \dgenproto{} command generates prototask data files (called
+\texttt{Prototask.data}) inside prototask directories found within the
+\texttt{data} part of the \delve{} hierarchy.  The data put in these
+files is taken from the corresponding dataset data files
+(called \texttt{Dataset.data}), which are also found in the \delve{}
+hierarchy.  
+
+The \textit{path} argument is the true path of the directory to
+generate the data in (\emph{not} its dpath, as the dpath might not
+specify a unique directory).  If \textit{path} is a prototask
+directory --- that is, a subdirectory of a \delve{} dataset directory
+--- the prototask data file for that prototask alone is generated.  If
+\textit{path} points to a dataset directory, data for all prototasks
+in the dataset will be generated.  If \textit{path} points to the root
+of the \texttt{data} part of the \delve{} hierarchy, data files for
+all prototasks for all datasets will be generated.
+
+The \dgenproto{} command recognizes the \texttt{-h} ``help'' option
+described in the introduction to this section, as well as:
+\begin{ttdescription}
+\item[-i] 
+    This option causes the command to ignore errors when multiple data
+    files are being generated.  The command will continue even if one
+    or more of the files cannot be created.
+\end{ttdescription}
+
+\subsubsection*{Example}
+
+After obtaining the dataset \texttt{/demo} from the \delve{} archive
+and placing it in the archive \delve{} directory
+\texttt{/usr/local/lib/delve}, the installer will probably wish to run
+the following command:
+
+\begin{Session} 
+unix>dgenproto -i /usr/local/lib/delve/data/demo generating:
+/usr/local/lib/delve/data/demo/age/Prototask.data
+  extracting cases...
+  creating file...
+generating: /usr/local/lib/delve/data/demo/colour/Prototask.data
+  extracting cases...
+  creating file...
+generating: /usr/local/lib/delve/data/demo/income/Prototask.data
+  extracting cases...
+  creating file...
+generating: /usr/local/lib/delve/data/demo/sex/Prototask.data
+  extracting cases...
+  creating file...
+generating: /usr/local/lib/delve/data/demo/siblings/Prototask.data
+  extracting cases...
+  creating file...
+\end{Session}
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath
+    \texttt{/{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath
+    \texttt{/{\rm\em dataset}} in a \delve{} standard format.  
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.data]
+    this is the output file produced by the command.
+\end{ttdescription}
+
+\newpage
+
+%
+% The ``dinfo'' command
+%
+
+\synopsis{dinfo}{Get information about datasets}
+
+Although \dls{} and \dmore{} can be used to browse through the
+directories and files that define a dataset, the information the files
+contain is not presented in a very useful format.  The \dinfo{}
+command takes all of the information available and puts it into a more
+accessible format.
+
+\subsubsection*{Command Summary}
+\Usage{dinfo}{\oo \litr{-a} \alt \litr{-k} keys\oc \AND
+              \oo \litr{-q}\oc \AND
+              \oo \litr{-t}\oc \AND
+              \oo dpath \alt mpath\oc}
+
+The \dinfo{} command prints human readable information summaries about
+the \delve{} dataset, prototask or task whose data path is
+\textit{dpath}.  If \dinfo{} is given a method path name instead of a
+data path name, it converts it to a data path name by removing the
+method prefix.  If not specified, the path defaults to `\texttt{.}',
+which must be in the \delve{} heirarchy.
+
+For different types of paths, \dinfo{} returns different types of
+information. The \textit{dpath} argument may specify one of the
+following:
+\begin{itemize}
+\item
+    The root data directory `\texttt{/}'; for which the information
+    available includes: the \delvepath{} and a list of all installed
+    datasets.
+\item
+    A \textbf{dataset}, for which the available information includes:
+    the name of the dataset; its origin; its recommended usage; the
+    order cases occur in it; the number of attributes each case
+    contains; a description of these attributes; and a list of all
+    prototasks in the dataset. An example of a dataset path is
+    `\texttt{/demo}'.
+\item
+    A \textbf{prototask}, for which the available information
+    includes: the name of the prototask; its origin; the number of
+    cases it contains; the ordering of these case; the number of cases
+    in each test set; the sizes of the training sets for each task;
+    the scheme used for generating test sets; the maximum number of
+    training instances a task may contain; a list of the attributes to
+    be used as inputs for tasks; a list of the attributes to be used
+    as targets; and a list of the available tasks.  An example of a
+    prototask path is `\texttt{/demo/age}'.
+\item
+    A \textbf{task}, for which the available information includes: the
+    name of the task, the number of cases in each training set; a list
+    of the attributes to be used as inputs; a list of the attributes
+    to be used as targets; the type, relevance, and default coding
+    method for each attribute.  An example of a task path is
+    `\texttt{/demo/age/std.128}'.
+\end{itemize}
+
+The \dinfo{} command recognizes the \texttt{-h} ``help'' option described in
+the introduction to this section, as well as:
+\begin{ttdescription}
+\item[-a] 
+    Causes the command to print out all the information it knows about
+    the path you are querying. By default, it only prints
+    ``interesting'' information.
+\item[-k \textit{keys}] 
+    Print only information about fields in the \texttt{keys} list. Keys 
+    can be obtained with the \texttt{-q} option. This is useful, for
+    example, if you are only interested in what prototasks a dataset
+    contains.
+\item[-q] 
+    Print, instead of the information normally printed, the keys for
+    the information. For example the command \verb+dinfo -q /demo+
+    would print:
+\begin{Session}
+dataset origin usage order number-of-attributes prototasks
+\end{Session}
+    These keys can be used as arguments for the \texttt{-k} option. Note
+    that the \texttt{-k} and \texttt{-a} options affect the behaviour of
+    this option, i.e.~\texttt{-q} causes the command to print the keys
+    for the information it would print given all other options.
+\item[-t] 
+    Print information in a terse format: no headings are printed, and
+    the format is more suitable as input to another program than to a
+    human. The \texttt{-t} and \texttt{-k} options can conveniently be used
+    together in scripts.
+\item[-v] 
+   Print the software version number.
+\end{ttdescription}
+
+\subsubsection*{Example}
+
+An example of a command to obtain information about the \texttt{demo}
+dataset is:
+\begin{Session}
+unix> dinfo /demo
+Dataset: /demo
+Origin: artificial
+Usage: development
+Order: uninformative
+Number of attributes: 5
+Prototasks: 
+        age
+        colour
+        income
+        sex
+        siblings
+\end{Session}
+Similar results would be obtained if you were in a directory with
+dpath \texttt{/demo} and you typed `\texttt{dinfo .}' or
+`\texttt{dinfo}'.
+
+If you only wanted to know what prototasks the dataset contained, and
+you wanted the output to be machine readable, you could use the
+command:
+\begin{Session}
+unix> dinfo -t -k prototasks /demo
+age colour income sex siblings
+\end{Session}
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath
+    \texttt{/{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath
+    \texttt{/{\rm\em dataset}} in a \delve{} standard format.  The contents of
+    the file are not used, but its existence may be checked.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/*.prior]
+    files contain prior information to be used when generating tasks for the 
+    prototask with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask}}.
+\end{ttdescription}
+
+
+%
+% The ``dls'' command
+%
+
+\synopsis{dls}{List contents of \delve{} data directories}
+
+In the \delve{} environment, if a given dpath refers to a directory,
+it could resolve to multiple true directories.  This can be
+inconvenient if you want to list the files contained in the dpath.  To
+help in this situation, \delve{} supplies the \dls{} utility for
+listing all files that reside in directories with a common dpath.
+
+\subsubsection*{Command Summary}
+\Usage{dls}{\oo \litr{-l}\oc \AND \oo dpath \alt mpath\oc}
+
+The \dls{} command lists the merged contents of all directories with
+the common data path name \textit{dpath}, or if \textit{dpath} refers
+to a file, it repeats its name.  If \dls{} is given a method path name
+(an mpath) as an argument instead of a data path name, it converts it
+to a data path name by removing the method prefix.
+
+The output of the command is sorted alphabetically.  If no path is
+given on the command line, it defaults to `\texttt{.}', which must be
+a dpath or an mpath.
+
+The \dls{} command recognizes the \texttt{-h} ``help'' option described in
+the introduction to this section, as well as:
+\begin{ttdescription}
+\item[-l] 
+    Print a long listing, where files are grouped by the directory
+    they are contained in, and the true path name of each directory is
+    printed.
+\end{ttdescription}
+
+\subsubsection*{Example}
+
+If you wished to list all files in the data directories with dpath
+\texttt{/demo/age} you could use \dls{} as follows:
+%
+\begin{Session}
+unix> dls /demo/age
+Prototask.data  Prototask.spec  std.prior
+\end{Session}
+%
+Since \dls{} allows you to give either a dpath or a mpath as an
+argument, you could obtain the same results using the command
+`\texttt{dls /lin-1/demo/age}'.
+
+%
+% The ``dmore'' command
+%
+
+\synopsis{dmore}{Browse or page through \delve{} data files}
+
+In a manner similar to the \dls{} and \mls{} commands, \delve{}
+provides a utility called \dmore{} for viewing text files given their
+dpath.  This allows you to look at a file without knowing its true
+path.
+
+\subsubsection*{Command Summary}
+\Usage{dmore}{dpath \alt mpath~\ldots}
+
+The \dmore{} command displays the contents of text files that reside
+in \delve{} data directories.  The \textit{dpath} arguments are the
+data path names of the files to be displayed.  If \dmore{} is given
+method path names instead of data path names, it converts them to data
+path names by removing the method prefix.  Files are displayed on the
+terminal, one screenful at a time.
+
+To view the files, \dmore{} passes its output through a pager.  The
+default pager is \texttt{more}, but it can be changed by setting the
+environment variable \texttt{PAGER} to the name of the command you
+wish to use.
+
+The \dmore{} command recognizes only the \texttt{-h} ``help'' option
+described in the introduction to this section.
+
+\subsubsection*{Example}
+
+To view the file containing the standard prior information for the
+\texttt{demo/age} prototask, you could use the command:
+\begin{Session}
+unix> dmore /demo/age/std.prior
+1 NLMH binary
+3 NLMH integer
+4 NLMH real
+5 NLMH nominal
+2 NLMH real
+\end{Session}
+
+%
+% The ``mgendata'' command
+%
+
+\synopsis{mgendata}{Generate task data files}
+
+Once you have created the directory hierarchy that will contain the
+data to train and test your method on, you have to populate it with
+the actual data.  To do this you use the command \mgendata.
+
+\subsubsection*{Command Summary}
+\Usage{mgendata}{\oo \litr{-c} file\oc \AND \oo \litr{-q} \oc \AND \oo path\oc}
+
+The \mgendata{} command generates task data files inside a \delve{}
+method directory from dataset or prototask data files inside a
+\delve{} data directory.  The \textit{path} argument is the \emph{true}
+path of the directory to generate the data in: \emph{not} its mpath
+(since the mpath could easily resolve to multiple directories).  The
+\textit{path} argument must be a subdirectory of a \delve{} methods directory.
+
+If \textit{path} points to a task directory, only data for that task
+will be generated. If it points to a prototask, data for all tasks in
+the prototask will be generated.  If it points to a dataset, data for
+all tasks in all prototasks will be generated.
+
+In each task directory, four sets of files are generated.  Each set
+contains the same number of files as there are training instances in
+the task.  Each file in a set has a unique extension `\textit{.n}',
+where \textit{n} is the integer index of the training instance which
+the file corresponds to.\vspace{-5pt}
+
+\begin{itemize}
+\item 
+    Each instance in the task has a \textbf{training file} called
+    \file{train}{n}.  This file contains cases that are to be used for
+    training your learning method.  Each line in the file contains the
+    data for one case.  A case contains the encoded representation of
+    all attributes to be used for the task (see
+    Section~\ref{assess-encodings} for a description of encoding
+    schemes) printed to the file such that all values are separated by
+    white space.  In each case, input attributes come first, followed
+    by target attributes (i.e.~each line contains both input values
+    and target values).
+\item
+    As well as a training file, each instance in the task has a
+    \textbf{testing file} called \file{test}{n}.  These files contain
+    encoded input attributes for all testing cases (one case per line,
+    all values separated by white space).  Testing files do \emph{not}
+    contain target values; they contain only input values.
+\item
+    For each testing file, there is a corresponding \textbf{target
+    file}.  This file contains the encoded target attributes for the
+    testing cases, one case per line. Target files are called
+    \file{targets}{n}.
+\item
+    Data attributes can be encoded using various forms of
+    normalization.  To keep track of the normalization constants, a
+    \textbf{normalization file} \file{normalize}{n} is created for
+    each instance.  This file contains the mean, variance, median, and
+    average absolute deviation from the median for each attribute (one
+    attribute per line).
+\end{itemize}\vspace{-5pt}
+
+As well as the above sets of files, two single files are generated:
+\texttt{Coding-used} which will contain a description of the method
+used to encode each of the attributes (in the form described below),
+and \texttt{Test-set-stats} which will contain statistics derived from
+the testing data.  These files are needed to calculate the losses and
+evaluate the method performance after it has been run.
+
+The \mgendata{} command recognizes the \texttt{-h} ``help'' option described in
+the introduction to this section, as well as:\vspace{-5pt}
+\begin{ttdescription}
+
+\item[-c {\rm\em file}] 
+    This option allows you to override the default encoding of
+    attributes.  The file should contain one encoding specification
+    per line, containing first an identifier of an attribute (either
+    number or name) followed by the desired encoding.  If options are
+    to be given for the encoding, they should appear on the same line,
+    in the form \texttt{option=value}, where \texttt{option} is the
+    option's name (for example \texttt{passive}), and \texttt{value}
+    is the value it is to be set to.  Multiple option/value pairs may
+    appear on the same line, separated by spaces.  No spaces may
+    appear between the option's name and the equal sign, or between
+    the equal sign and the value.  All attributes which are not
+    mentioned in the encoding file retain their default encodings.
+
+    The valid encodings and their options are described in
+    section~\ref{assess-encodings}.\vspace{-5pt}
+
+\item[-q]
+    Command should run quietly. Normally \mgendata{} prints the names of the
+files that it is working on.
+
+
+\end{ttdescription}
+
+\subsubsection*{Example}
+
+Suppose that you are in a directory whose mpath is \texttt{/lin-1},
+and that you have previously run \mgendata.  If you now want to
+generate training and testing files for the task of the
+\texttt{/demo/age} prototask based on standard prior information and
+using 256 cases in each training set, you would use the
+command:\vspace{-5pt}
+\begin{Session}
+unix> mgendata ./demo/age/std.256
+./demo/age/std.256
+  segmenting cases...
+  splitting test inputs and targets...
+  encoding instance 0 training data...
+  encoding instance 0 test inputs...
+  encoding instance 0 test targets...
+  encoding instance 1 training data...
+  encoding instance 1 test inputs...
+  encoding instance 1 test targets...
+  encoding instance 2 training data...
+  encoding instance 2 test inputs...
+  encoding instance 2 test targets...
+  encoding instance 3 training data...
+  encoding instance 3 test inputs...
+  encoding instance 3 test targets...
+\end{Session}\vspace{-5pt}
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath {\tt
+    /{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath \texttt{/{\rm\em dataset}}
+    in a \delve{} standard format.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.data]
+    contains all the data for the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}} in a \delve{} standard format.  
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/*.prior]
+    files contain prior information to be used when generating tasks for the 
+    prototask with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Random-Order]
+    contains the ordering to use when extracting cases from the {\tt
+    Dataset} file and generating the \texttt{Prototask} file for the
+    prototask with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/train.\textit{n}]
+    created to hold the encoded inputs and targets for training cases.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/test.\textit{n}]
+    created to hold the encoded inputs for test cases.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/targets.\textit{n}]
+    created to hold the encoded targets for test cases.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/normalize.\textit{n}]
+    created to hold the normalization constants used in the encoding.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/Coding-used]
+    created to hold coding actually used in creating the data files for \\
+    \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em task}}.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/Test-set-stats]
+    created to hold statistics of the testing data for the task with dpath \\
+    \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em task}}.
+\end{ttdescription}
+
+%
+% The ``mgendir'' command
+%
+
+\synopsis{mgendir}{Generate task directories}
+
+When you first want to run a new method on a dataset, you must build
+the directory tree that will contain all of the training and testing
+data.  You could use a normal Unix command such as \texttt{mkdir}, but
+that would be quite tedious, or you could use the \delve{} command
+\mgendir.
+
+\subsubsection*{Command Summary}
+\Usage{mgendir}{\oo \litr{-l}\oc \AND \oo \litr{-q} \oc \AND \oo path\oc}
+
+The \mgendir{} command generates directory trees for \delve{}
+datasets, prototasks, or tasks inside a method directory.  The
+\textit{path} argument is the \emph{true} path of the root of the tree
+to create: \emph{not} its mpath (since the mpath could easily resolve to
+multiple directories). The \textit{path} must be a subdirectory of a
+\delve{} methods directory.
+
+If path specifies a method, directories for all available datasets are
+created in the method directory.  If it specifies a dataset,
+directories for all prototasks and tasks of that dataset are
+generated. If it specifies a prototask or a task, only directories
+associated with them are generated.
+
+\mgendir{} will not complain if parts of the directory tree already exist.
+
+The \mgendir{} command recognizes the \texttt{-h} ``help'' option described in
+the introduction to this section, as well as:
+\begin{ttdescription}
+\item[-l] 
+    This causes \mgendir{} to run locally. This means that
+    sub-directories are not created.  If you specify a method name, no
+    dataset directories are generated.  If you specify a dataset name,
+    no prototask directories are generated.  If you specify a
+    prototask name, no task directories are generated.
+\item[-q]
+    Command should run quietly. Normally \mgendir{} prints the names of the
+subdirectories as they are created.
+\end{ttdescription}
+
+\subsubsection*{Example}
+
+Assuming that you were in a directory with mpath \texttt{lin-1}, and
+you wanted to generate the directory tree files for the entire
+\texttt{demo} dataset, you could use the command:
+\begin{Session}
+unix> mgendir ./demo
+./demo
+./demo/age
+./demo/age/std.32
+./demo/age/std.64
+./demo/age/std.128
+./demo/age/std.256
+./demo/age/std.512
+./demo/colour
+./demo/colour/std.32
+
+\ldots
+
+./demo/siblings/std.512
+\end{Session}
+Similarly, you could generate the directories for just the \texttt{age}
+prototask using the command:
+\begin{Session}
+unix> mgendir ./demo/age
+./demo
+./demo/age
+./demo/age/std.32
+./demo/age/std.64
+./demo/age/std.128
+./demo/age/std.256
+./demo/age/std.512
+\end{Session}
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath {\tt
+    /{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath \texttt{/{\rm\em dataset}}
+    in a \delve{} standard format.  The contents of the file are not
+    used by \dinfo\, but its existence is checked.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/*.prior]
+    files contain prior information to be used when generating tasks for 
+    the prototask with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask}}.
+\end{ttdescription}
+
+%
+% The ``minfo'' commands
+%
+
+\synopsis{minfo}{Get information about learning methods}
+
+In a manner similar to \dinfo\, the \minfo{} command can be used to
+obtain information about \delve{} methods.
+
+\subsubsection*{Command Summary}
+\Usage{minfo}{\oo \litr{-a} \alt \litr{-k} keys\oc \AND
+              \oo \litr{-q}\oc \AND
+              \oo \litr{-t}\oc \AND
+              \oo mpath\oc}
+
+The \minfo{} command prints human readable information summaries about
+the \delve{} method, dataset, prototask or task whose \delve{} method
+path name is given by the \textit{mpath} argument. If no path is
+specified, it defaults to `\texttt{.}', which must be a \delve{}
+methods directory. The \minfo{} command returns information about
+datasets, prototasks, or tasks \emph{as they were used by the method},
+not as they appear in the \texttt{data} directory.  For example, when
+the mpath argument specifies a dataset, the list of prototasks
+returned by \minfo{} will contain only those the method was run on,
+not all of the ones available to be run on.
+
+For different types of paths, \minfo{} returns different types of
+information. The \textit{mpath} argument may specify one of the
+following:
+\begin{itemize}
+\item
+    Information available for the root data directory \texttt{/}
+    includes: the \delvepath{} and a list of the methods that have
+    been run on \delve{} datasets.
+\item
+    For a \texttt{method} directory, the information available
+    includes a list of all datasets the method has been run on. An
+    example of a method path is `\texttt{/lin-1}'.
+\item
+    For a \texttt{dataset}, the available information includes all the
+    information returned by \dinfo{} for datasets, with the exception
+    that the list of prototasks includes only those that the method
+    has been run on.  An example of a dataset path is
+    `\texttt{/lin-1/demo}'.
+\item
+    For a \texttt{prototask}, the available information includes all the
+    information returned by \dinfo{} for prototasks, with the exception
+    that the list of tasks includes only those that the method has
+    been run on.  An example of a prototask path is
+    `\texttt{/lin-1/demo/age}'.
+\item
+    For a \texttt{task}, the available information includes all the
+    information returned by \dinfo{} for a task, with the exception
+    that the actual coding method used for the data is printed,
+    \textit{not} the default method.  An example of a task path is
+    `\texttt{/lin-1/demo/age/std.128}'.
+\end{itemize}
+
+The \minfo{} command recognizes the same options as \dinfo.
+
+\subsubsection*{Example}
+
+An example of a command line that could be used to obtain information
+about the \texttt{demo} dataset as it was used by lin-1 would be:
+\begin{Session}
+unix> minfo /lin-1/demo
+Dataset: /demo
+Origin: artificial
+Usage: development
+Order: uninformative
+Number of attributes: 5
+Prototasks: 
+        age
+        income
+\end{Session}
+Similar results would be obtained if your current working directory
+had the mpath \mbox{\texttt{/lin-1/demo}}, and you typed
+`\texttt{minfo .}' or `\texttt{minfo}'.
+
+If you only wanted to know what \texttt{demo} prototasks the \texttt{lin-1}
+method was run on, and you wanted the output to be machine readable,
+you could use the command:
+\begin{Session}
+unix> minfo -t -k prototasks /lin-1/demo
+age income
+\end{Session}
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath
+    \texttt{/{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath
+    \texttt{/{\rm\em dataset}} in a \delve{} standard format.  The contents of
+    the file are not used, but its existence may be checked.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/*.prior]
+    files contain prior information to be used when generating tasks for the 
+    prototask with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em method\/}/*]
+    used to get the list of datasets the method with mpath {\tt
+    /{\rm\em method}} has been run on.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/*]
+    used to get the list of prototasks from the dataset with dpath
+    \texttt{/{\rm\em dataset}} that the method with mpath 
+    \texttt{/{\rm\em method}} has been run on.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/*]
+    used to get the list of tasks from the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}} that the method with mpath 
+    \texttt{/{\rm\em method}} has been run on.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em 
+       prototask\/}/{\rm\em task\/}/Coding-used]
+    contains the coding scheme used to generate the task data files
+    for the task with mpath \texttt{/{\rm\em method\/}/{\rm\em 
+    dataset\/}/{\rm\em prototask\/}/{\rm\em task}}.
+\end{ttdescription}
+
+%
+% The ``mloss'' command
+%
+
+\synopsis{mloss}{Generate task loss files}
+
+Once you have run a method on a task and produced predictions, you
+will need to calculate the loss from the true targets and your
+predictions.  Loss functions are discussed in detail in
+Section~\ref{sec-loss}.
+
+\subsubsection*{Command Summary}
+\Usage{mloss}{\oo \litr{-i} instances\oc \AND 
+              \oo \litr{-l} losses\oc \AND \oo \litr{-q} \oc \AND
+              \oo path\oc}
+
+The \mloss{} command decodes prediction files and generates loss
+files.  The \textit{path} argument for \mloss{} is the \emph{true}
+path of the directory to generate the decoded prediction and loss
+files in (\emph{not} its mpath, since the mpath could easily resolve
+to multiple directories).  The prediction files used to generate the
+losses can reside in any directory with the same mpath.  If not
+specified, \textit{path} defaults to the current directory.
+
+If \textit{path} points to a task directory, only loss files for that
+task will be generated.  If it points to a prototask, loss files for
+all tasks in the prototask will be generated.  If it points to a
+dataset, loss files for all tasks in all prototasks will be generated.
+Finally, if it points to a method, loss files will be generated for
+all tasks that the method has been run on.
+
+The \mloss{} command can generate losses using using any of the five
+following measures.  Each measure has a single-character code
+associated with it:\vspace{-4pt}
+\begin{list}{}{\setlength{\leftmargin}{0.6in}\setlength{\labelsep}{0.2in}}
+  \item[{\tt A}] Absolute error loss.
+  \item[{\tt S}] Squared error loss.
+  \item[{\tt Z}] Zero-one loss.
+  \item[{\tt L}] Negative log-probability loss.
+  \item[{\tt Q}] Squared-probability loss.
+\end{list}\vspace{-4pt}
+You must write your predictions to files with special names in order
+to get them evaluated with the intended loss measure. Depending on the
+type of the prediction, the file may have one of three \emph{root}
+names: \texttt{guess} for files that contain guesses for the targets,
+\texttt{prob} for files containing class probabilities and \texttt{ptarg}
+for files containing the probabilities (or densities) of the true
+targets under the method's predictive distribution. In general the
+methods do not need to read the \texttt{targets} files, with the
+exception of the situations where the method produces a predictive
+distribution and the targets are real, integer or angular. In these
+cases there seems to be no general convenient way of conveying the
+predictive distribution; instead the method must itself evaluate the
+probability (or density) of the true target under the predictive
+distribution and write this to a prediction file with the
+\texttt{ptarg} root name.
+
+A number of prefixes and extensions may be added to these root
+names. The instance number is always added as an extension,
+e.g.~\texttt{guess.3}. Optionally, the name of a spcific loss function
+can also be specified as an extension, e.g.~\texttt{guess.S.3}.  If no
+loss function is specified then the predictions can be applied to any
+loss function for which that particular root is meaningful (although,
+loss specific predictions always take precedence over generic
+ones). Some prediction files may have a `\texttt{c}' prefixed to their
+name, indicating that the predictions are in the coded domain. This
+will normaly be the case for the files your method writes, since it
+only sees that training and test files which have been encoded. The
+`\texttt{c}' prefix can be applied to files with the \texttt{guess} or
+\texttt{ptarg} root names. Files which contain probabilities (or
+densities) may have an `\texttt{l}' prefixed their name indicating
+that the predictions are made in the (natural) log domain. Some
+examples of names of prediction files are \texttt{cguess.A.0},
+\texttt{prob.3} and \texttt{clptarg.L.7}. Note, that the prefixes and
+extensions must follow the order given in these examples.
+
+The first task \mloss{} performs is decoding the predictions.  It
+places the decoded predictions in files with the same names as those
+containing the coded ones with the initial `\texttt{c}' removed. For
+example the decoded predictions for \texttt{cguess.A.0} would be placed
+in \texttt{guess.A.0}.  Similarly, the decoded predictions for
+\texttt{clptarg.7} would be placed in \texttt{lptarg.7}.
+
+Once the predictions have been decoded, \mloss{} generates loss files
+based on those predictions and the target values.  The losses are
+placed in files named \file{loss}{l.n}, where where the `\textit{l}'
+and `\textit{n}' characters have the same meanings as above. For loss
+files the `.\textit{l}' extension is not optional (as the values in
+the file are defined by the loss function).
+
+The prediction files used to generate the losses for a particular
+measure are found by first looking for all prediction files specific
+to that loss (i.e.~files that have the appropriate `.\textit{l}'
+extension). If even one such file exists for a given measure, then
+only files with that extension are used to generate the losses.  If no
+such files exist for the given loss, \mloss{} looks for prediction
+files where the loss was not specified (i.e.~files with the
+appropriate root name, but without the `.\textit{l}' extension). It
+then uses these to calculate the loss. If none of these files exist,
+a warning message is printed, and no loss files for that measure are
+generated.
+
+A table of the allowed combinations of target types and loss functions
+is given in section \ref{loss-standard}. Whenever predictions are made
+in files with the \texttt{prob} root, \mloss{} automatically
+normalises the probabilites to sum to unity. However, this is not
+possible for predictions with the \texttt{ptarg} root, so users should
+be careful to ensure that their method's predictive distribution is
+correctly normalised when using these predictions.
+
+The \mloss{} command recognizes the \texttt{-h} ``help'' option
+described in the introduction to this section, as well
+as:\vspace{-4pt}
+\begin{list}{}{\setlength{\leftmargin}{0.6in}\setlength{\labelsep}{0.2in}}
+\item[{\tt -i} {\rm\em instances}] 
+    This allows you to specify which training instances you want to
+    evaluate the loss for.  It should be a list of integer values or
+    the string `\texttt{all}'.  It's default value is `\texttt{all}'.
+\item[{\tt -l} {\rm\em losses}] 
+    This allows you to specify the loss functions \mloss{} attempts to
+    evaluate. You can specify any combination of \texttt{A}, \texttt{S},
+    \texttt{L}, \texttt{Q}, and \texttt{Z}. By default, \mloss{} attempts to
+    evaluate all approriate types.
+\item[{\tt -q}]
+    Command should run quietly. Normally \mloss{} prints the names of the
+files that it is working on.
+\end{list}
+
+\emph{Note: The \mloss{} command does not yet support the specialised loss
+functions discussed in section \ref{loss-specialized}.}
+
+To generate the loss files, \mloss{} must temporarily decode the
+target files.  Because of this, the target files \emph{must} be
+present in the \mpath{} of the task.
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath {\tt
+    /{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath \texttt{/{\rm\em dataset}}
+    in a \delve{} standard format.  The contents of the file are not
+    used by \dinfo\, but its existence is checked.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/*.prior]
+    files contain prior information to be used when generating tasks for 
+    the prototask with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+       task\/}/targets.{\sl n}]
+    contains the coded targets for the \texttt{n}'th training instance of the 
+    task with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/}, as made by the method with mpath \texttt{/{\rm\em method}}.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+       task\/}/{[c]}guess{[{\sl .l\/}]}{\sl .n}]
+    contains the guesses for the (optianally coded) targets of the
+    \texttt{n}'th training instance of the task with dpath
+    \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/}, as made by the method with mpath \texttt{/{\rm\em method}},
+    with an optionally specified loss function (\texttt{A}, \texttt{S} or
+    \texttt{Z}).
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+       task\/}/{[c][l]}ptarg{[.L]}{\sl .n}]
+    contains the (optionally log) probabilities (or densities) for the
+    (optionally coded) targets of the \texttt{n}'th training instance of
+    the task with dpath
+    \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em task\/}/}, 
+    as made by the method with mpath \texttt{/{\rm\em method}}. The
+    \texttt{L} loss function may optionally be specified.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+       task\/}/{[l]}prob{[{\sl .l\/}]}{\sl .n}]
+    contains the (optionally log) probabilities of the targets for the
+    \texttt{n}'th training instance of the task with dpath
+    \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em task\/}/}, 
+    as made by the method with mpath \texttt{/{\rm\em method}}, with
+    an optionally specified loss function (\texttt{L} or \texttt{Q}).
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+       task\/}/Coding-used]
+    contains the coding scheme used to encode the data for the method with
+    mpath
+    \texttt{/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task}}.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+       task\/}/normalize.{\sl n}]
+    contains the normalizing constants used to encode the data for the
+    method with mpath 
+    \texttt{/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/}
+\end{ttdescription}
+
+%
+% The ``mls'' command
+%
+
+\synopsis{mls}{List contents of \delve{} method directories}
+
+As with dpaths, if a given mpath refers to a directory, it could
+resolve to multiple true directories.  To list all files in
+directories with a common mpath, \delve{} supplies the \mls{} utility.
+
+\subsubsection*{Command Summary}
+\Usage{mls}{\oo \litr{-l}\oc \AND \oo mpath\oc}
+
+The \mls{} command lists the merged contents of all directories with
+the common method path name \texttt{mpath}, or if \texttt{mpath}
+refers to a file, it repeats its name.
+
+The output of the command is sorted alphabetically.  If no path is
+given on the command line, it defaults to `\texttt{.}', which must be
+a \delve{} method directory.
+
+The \mls{} command recognizes the \texttt{-h} ``help'' option described in
+the introduction to this section, as well as:
+\begin{ttdescription}
+\item[-l] 
+    Print a long listing, where files are grouped by the directory
+    they are contained in, and the true path name of each directory is
+    printed.
+\end{ttdescription}
+
+\subsubsection*{Example}
+
+If you wished to list all files in the method directories with mpath
+\texttt{/lin-1/demo} you could use the \mls{} command as follows:
+%
+\begin{Session}
+unix> mls /lin-1/demo
+age income
+\end{Session}
+
+%
+% The ``mmore'' command
+%
+
+\synopsis{mmore}{Browse or page through \delve{} method files}
+
+The command corresponding to \dmore{} for viewing \delve{} method
+files is \mmore.
+
+\subsubsection*{Command Summary}
+\Usage{mmore}{mpath~\ldots}
+
+The \mmore{} command displays the contents of text files that reside
+in \delve{} method directories. The \texttt{mpath} arguments are the
+method path names of the files to be displayed.  Files are displayed
+on the terminal, one screenful at a time.
+
+To view the files, \mmore{} passes its output through a pager.  The
+default pager is \texttt{more}, but it can be changed by setting the
+environment variable \texttt{PAGER} to the name of the command you
+wish to use.
+
+The \mmore{} command recognizes only the \texttt{-h} ``help'' option
+described in the introduction to this section.
+
+\subsubsection*{Example}
+
+To view the source program for the implementation of the \texttt{lin-1}
+method, you could use the command:
+\begin{Session}
+unix> mmore /lin-1/Source/lin-1.c
+/* lin-1.c: Robust linear method for regression.  
+ *
+ * Reads training examples from "train.n", test inputs from "test.n" and
+ * targets from "targets.n".  Produces point predictions in "cguess.n" and
+ * densities of targets under a predictive distribution in "clptarg.L.n".
+ * Here "n" is the instance number, supplied as a command argument. Handles
+ * badly conditioned cases where inputs are (close to) linearly dependent.
+ *
+ * (c) Copyright 1996 by Carl Edward Rasmussen. */
+
+#include <stdio.h>
+...
+\end{Session}
+
+%
+% The ``mstats'' command
+%
+
+\synopsis{mstats}{Calculate or compare loss statistics}
+
+Once the loss files for a given method have been generated, you can
+see how well or poorly the method performed, either in absolute terms,
+or in comparison to another method.  This is done with the \mstats{}
+command.
+
+\subsubsection*{Command Summary}
+\Usage{mstats}{\oo \litr{-c} methods\oc \AND
+               \oo \litr{-i} base\oc \AND
+               \oo \litr{-l} losses\oc \AND
+               \oo mpath\oc}
+
+The \mstats{} command prints summary statistics about a method's loss
+files, or compares the loss files of two methods, and prints summary
+statistics about the comparison.  The \textit{mpath} argument is the
+\delve{} method path name of the method whose losses are to be
+summarized.  If it is omitted, it defaults to `\texttt{.}'  which must
+be a \delve{} method directory.
+
+Loss files are generated by \mloss{} and are normally named
+\file{loss}{l.n}, where \textit{l} is a single character describing
+the loss function used to generate the file, and \textit{n} is an
+integer describing the training instance the loss file corresponds to.
+See the description of \mloss{} for further details.
+
+Full details of the statistics used to summarize the losses are
+described in Section~\ref{sec-analysis}; however a quick summary is
+given here.
+
+When summarizing the loss files for a single method, \mstats{}
+returns:\vspace{-5pt}
+\begin{itemize}
+\item the estimated expected loss.
+\item the standard error of the estimate.
+\item the standard deviation of the losses between training sets.
+\item the standard deviation of the losses between testing cases 
+	(if applicable).
+\item the standard deviation of the residuals.
+\end{itemize}\vspace{-5pt}
+Both the raw values and a standardized version of these terms are
+printed.  See section~\ref{analysis-mstats} for a discussion of the
+standardization used.
+
+When comparing the performance of two methods, \mstats{} returns:\vspace{-5pt}
+\begin{itemize}
+\item the estimated expected loss for both methods.
+\item the estimated expected difference in the losses.
+\item the standard error of the estimate for the difference.
+\item the standard deviation of the losses between training sets.
+\item the standard deviation of the residuals.
+\end{itemize}\vspace{-5pt}
+Both the raw values and a standardized version of these are printed.
+The report also includes a probability describing the significance of
+the differences of the two loss estimates (calculated using either a
+T-test, or F-test as appropriate).
+
+Both reports include a listing of how many training sets and cases,
+and test sets and cases were used to calculate the statistics.
+
+The \mstats{} command recognizes the \texttt{-h} ``help'' option described in
+the introduction to this section, as well as:\vspace{-4pt}
+\begin{list}{}{\setlength{\leftmargin}{0.6in}\setlength{\labelsep}{0.2in}}
+\item[\texttt{-c} {\rm\em methods}] 
+    This flag causes \mstats{} to compare the current method with the
+    selected methods. Summary statistics about the differences of the
+    loss files in \texttt{mpath} and those of the other methods are
+    returned.  The \texttt{method} arguments may be proper mpaths for
+    a method, e.g.~\texttt{/lin-1}, or you may omit the initial slash.
+\item[\texttt{-i} {\rm\em base}] 
+    This allows you to change the base name of the input loss files.
+    These files are generated by \mloss{} and normally have the base
+    name \texttt{loss}.
+\item[\texttt{-l} {\rm\em losses}] 
+    This allows you to change what loss functions \mstats{} attempts
+    to summarize. You can specify any combination of \texttt{A},
+    \texttt{S}, \texttt{L}, \texttt{Q}, and \texttt{Z}. By default, it
+    attempts to summarize all of them, using whatever files exist.
+    \texttt{Mstats} will only print warnings if it attempts to
+    summarize a loss measure for which there are no loss files.
+\end{list}\vspace{-4pt}
+
+\subsubsection*{Example}
+
+Suppose you wished to know how well the \texttt{/lin-1} method did on
+the \texttt{/demo/age/std.128} task, using the squared error loss
+measure.  You could use the command:\vspace{-5pt}
+\begin{Session}
+unix> mstats -l S /lin-1/demo/age/std.128
+/lin-1/demo/age/std.128
+Loss: S (Squared error)
+                                                    Raw value   Standardized
+
+                         Estimated expected loss:     400.73      0.819745
+                     Standard error for estimate:    28.6111     0.0585277
+
+     SD from training sets & stochastic training:     40.898     0.0836622
+SD from test cases & stoch. pred. & interactions:    790.029       1.61611
+
+    Based on 8 disjoint training sets, each containing 128 cases and
+             8 disjoint test sets, each containing 128 cases.
+\end{Session}\vspace{-5pt}
+If you then wanted to compare its performance to the \texttt{/knn-cv-1}
+method, you could use:\vspace{-5pt}
+\begin{Session}
+mstats -c knn-cv-1 -l S /lin-1/demo/age/std.128
+/lin-1/demo/age/std.128
+Loss: S (Squared error)
+                                                    Raw value   Standardized
+
+               Estimated expected loss for lin-1:     400.73      0.819745
+           Estimated expected loss for /knn-cv-1:    368.003      0.752798
+                   Estimated expected difference:     32.727     0.0669473
+          Standard error for difference estimate:     14.075     0.0287922
+
+     SD from training sets & stochastic training:    27.6978     0.0566594
+SD from test cases & stoch. pred. & interactions:    323.515      0.661792
+
+    Significance of difference (t-test), p = 0.052988
+
+    Based on 8 disjoint training sets, each containing 128 cases and
+             8 disjoint test sets, each containing 128 cases.
+\end{Session}\vspace{-5pt}
+
+\subsubsection*{Files Used}
+\begin{ttdescription}
+\item[/{\rm\em dataset\/}/Dataset.spec]
+    contains specifications describing the dataset with dpath
+    \texttt{/{\rm\em dataset}}.
+\item[/{\rm\em dataset\/}/Dataset.data]
+    contains all the data for the dataset with dpath
+    \texttt{/{\rm\em dataset}} in a \delve{} standard format.  The contents of
+    the file are not used, but its existence is checked.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/Prototask.spec]
+    contains specifications describing the prototask with dpath {\tt
+    /{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em dataset\/}/{\rm\em prototask\/}/*.prior]
+    files contain prior information to be used when generating tasks for the 
+    prototask with dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask}}.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/loss.\textit{l}.\textit{n}]
+    contains the losses for the \texttt{n}'th training instance of the
+    task calculated using the loss function \texttt{\textit{l}} with
+    dpath \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em task\/}/}, 
+    as made by the method with mpath \texttt{/{\rm\em method}}.
+\item[/{\rm\em method\/}/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em 
+    task\/}/Test-set-stats]
+    contains statistics of the testing data for the task with dpath
+    \texttt{/{\rm\em dataset\/}/{\rm\em prototask\/}/{\rm\em task}}.
+\end{ttdescription}
+
+\newpage
+
+\rhead[]{}%
+\lhead[]{}%

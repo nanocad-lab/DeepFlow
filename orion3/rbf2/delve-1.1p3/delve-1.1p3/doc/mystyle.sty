@@ -1,0 +1,23 @@
+%
+% $Id: mystyle.sty,v 1.13 1996/04/07 01:30:24 radford Exp $
+%
+
+%
+% We redefine the caption to be smaller in font size.
+%
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{mystyle}
+\RequirePackage{ifthen}
+
+\newbox{\tempbox}
+\newcommand{\@mycaption}[2]{% #1 is e.t. Figure 1, #2 is caption text
+	\vspace{10pt}\sbox{\tempbox}{\small #1: #2}%
+	\ifthenelse{\lengthtest{\wd\tempbox > \linewidth}}%
+		{\small #1: #2\par}%	More than one line
+		{\begin{center}\small #1: #2\end{center}}%
+}
+
+\renewcommand{\@makecaption}{\@mycaption}
+
+\renewcommand{\thefigure}{\thesection.\@arabic\c@figure}

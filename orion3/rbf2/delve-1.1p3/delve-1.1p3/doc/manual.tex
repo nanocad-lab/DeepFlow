@@ -1,0 +1,258 @@
+%
+% $Id: manual.tex,v 1.52.2.3 1996/12/04 19:04:45 revow Exp $
+%
+
+\documentclass[12pt]{article}
+\usepackage{alltt}
+\usepackage{float}
+\usepackage{fancyheadings}
+\usepackage{mystyle}
+% \usepackage{html}
+% \usepackage{heqn}
+\usepackage{epsf}
+
+% \includeonly{appC}
+
+%
+% Resize the area for text on a page.
+%
+
+\setlength{\topmargin}{-0.2in}
+\setlength{\headheight}{0.2in}
+\setlength{\headsep}{0.2in}
+\setlength{\textheight}{8.7in}
+\setlength{\textwidth}{6.5in}
+\setlength{\oddsidemargin}{0.0in}
+\setlength{\evensidemargin}{0.0in}
+
+%
+% Fancy headings with the string ``DELVE'' on one side of the header,
+% and the section number and name on the other. The page number is in
+% the center of the footer.
+%
+
+\lhead[]{}
+\rhead[]{}
+\chead[]{}
+
+\pagestyle{fancyplain}
+
+%
+% The level number of the least significant sectional unit listed in
+% the table of contents. 2 = subsections
+%
+
+\setcounter{tocdepth}{2}
+
+%
+% Let floats take up *a lot* of space on a page.
+%
+
+\renewcommand{\topfraction}{0.8}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.2}
+
+%
+% \begin{Session} body \end{Session}
+%
+% An environment for displaying an example of a command session. Text
+% is printed in typewriter font with a slightly smaller point size
+% than the default point size.  Text formatting is unchanged as in
+% ``verbatim'', but everything is indented by the current listing
+% indentation. 
+%
+
+\newenvironment{Session}%
+    {\begin{list}{}{}\item[]\small\begin{minipage}{\linewidth}\begin{alltt}}%
+    {\end{alltt}\end{minipage}\end{list}}
+
+%
+% Strings that appear many times in the document.
+%
+
+\newcommand{\Dinfo}{{\rm\tt Dinfo}}
+\newcommand{\OR}{{\em ~or~~}}
+\newcommand{\delvepath}{{\rm\tt DELVE\_PATH}}
+\newcommand{\delve}{DELVE}
+\newcommand{\dinfo}{{\rm\tt dinfo}}
+\newcommand{\dls}{{\rm\tt dls}}
+\newcommand{\dmore}{{\rm\tt dmore}}
+\newcommand{\dcheck}{{\rm\tt dcheck}}
+\newcommand{\dgenproto}{{\rm\tt dgenproto}}
+\newcommand{\dgenorder}{{\rm\tt dgenorder}}
+\newcommand{\file}[2]{{\rm\tt #1}{\it .#2\/}}
+\newcommand{\mgendata}{{\rm\tt mgendata}}
+\newcommand{\mgendir}{{\rm\tt mgendir}}
+\newcommand{\minfo}{{\rm\tt minfo}}
+\newcommand{\mloss}{{\rm\tt mloss}}
+\newcommand{\mls}{{\rm\tt mls}}
+\newcommand{\mmore}{{\rm\tt mmore}}
+\newcommand{\mstats}{{\rm\tt mstats}}
+\newcommand{\mtable}{{\rm\tt mtable}}
+\newcommand{\wwwhome}{http://www.cs.utoronto.ca/\maketilde{}delve/}
+\newcommand{\maketilde}{\raisebox{0.4ex}{\scriptsize $\sim$}}
+
+\def\beq{\begin{eqnarray}}
+\def\eeq{\end{eqnarray}}
+\def\eep{\end{eqnarray}}
+
+\begin{document}
+
+% ----------------------------------------------------------------------
+% The title page
+% ----------------------------------------------------------------------
+
+\begin{center}
+   \vspace*{1in}
+   {\huge The DELVE Manual} \\[26pt]
+
+   {\large C.~E.~Rasmussen, R.~M.~Neal, G.~E.~Hinton, D.~van~Camp,} \\[5pt]
+   {\large M.~Revow, Z.~Ghahramani, R. Kustra, and R.~Tibshirani}   \\[20pt]
+
+   {\large Version 1.1} \\
+   December 1996
+\end{center}
+
+\vfill
+
+\begin{list}{}{
+\setlength{\leftmargin}{0.25in}\setlength{\rightmargin}{0.25in}}\item[]\em
+    This manual describes the preliminary release of the DELVE environment.
+    Some features described here have not yet implemented, as noted.
+    Support for regression tasks is presently somewhat more developed than 
+    that for classification tasks.\vspace{3pt}
+
+    We recommend that you exercise caution when using this version of 
+    DELVE for real work, as it is possible that bugs remain in the software.
+    We hope that you will send us reports of any problems you encounter,
+    as well as any other comments you may have on the software or manual, 
+    at the e-mail address below.  Please mention the version number of
+    the manual and/or the software with any comments you send.
+\end{list}
+
+\vfill\vfill
+
+\begin{centering}
+
+For the latest DELVE news, visit \wwwhome\\[4pt]
+Send comments to delve@cs.utoronto.ca
+
+\end{centering}\vspace{8pt}
+
+\noindent This project was supported by grants from the Natural Sciences and
+Engineering Research Council of Canada and the Institute for
+Robotics and Intelligent Systems.
+
+%
+%  page style has to come after ``\maketitle'' because it tries to
+%  make the style ``plain''.
+%
+
+\pagenumbering{roman}
+\thispagestyle{empty}
+
+\clearpage
+
+% ----------------------------------------------------------------------
+% The copyright notice
+% ----------------------------------------------------------------------
+
+\thispagestyle{plain}
+
+\vspace*{\fill}
+\vspace*{-0.8in}
+\begin{centering}
+Copyright \copyright\ 1995--1996 by The University of Toronto,\\
+Toronto, Ontario, Canada.\\[1ex]
+All Rights Reserved\\[2ex]
+\end{centering}
+
+\noindent
+Permission to use, copy, modify, and distribute this software and its
+documentation for {\bf non-commercial purposes only} is hereby granted
+without fee, provided that the above copyright notice appears in all
+copies and that both the copyright notice and this permission notice
+appear in supporting documentation, and that the name of The
+University of Toronto not be used in advertising or publicity
+pertaining to distribution of the software without specific, written
+prior permission.  The University of Toronto makes no representations
+about the suitability of this software for any purpose.  It is
+provided ``as is'' without express or implied warranty.\vspace{7pt}
+
+{\bf\noindent
+The University of Toronto disclaims all warranties with regard to this
+software, including all implied warranties of merchantability and
+fitness.  In no event shall the University of Toronto be liable for
+any special, indirect or consequential damages or any damages
+whatsoever resulting from loss of use, data or profits, whether in an
+action of contract, negligence or other tortious action, arising out
+of or in connection with the use or performance of this software.  
+}\vspace{0.4in}
+
+\noindent If you publish results obtained using \delve{}, please cite
+this manual, and mention the version number of the software that you
+used.
+
+\vspace*{\fill}
+\clearpage 
+
+% ----------------------------------------------------------------------
+% The table of contents and list of figures.
+% ----------------------------------------------------------------------
+
+\renewcommand{\contentsname}{\hfill CONTENTS \hfill}
+\pagestyle{plain}
+\thispagestyle{plain}
+\setlength{\parskip}{3.3pt}
+\vfill
+\tableofcontents
+\vfill
+\clearpage
+
+% ----------------------------------------------------------------------
+% The body of the document.
+% ----------------------------------------------------------------------
+
+%
+% Change paragraphs so the first line is *not* indented, and each
+% paragraph is separated by 8 points. Don't forget to turn off the
+% extra vertical space that would normally be added to the start of an
+% environment if it starts its own paragraph (\partopsep).
+%
+
+\setlength{\parskip}{8pt}	% Extra vertical space between paragraphs.
+\setlength{\parindent}{0em}	% Width of paragraph indentation.
+\setlength{\partopsep}{0pt}	% Extra vertical space, in addition to 
+				% \parskip and \topsep, added when user
+				% leaves blank line before environment.
+\setlength{\topsep}{0pt}
+\raggedbottom
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\pagestyle{fancyplain}
+
+\include{sec1}
+\include{sec2}
+\include{sec3}
+\include{sec4}
+\include{sec5}
+
+% For reasons that are not apparent, the following has to go here in order to
+% produce a page break after Section 6.
+
+\addtocontents{toc}{\protect\newpage\protect\vspace*{1pt}} 
+
+\include{sec6}
+\include{sec7}
+\include{sec8}
+
+\appendix
+
+\include{appA}
+\include{appB}
+\include{appC}
+\include{appD}
+
+\end{document}

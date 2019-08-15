@@ -1,0 +1,530 @@
+%
+% $Id: sec7.tex,v 1.32.2.3 1996/11/25 14:34:08 revow Exp $
+%
+\newpage
+
+\section{ASSESSING A LEARNING METHOD}\label{sec-assess}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ ASSESSING A LEARNING METHOD}]
+      {\fancyplain{}{\thesection.\ ASSESSING A LEARNING METHOD}}
+
+This section and the following explain the details of how to use
+\delve{} to assess learning methods. We start here with guidelines on
+documenting your method, and then discuss how you can apply your
+method to a set of task instances.
+
+The information relating to a method and its application various tasks
+is organized into files and directories in the \texttt{methods} part
+of the \delve{} hierarchy.  This organization is illustrated in
+Figure~\ref{fig-my_method}, and some of the files involved are listed
+in Figure~\ref{fig-method-dir} below.
+
+
+\begin{figure}[b]
+
+\rule{\textwidth}{0.5pt}
+
+\hspace*{-4pt}\begin{tabular}{ll} \\[-6pt]
+{\tt Summary} & A brief description of the method \\
+{\tt Source} 
+  & A sub-directory with files that document the method, and perhaps \\
+  & programs that implement it \\[5pt]
+\textit{dataset/prototask/task\hspace{-4pt}} 
+  & A sub-directory holding results for one task, with files such as: \\[5pt]
+\hspace{13pt}{\tt Test-set-stats} & \hspace{13pt}Statistics 
+    from the test data used to standardize losses \\
+\hspace{13pt}{\tt Coding-used} & \hspace{13pt}The attribute encoding that
+    was used to generate the data files \\[5pt]
+\hspace{13pt}\file{normalize}{n} & \hspace{13pt}Normalization constants 
+    from training data for instance \emph{n} \\
+\hspace{13pt}\file{train}{n} & \hspace{13pt}Training data (inputs and targets)
+    for instance \emph{n} \\ 
+\hspace{13pt}\file{test}{n} & \hspace{13pt}Test inputs for instance 
+    \emph{n} \\ 
+\hspace{13pt}\file{targets}{n} & \hspace{13pt}Test targets for instance 
+    \emph{n} \\[5pt]
+\hspace{13pt}\file{cguess}{n} & \hspace{13pt}Coded guesses for test targets
+    for instance \emph{n} \\
+\hspace{13pt}\file{guess}{n} & \hspace{13pt}Uncoded guesses for test targets 
+    for instance \emph{n} \\
+\hspace{13pt}\file{loss.S}{n} & \hspace{13pt}Squared error losses produced
+    using the guesses for instance \emph{n} 
+\end{tabular}
+
+\caption{Some files and sub-directories that may appear within a \delve{}
+         methods directory.}
+
+\label{fig-method-dir}
+\end{figure}
+
+
+\subsection{Documenting the method to be assessed}\label{assess-define}
+
+An essential part of reporting results for a learning method is to
+document, as precisely as possible, what the method actually
+does. These descriptions should be detailed enough to allow someone to
+implement the method from the description and get results similar to
+those reported.  The description should include a specification of how
+data should be encoded for use by this method, on the basis of the
+available prior information.  Without such a specification, it is
+unclear how the method would be applied to a new task.  If the method
+uses \delve{}'s default encodings, you can just say that.  The
+description for a method should also specify such matters as how to
+decide when an optimization procedure has converged.  You can get an
+idea of the level of detail required in documentation by looking at
+the existing documentation in the \texttt{methods} directory.
+
+Precise specification of what a learning method does is easiest if the
+method is fully automatic. However, there may be situations when it is
+undesirable to formulate fully automatic methods. In these cases,
+careful descriptions of the heuristics used, together with examples of
+the human choices made on sample tasks may be useful.  Since our
+overall goal is to evaluate how well learning methods can be expected
+to work on novel tasks, when applied by people who are not necessarily
+the designers of the learning method, the proper approach to assessing
+a non-automatic method would be for the developers of the method to
+get other people to apply the method following their
+documentation. This method of evaluation may perhaps be too cumbersome
+in practice, but it is useful to keep in mind while documenting a
+non-automatic learning method.
+
+In many cases it may be a good idea to supply the source of a computer
+implementation as a part of the documentation, since the program
+itself may be able to resolve important details of the methods. One
+should not consider cryptic computer code to be a substitute for an
+intelligible description, however.
+
+It is also useful to include some rough estimates of the computational
+costs associated with applying the learning method.  Some learning
+procedures can use arbitrary amounts of computation time; in this case
+a fully-specified method must indicate how the time is limited in
+practice.  Different time allowances will define different (albeit
+closely related) methods.
+
+Learning algorithms often have parameters whose values need to be set
+using empirical trials. \delve{} includes a suite of developmental
+datasets that are intended for used in such trial runs. However, it is
+possible that you will discover ways of improving your method as a
+result of running it on one of \delve{}'s assessment datasets. This is
+unfortunate, since modifying the method based on performance on these
+datasets may introduce bias in the evaluations.  If a method was tuned
+using the assessment datasets, you should therefore include in your
+documentation a short description of what tests were done, on what
+datasets, so that people can take account of this tuning when judging
+the significance of the results obtained.
+
+Documentation and programs relating to a method should be placed in
+the \delve{} hierarchy in the \texttt{Source} sub-directory of the
+method's directory.  A brief summary of the method should also be
+placed in the \texttt{Summary} file in the method's directory.
+
+
+\subsection{Creating directories for assessments:~~The \mgendir{}
+            command}\label{scheme-mgendir}
+
+For each dataset used to assess a method, a directory with the name of
+the dataset will exist in the \delve{} hierarchy, within the directory
+for the method.  These directories need not all be in the same actual
+directory, but may instead be in located within various of the active
+\texttt{delve} directories.  This allows you to assess existing
+methods on new tasks without having to write into the directory
+holding results from the \delve{} archive.
+
+You can create such directories manually if you wish, but it is
+usually easier to create an appropriate directory structure using the
+\mgendir{} command.  This command will generate all the directories
+associated with a given dataset, prototask, or task. If a task is
+specified, only the directory for this task will be generated (along
+with the directories needed to contain this task directory, if they do
+not already exist). If a prototask is specified, then directories for
+all the tasks associated with this prototask will be generated.
+Typically there will be many tasks, with different training set sizes,
+and perhaps with different prior information.  Similarly, if a dataset
+is specified, directories for all prototasks defined for the dataset
+will be created.
+
+\texttt{Mgendir} creates these directories in or below the current
+directory. If some of the directories already exist, \mgendir{} simply
+makes sure that they are up to date.  An example will illustrate the
+command:
+
+\begin{Session}
+unix> cd delve/methods; mkdir mymethod; cd mymethod
+unix> mgendir demo/income/std.32
+demo/income
+demo/income/std.32
+unix> mgendir /demo/income
+demo/income/std.64
+demo/income/std.128
+demo/income/std.256
+demo/income/std.512
+\end{Session}
+
+In this example we first generated the task named \texttt{std.32} of
+the \texttt{demo/income} prototask. The \mgendir{} command created the
+appropriate directories for that dataset, prototask and task. We then
+asked to have the entire set of tasks for the \texttt{income}
+prototask generated. In this case \mgendir{} skips the existing
+directories and generates the new ones. Notice that the identity of
+the current directory is important.  For example, if your current
+directory is at the task level, you should not ask \mgendir{} to
+generate directories for a new dataset --- this will cause mixing of
+the different levels. Always issue the \mgendir{} command from the
+correct level (or higher up, as in the above example).
+
+Note that \mgendir{} just creates directories; it does not create the
+data files needed to train and test your learning method.  That is
+done by the \mgendata{} command.
+
+The above discussion has focused on the most common usage of
+generating directories according to existing specifications in the
+corresponding \texttt{data} part of the \delve{} hierarchy. You may
+sometimes want to generate tasks with different specifications.  For
+example, you might want to use an existing prototask, but with a new
+specification for prior information. In this case, you would create a
+new prior specification file in your \texttt{data} directory, and
+specify this name to \mgendir{} to generate the data.
+
+
+\subsection{Specifying how attributes are to be encoded}
+\label{assess-encodings}
+
+Part of the definition of a learning method is the manner in which
+attributes are encoded in a form suitable for the technique used.  For
+example, inputs to a neural network must be numeric, so a method
+based on neural networks that handles categorical inputs must include
+a definition of how a categorical value is represented as one or more
+numbers.
+
+Some researchers may be interested in developing better encoding
+methods, in which case they will of course employ whatever methods
+they think are most promising.  \delve{} has facilities that support
+a number of common encoding methods, but it is of course possible
+that you will have to implement the encoding you want to use yourself.
+
+For researchers who are not especially interested in encoding methods,
+\delve{} supplies \emph{default encodings} for attributes, selected on
+the basis of the prior information for the task.  If you have no
+reason not to, it is probably best for you to stick with the default
+encodings, as that will make it easier to isolate the reasons for any
+differences in performance between your method and other methods
+that also uses the default encodings.
+
+An encoding specification consists of a name for the encoding, perhaps
+followed an additional \texttt{passive}, \texttt{unit}, or
+\texttt{center} argument. The possible encodings are as follows:\vspace{-4pt}
+
+\begin{list}{}{\setlength{\labelwidth}{0.7in} \setlength{\labelsep}{0.1in}%
+\setlength{\leftmargin}{1.1in}}
+
+\item[{\tt ignore}\hfill] 
+Ignore the attribute.
+
+\item[{\tt copy}\hfill] 
+Copy the raw attribute value unmodified from the dataset file.
+
+\item[{\tt 0/1}\hfill] 
+Encode a binary attribute as `0' or `1', with `0' being the passive
+value.  An argument of \texttt{passive={\rm\em value}} is mandatory.
+
+\item[{\tt -1/+1}\hfill] 
+Encode a binary attribute using a symmetric encoding of `$-1$' for the
+first value and `$+1$' for the second value (as ordered in the dataset
+specification).
+
+\item[{\tt 1-of-n}\hfill] 
+Encode a categorical attribute as a list of zeros and ones.  If
+the attribute has $n$ possible values, and no \texttt{passive} argument
+is specified, values will be encoded using $n$ numbers, exactly one 
+of which is `1', with the others being `0'.  If an argument of 
+\texttt{passive={\rm\em value}} is given, the $n$ possible
+values will be encoded as $n\!-\!1$ numbers, with the passive value
+being encoded by all the numbers being `0', and the non-passive values
+being encoded as before, by setting exactly one of the numbers to `1'.
+
+\item[{\tt therm}\hfill] 
+Encode a categorical attribute by a thermometer code, using a list of
+$n\!-\!1$ numbers with values of $-x$ or $+x$, where $n$ is the number
+of categories for the attribute, and $x$ is a scaling factor
+described below.  The lowest value of the attribute (according to the
+ordering in the dataset specification) will be encoded by setting all
+numbers to $-x$.  For the next higher value, the first number will be
+$+x$ and the remaining ones $-x$, and so forth.  The scaling factor
+$x$ is determined by the \texttt{scale=\textrm{\textsl{string}}}
+option, where \textrm{\textsl{string}} is one of \texttt{none},
+\texttt{linear}, or \texttt{sqrt}.  If it is \texttt{none}, then $x=1.0$.
+If it is \texttt{linear}, then $x=(n-1)^{-1}$.  If it is
+\texttt{sqrt}, then $x=(n-1)^{-1/2}$. The default value is
+\texttt{sqrt}.
+
+\item[{\tt nm-sqr}\hfill] 
+Encode a numerical attribute by shifting and re-scaling its values so
+that the distribution of these values in the training set has mean
+zero and variance one.  If a \texttt{centre={\rm\em c}} argument is
+specified, the values will be shifted to have \emph{c} as their mean
+rather than zero.
+
+\item[{\tt nm-abs}\hfill] 
+Encode a numerical attribute by shifting and re-scaling its values 
+so that the distribution of these values in the training set has 
+median zero and average absolute deviation from the median of 
+one.  If a \texttt{centre={\rm\em c}} argument is specified, the 
+values will be shifted to have \emph{c} as their median rather than zero.
+
+\item[{\tt 0-up}\hfill] 
+Encode a categorical attribute as an integer, from zero and up to the
+number of possible values minus one (using the ordering of values in
+the dataset specification).
+
+\item[{\tt 1-up}\hfill] 
+Encode a categorical attribute as an integer, from one and up to the
+number of possible values (using the ordering of values in the dataset
+specification).
+
+\item[{\tt rectan}\hfill] 
+Encode a numerical value, $x$, as two numbers, $\sin(2\pi x/u)$ 
+and $\cos(2\pi x/u)$, where $u$ is the value specified by a mandatory
+argument of the form \texttt{unit={\rm$u$}}.
+
+\end{list}\vspace{-4pt}
+
+If you need to use encodings other than these, you will have to
+specify a coding as close as possible from the list above, and then
+modify the data files \delve{} produces using a program of your own.
+
+When you generate data files using the \mgendata{} command (described
+in the next section), \delve{} will by default use encodings from the
+above list that are selected on the basis of the prior information
+specified for the task (see Section~\ref{task-prior}).  The default
+encoding for an attribute is based first of all on the type assigned
+to the attribute in the prior specification, in the following
+way:\vspace{-4pt}
+
+\begin{list}{}{\setlength{\labelwidth}{0.7in} \setlength{\labelsep}{0.1in}%
+\setlength{\leftmargin}{1.1in}}
+
+\item[{\tt binary}\hfill] attributes with a \texttt{passive} value 
+are coded as \texttt{0/1}; those without a passive value are coded as
+\texttt{-1/+1}.
+
+\item[{\tt nominal}\hfill] attributes are encoded as {\tt 1-of-n},
+with a passive option if a passive value is specified in the prior.
+
+\item[{\tt ordinal}\hfill] attributes are encoded using {\tt therm},
+with the default scale option \texttt{sqrt}.
+
+\item[{\tt real}\hfill] attributes are encoded using {\tt nm-abs}.
+
+\item[{\tt integer}\hfill] attributes are also encoded using {\tt nm-abs}.
+
+\item[{\tt angular}\hfill] attributes are encoded using the {\tt rectan}
+code, with the \texttt{unit} argument as specified in the prior.
+
+\end{list}\vspace{-4pt}
+
+You can override the default encodings by giving the name of a file of
+alternate encodings (typically called \texttt{encoding}) to the
+\mgendata{} command, using the `{\tt -c}' option.  For the format of
+this file, see the documentation for \mgendata{} in
+Appendix~\ref{app-commands}.  This is useful if you wish to use other
+than the default encodings, and also if the software your using has
+built-in facilities that implement the default encodings, but expects
+to receive attributes in some other format.
+
+The manner in which choices of encodings are made is logically part of
+the learning method and should be documented as part of the
+description of the learning method being assessed.  If other than
+default encodings are being used, you will probably have to manually
+specify how attributes are to be encoded for a particular task,
+according to the rules defined for the method.  In theory, however, a
+method's encoding rules could be implemented automatically, using a
+program that reads the relevant specification files.
+
+
+\subsection{Creating data files for training:~~The \mgendata{}
+            command}\label{assess-mgendata}
+
+Once you have decided on the encodings to be used by a method on some
+task (which may be just deciding to use the defaults), you can use the
+\mgendata{} command to generate the training and testing data files to
+be read by the program implementing the method.  These files must be
+placed in the directory for the task within the \texttt{methods} part
+of the \delve{} hierarchy, which you will usually have created earlier
+using \mgendir{}.  The \mgendata{} command can also generate files for
+all the task instances associated with a prototask or dataset, as
+described in the detailed documentation for \mgendata{} in
+Appendix~\ref{app-commands}.
+
+For each task, \mgendata{} creates files pertaining to all task
+instances.  These files all have the number of the instance (from 0 on
+up) as a suffix.  Four files will be generated for task instance $n$:\
+\ \file{train}{n}, \file{test}{n}, \file{targets}{n} and
+\file{normalize}{n}.  The contents of the first three of these files
+will depend on the encoding used, which can be left to default, or can
+be specified using the `\texttt{-c}' option of \mgendata{}, which
+should be followed by the name of the file containing the alternate
+encodings.  If you type \texttt{minfo} (with no arguments) in the task
+directory for a method after running \mgendata{}, you will see a
+listing of all the numbers involved in encoding the attributes for the
+present set of data files (as saved in the file \texttt{Coding-used}).
+Typing \texttt{dinfo} (with no arguments) will show you what numbers
+would be produced by the default encodings.  These commands can also
+take explicit task specifications. Figure~\ref{fig:dinfo-encoding}
+shows the display of the default encodings for the
+\texttt{/demo/age/std.128} task produced by \dinfo{}.
+
+\begin{figure}[t]
+\begin{Session}
+Task: /demo/age/std.128
+Training set size: 128
+Inputs: 
+ col attr name          type   relevance  def coding  options
+   1   1  SEX           binary   nlmh       -1/+1        -
+   2   3  SIBLINGS      integer  nlmh       nm-abs       -
+   3   4  INCOME        real     nlmh       nm-abs       -
+   4   5  COLOUR:pink   nominal  nlmh       1-of-n       -
+   5   5  COLOUR:blue                  ...
+   6   5  COLOUR:red                   ...
+   7   5  COLOUR:green                 ...
+   8   5  COLOUR:purple                ...
+Targets: 
+ col attr name          type   noise-lev  def coding  options
+   1   2  AGE           real     nlmh       nm-abs       -
+\end{Session}\vspace{-4pt}
+\caption{Output of the command: \texttt{dinfo /demo/age/std.128}.}
+\label{fig:dinfo-encoding}
+\end{figure}
+
+The \texttt{train} files produced by \mgendata{} contain the training
+cases, one per line. The encoded values of the input attributes for a
+case appear first on the line, in the order they are mentioned in the
+prototask specification (and in the output of \dinfo{} or \minfo{}).
+The encoded values of the target attributes follow the inputs.  All
+the numbers in a training data file are separated by spaces.  Note
+that there may well be more numbers than attributes, since some
+attribute encodings produce more than one number --- as is the case
+with the \texttt{COLOUR} attribute in Figure~\ref{fig:dinfo-encoding}.
+
+The \texttt{test} files contain only the input attributes of the test
+cases.  The true targets for the test cases are not supplied, since
+they should not normally be available to the learning method.  An
+exception is allowed for a method that makes predictions to be
+evaluated using the log probability loss functions (see
+Section~\ref{assess-mloss}), since it is not practical for \delve{} to
+evaluate these losses itself.  The true targets are available for this
+use in the \texttt{targets} files.  
+
+The \texttt{normalize} files contain the offset and scaling constants
+that may have been used to encode the data (if \texttt{nm-abs} or
+\texttt{nm-sqr} encodings were specified, or were the defaults).  You
+will not normally have to look at the \texttt{normalize} files
+yourself, but they are needed for \delve{} to interpret the
+predictions produced by the method.
+
+Once the training and testing data files for the various task
+instances have been generated using \mgendata{}, you can run your
+learning method.  This should be done completely independently for
+each task instance, with the run for one instance making no reference
+to any data files intended for another instance.  If your learning
+method has a stochastic aspect, you should initialize the random seed
+differently for each instance, for reasons discussed in
+Section~\ref{sec-analysis}.
+
+
+\subsection{Processing predictions on test cases:~~The \mloss{} 
+            command}\label{assess-mloss}
+
+The objective of running your learning method is to produce
+predictions for the test cases.  These predictions will normally be
+encoded, in the same way as the targets seen by the learning method
+were encoded.  As discussed in Section~\ref{sec-loss}, predictions can
+take two forms:\ \ point predictions or \emph{guesses} for the target
+values, and \emph{predictive distributions} for the targets.  In most
+circumstances, your method will not read the \texttt{targets} files
+when producing predictions, and the losses with these predictions will
+be calculated by \delve{}, not by the method itself.  However, since
+there is no easy way of representing an arbitrary predictive
+distribution for a target of real, integer, or angular type, the
+predictive probability density for the true target must be evaluated
+by the method itself, if log probability loss is of interest, with
+reference to the true target values found in the \texttt{targets}
+files.
+
+The actual losses are in all cases evaluated by the \mloss{} command,
+which will refer to files of predictions produced by the method.  In
+general, a method may wish to make different predictions for use with
+different loss functions.  Accordingly, the files to which a method
+writes predictions may have names incorporating the abbreviation of
+the loss function for which they are intended.  Prediction files have
+one of three possibile root names, according to the form of
+prediction:\ \ \texttt{guess}, for point predictions, \texttt{prob},
+for predictive distributions, and \texttt{ptarg}, for probabilities
+(or probability densities) of the true target value.  Prediction files
+always have the instance number as a final suffix
+(e.g.~\texttt{guess.3}).  If a specific loss function is specified, it
+goes between the root and the instance number
+(e.g.~\texttt{guess.S.0}).  The name of a \texttt{prob} or
+\texttt{ptarg} file can be prefixed by ``l'' to indicate that it
+contains the (natural) logs of the probabilities (or densities),
+rather than the probabilities themselves.  Finally, names of
+prediction files may optionally have a leading `\texttt{c}' to
+indicating that they are for encoded data. For a more extensive
+discussion of these conventions, refer to the discussion of \mloss{}
+in Appendix \ref{app-commands}.
+
+The \mloss{} command performs two tasks: it decodes predictions (in
+the typical situation where the method's predictions were encoded),
+and it evaluates losses.  When \mloss{} is invoked it looks to see if
+it can find encoded prediction files. If so, it decodes the encoded
+predictions in the files and writes these to files with the initial
+`\texttt{c}' removed from their name. For example, \texttt{cguess.A.0}
+would be decoded into \texttt{guess.A.0}.  After this, \mloss{} looks
+for the decoded prediction files (which it may just have produced
+itself), computes the losses using them, and writes them to files
+called \file{loss}{l.n}, where \textit{l} is the loss function, and
+\textit{n} is the instance number.  Section~\ref{sec-analysis}
+discusses how these loss files are analysed.
+
+After running \mloss{} you can remove the \texttt{train.*},
+\texttt{test.*}, \texttt{targets.*}, and \texttt{normalize.*} files
+(they can be regenerated using \mgendata{} if you should ever want
+them again).  You should keep the \texttt{Coding-used} and
+\texttt{Test-set-stats} files, as they are used by \mstats{} and
+\minfo{}.  Usual practice is to also remove any encoded prediction
+files, keeping only the decoded versions (\texttt{guess.*},
+\texttt{prob.*}, etc.).  You can remove the \texttt{loss.*} files as
+well, if you need to save disk space, as they can be regenerated from
+the decoded prediction files using \mloss{}, but it is better if
+possible to keep the loss files around so that performance comparisons
+between methods can be made conveniently.
+
+
+\subsection{Submitting your results to the \delve\ archive}
+            \label{assess-prepare}
+
+Once you have documented a learning method, and tried it out on a
+number of tasks, you may submit the method and the results of applying
+it for inclusion in the \delve{} archive.  Other people will then be
+able to examine your method and results, and compare the results they
+obtain with their methods to those that you obtained.
+
+You submit a method to the archive by sending the complete directory
+structure for the method, containing the documentation and tests on
+all the datasets you have tried.  This directory will be placed in the
+\texttt{methods} directory of the \delve{} archive.  It is also possible
+to submit new results on existing methods, and new datasets and
+prototask specifications.  For details on how to go about submitting
+material to the \delve{} archive, see Appendix~\ref{app-submit}.
+
+It should be understood that submission of a learning method to the
+\delve{} archive constitutes a form of publication.  Once your method
+has been incorporated into the archive, other researchers will start
+publishing comparisons of their results with yours.  For these
+comparisons to be intelligible to other researchers, it is necessary
+for methods to remain in the archive once they have been submitted, in
+their original form, though you will be able to submit new commentary
+on the method, explaining any new developments.  When a bug is found
+in the program implementing the method, or a substantial improvement
+has been made to the learning method, a new updated version may be
+submitted.

@@ -1,0 +1,695 @@
+%
+% $Id: sec1.tex,v 1.45 1996/05/15 15:39:54 radford Exp $
+%
+\newpage
+
+\section{INTRODUCTION}\label{sec-intro}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ INTRODUCTION}]
+      {\fancyplain{}{\thesection.\ INTRODUCTION}}
+
+\delve{} --- Data for Evaluating Learning in Valid Experiments --- is
+a collection of datasets from many sources, an environment within
+which this data can be used to assess the performance of methods for
+learning relationships from data, and a repository for the results of
+such assessments.
+
+Many methods for learning relationships from empirical data have been
+developed by researchers in statistics, pattern recognition,
+artificial intelligence, neural networks, and other fields.  Methods
+in common use include simple linear models, nearest neighbor methods,
+decision trees, multilayer perceptron networks, and many others of
+varying degrees of complexity.  Properly comparing the performance of
+these learning methods in realistic contexts is a surprisingly
+difficult task, requiring both an extensive collection of real-world
+data, and a carefully-designed scheme for performing experiments.
+
+The aim of \delve{} is to help researchers and potential users to
+assess learning methods in a way that is relevant to real-world
+problems and that allows for statistically-valid comparisons of
+different methods.  Improved assessments will make it easier to
+determine which methods work best for various applications, and will
+promote the development of better learning methods by allowing
+researchers to easily determine how the performance of a new method
+compares to that of existing methods.
+
+This manual describes the \delve{} environment in detail.  First,
+however, we provide an overview of \delve's capabilities, describe
+briefly how \delve{} organizes datasets, methods, and learning tasks,
+and give an example of how \delve{} can be used to assess the
+performance of a learning method.
+
+
+\subsection{What \delve{} can do for you}\label{intro-can-do}
+
+\delve{} can help you assess the performance of learning methods
+in three major ways:\vspace{-4pt}
+\begin{enumerate}
+\item The \delve{} archive contains a collection of many datasets that 
+      are appropriate for developing and assessing learning methods.
+\item The \delve{} software helps you use this data to assess
+      learning methods. \delve{} also provides guidelines on how such 
+      assessments should be done.
+\item The \delve{} archive also records the results of assessing many
+      other learning methods on the same datasets, performed in the same way, 
+      along with detailed descriptions of these methods.\vspace{-4pt}
+\end{enumerate}
+All these components of the \delve{} environment are freely available
+via the Web, at URL
+\begin{center}
+  \texttt{\wwwhome}
+\end{center}
+
+If you are interested in using a learning method for a particular
+application, you may find \delve{} useful in determining which methods
+might be appropriate for you to use.  To do this, you would
+look at the results of various learning methods on problems that
+appear similar to your application.  For those methods that seem 
+promising, you could refer to the detailed descriptions recorded in
+the \delve{} archive.
+
+If you are a researcher developing new learning methods, you will no
+doubt wish to know how well the methods you develop compare in
+performance to existing methods. \delve{} can help you answer this
+question by providing a large number of datasets to test on, by
+providing standard conventions for conducting experiments that
+facilitate comparisons, by providing the results of other methods on
+the same datasets, and by performing appropriate tests of the
+statistical significance of the observed differences in performance.
+
+After using \delve{} to assess a novel learning method, you can submit
+your results for inclusion in the \delve{} archive. You should provide a
+detailed description of your method, and include results of applying
+your method to a selection of datasets. In this way other researchers
+and users of learning methods will be able to benefit from your work.
+
+ 
+\subsection{The \delve{} hierarchy of data, methods, and 
+            results}\label{intro-hierarchy}
+
+\delve{} organizes data, learning methods, and experimental results in
+a hierarchical fashion.  This section provides an informal description
+of this hierarchy, sufficient for you to follow the example in the next
+section.
+
+The \delve{} hierarchy is contained within one or more top-level
+directories, each of which has a name starting with the five letters
+``\texttt{delve}''.  All such \texttt{delve} directories contain two
+sub-directories, corresponding to the two main divisions of the
+\delve{} hierarchy.  The \texttt{data} sub-directory contains information
+on datasets, and on learning tasks defined for these datasets.  The
+\texttt{methods} sub-directory contains information on learning methods,
+and on the results of applying these methods to various learning
+tasks.
+
+By using more than one top-level \texttt{delve} directory, you can keep
+datasets and results that come from the \delve{} archive separate from
+datasets and results that you are working on yourself, but have not
+yet submitted to the archive.  Some research groups may also find
+it convenient to maintain a group \texttt{delve} directory, in addition
+to the private \texttt{delve} directories of the group members.
+
+When you use \delve{}, you will see information on data and methods
+from all such \texttt{delve} directories that are currently active,
+merged into a single hierarchy.  In the rest of this section, we will
+for simplicity describe this hierarchy as if was contained in a single
+directory.  
+
+The data part of the hierarchy begins with a number of {\it datasets},
+each of which has its own sub-directory within the \texttt{data}
+directory.  A dataset is a list of cases, with each case consisting
+of values for a number of attributes.  Some additional information is
+also specified at the dataset level, such as names and ranges for
+attributes.
+
+\emph{Prototasks} are the next lower level in the data hierarchy.  A
+prototask defines which cases in the dataset are relevant to the
+learning task, which attributes of a case we wish to predict (the
+target attributes), and which attributes we wish to predict the targets
+from (the input attributes). There may be several different prototasks
+for a dataset, each of which has a sub-directory within the dataset's
+directory.
+
+At the \emph{task} level the size of training set for use in learning
+is specified, along with whatever prior information is available
+(which can be used, for example, to select encodings for the
+attributes).  The task level specifies enough information that a
+learning method will have a well-defined expected performance with
+respect to any particular loss function.  A \emph{task instance} is a
+particular training set and test set for a task, to which we can
+actually apply a learning method.  The performance of a method on
+several task-instances is used to estimate its expected performance on
+the task.
+
+Tasks do not have directories of their own in the data part of the
+\delve{} hierarchy.  However, the results of applying a particular
+method to a particular task are contained in a directory in the
+methods part of the \delve{} hierarchy.
+
+The methods part begins at the \texttt{methods} directory of a top-level
+\delve{} directory.  Within this directory are sub-directories for the
+various learning methods that have been assessed, each of which will
+contain a description of the method, and perhaps the programs
+implementing it.  The directory for a method will also contain
+sub-directories for every dataset that has been used in assessing the
+method, within which will be sub-directories for each prototask to
+which the method has been applied.  Inside the directories
+corresponding to prototasks will be task directories, containing the
+results of applying the method to the various task instances.
+
+A \delve{} hierarchy is illustrated in Figure~\ref{fig-my_method}.
+The top-level \texttt{delve} directory could reside anywhere on your file
+system, but it's name must start with \texttt{delve}, and it must contain
+two sub-directories called \texttt{data} and \texttt{methods}.
+
+\begin{figure}[t]
+  \vspace{2mm}\par
+  \centerline{\epsfxsize 1.0\hsize \epsfbox{dd.eps}}
+  \caption[Schematic diagram of the structure of a \delve{} directory.]
+  {Schematic diagram of the structure of a \delve{} directory.
+  Names of directories are in bold font, names of files are in normal
+  font. Files in brackets may not be present, as they can be
+  generated by \delve{} if needed. A dotted line indicates parts of the
+  directory that are left out.}\label{fig-my_method}
+\end{figure}
+
+In Figure~\ref{fig-my_method}, the data part of the hierarchy contains
+two datasets, \texttt{demo} and \texttt{kin-8nh}, each with its own
+sub-directory within the \texttt{data} directory.  Inside each dataset
+directory there are two files:\ \ \texttt{Dataset.data} which contains
+the cases, and \texttt{Dataset.spec} which contains information about the
+data.  There is also a sub-directory called \texttt{Source}, which
+contains all the data and information used to build the dataset, as it
+was originally obtained.
+
+The \texttt{demo} dataset in Figure~\ref{fig-my_method} has two
+prototasks, \texttt{age} and \texttt{income}, which differ in the
+attribute that is to be predicted.  These prototask directories
+contain the files needed to specify both the prototask itself and the
+tasks that are defined for it.
+
+Back at the top level, the \texttt{methods} directory in
+Figure~\ref{fig-my_method} contains sub-directories for two methods:\
+\ \texttt{lin-1} (a linear regression model), and \texttt{knn-cv-1} (a
+$k$-nearest-neighbor method).  The descriptions and program source for
+these methods are contained in their \texttt{Source} directories.  The
+results of applying the methods to various tasks are contained in
+directories whose names combine the name of the prior for the task ---
+\texttt{std}, for ``standard'', in these examples --- and the size of the
+training set.  These task directories may contain files with
+names such as \texttt{guess.*}, \texttt{prob.*}, and \texttt{loss.*} files, 
+which record the final results of learning and prediction (here, ``\texttt{*}''
+indicates several possible endings, which specify a particular
+task-instance and loss function).
+
+
+\subsection{Using \delve:~~A tutorial example}\label{intro-tutorial}
+
+This section is a walk-through tutorial, which introduces \delve{} by
+showing how you can test a simple learning method using the \delve{}
+utilities.
+
+This tutorial assumes that you (or someone else) have installed
+\delve{} on your computer.  For details on how to do this, see
+Appendix~\ref{app-install}.  It also assumes that the \delve{}
+utilities are somewhere in your shell's search path.  This will likely
+be true if \delve{} has been installed in its usual place in
+\texttt{/usr/local/bin}, but if it has been installed elsewhere, you
+may have to set your \texttt{PATH} environment variable appropriately.
+
+The roles of the \delve{} commands used in this tutorial are described
+in more detail in later chapters.  For detailed descriptions of 
+command syntax and options, refer to Appendix~\ref{app-commands}.
+
+
+\subsubsection*{Telling \delve{} where to look for information --- setting your
+                \delvepath{}}
+
+First you need to know how \delve{} looks for information in one or
+more active \texttt{delve} directories. Formally, a \texttt{delve} directory
+must have a name starting with the five letters ``\texttt{delve}'' and
+{\em must\/} have two sub-directories called \texttt{data} and {\tt
+methods}. You tell \delve{} where to look for these directories by
+setting the \delvepath{} shell environment variable. This path works
+analogously to the shell search path, except that \delve{} looks in
+all the directories in \delvepath{} rather than stopping as soon as
+the first match is found.  It therefore makes little difference what
+order the directories in \delvepath{} come in.
+
+You can create your own \texttt{delve} directory, and tell \delve{} to
+use both it and a \texttt{delve} directory that holds data, methods, and
+results from the \delve{} archive.  Assuming that \delve{} has been
+installed on your machine in directory \texttt{/usr/local/lib/delve}, you
+might do this as follows, if you use a shell program like \texttt{csh}:
+
+\begin{Session}
+unix> cd $HOME
+unix> mkdir delve delve/data delve/methods
+unix> setenv DELVE_PATH /usr/local/lib/delve:$HOME/delve
+\end{Session}
+
+If you use a shell like \texttt{sh}, you would instead say:
+
+\begin{Session}
+unix> cd $HOME
+unix> mkdir delve delve/data delve/methods
+unix> DELVE_PATH=/usr/local/lib/delve:$HOME/delve
+unix> export DELVE_PATH
+\end{Session}
+
+In either case, you would probably want to put the commands that set
+\delvepath{} in your shell start-up file (either \texttt{.cshrc} or 
+\texttt{.profile}), so that \delvepath{} will be set again when you next
+log in.
+
+Setting up your \delvepath{} in this way lets you keep the material
+distributed with \delve{} separate from the results of your own
+experiments.  You could also have several \texttt{delve} directories of
+your own, or include other users' \texttt{delve} directories in your
+\delvepath{} in order to access their results.  Also, whenever your
+current directory is within a valid \texttt{delve} directory, that
+directory will be temporarily added to the list of active \texttt{delve}
+directories, in addition to those in \delvepath{}.  This lets you
+easily look in a \texttt{delve} directory that you don't usually access.
+
+\subsubsection*{Listing information 
+    --- \dls{} and \mls{}, \dinfo{} and \minfo{}, \dmore{} and \mmore{}}
+
+Once you have set your \delvepath{} to a list of \texttt{delve}
+directories, you can use various \delve{} commands to look at
+information in the \delve{} hierarchy that is contained in these
+directories.  These commands come in two flavours --- ``\texttt{d}''
+commands that look in the \texttt{data} part of the hierarchy, and ``{\tt
+m}'' commands that look in the \texttt{methods} part.  You can, for
+instance, find out what files are in the directory for a particular
+dataset using \dls{}, or get a formatted display of various information
+about a dataset using \dinfo{}.
+
+You can specify what you want to look at with these commands in two
+ways.  One way is to give a \emph{dpath} or \emph{mpath} that
+specifies the location of a file or directory in the \texttt{data} or
+\texttt{methods} part of the hierarchy.  Such dpaths and mpaths start
+with ``\texttt{/}'', and are translated by \delve{} into one or more
+Unix path names within the active \texttt{delve} directories.  The
+other way is to specify a relative Unix path name (which doesn't start
+with ``\texttt{/}'' or ``\texttt{\maketilde{}}'') of a file or directory
+in the \delve{} hierarchy.
+
+The \dls\ and \mls\ commands are analogous to the Unix \texttt{ls}
+command.  They let you look at what files and sub-directories exist in
+the \texttt{data} and \texttt{methods} parts of the \delve{} hierarchy.  For
+example, we can use the \dls\ command with a dpath of ``\texttt{/}'' to
+list the datasets found in all the active \texttt{delve} directories:
+
+\begin{Session}
+unix> dls /
+demo kin-8nh kin-8nm
+\end{Session}
+
+There might be many more than these three datasets, of course,
+depending on what you have installed, and on how your \delvepath{} is
+set.  Note that the three datasets shown would not necessarily be
+located in the same Unix directory.  
+
+We can list the files and sub-directories for the \texttt{demo} dataset
+as follows:
+
+\begin{Session}
+unix> dls /demo
+Dataset.data Source       age          income       siblings                  
+Dataset.spec Summary      colour       sex
+\end{Session}
+
+Once again, these files and sub-directories might not all be in the
+same Unix directory, though in this case, these files and
+sub-directories are in fact all present in the directory for
+\texttt{demo} from the \delve{} archive.  To see exactly where things
+exist, you can use the \texttt{-l} option.  (By the way, you can find
+out about options for any \delve{} command by executing the command
+with the \texttt{-h} option.)
+
+Here we use \texttt{-l} with the corresponding \mls{} command, to see
+what methods are available, in what places:
+
+\begin{Session}
+unix> mls -l /
+/usr/local/delve/methods/:
+knn-cv-1 lin-1
+\end{Session}
+
+We see that there are just two methods, \texttt{knn-cv-1} and
+\texttt{lin-1}, and that files for both methods are found only in the
+directory holding information from the \delve{} archive.  If we had
+tested one of these methods on new datasets of our own, however,
+results for that method could exist in our private \texttt{delve}
+directory as well, in which case directories for the method would
+exist in both places.
+
+Two \delve{} commands similar to the Unix \texttt{more} command also
+exist, called \dmore\ and \mmore.  Here we use \dmore\ to look at the
+summary description for the \texttt{demo} dataset:
+
+\begin{Session}
+unix> dmore /demo/Summary
+The "demo" dataset was invented to provide an example for the DELVE
+manual, and to test the DELVE software and software that implements
+learning methods.  To those ends, it has a variety of numerical and
+categorical attributes.  Cases for the "demo" dataset were artificially 
+generated from a distribution based on simple demographic assumptions
+and various stereotypical notions concerning the relationships between
+people's sex, age, number of siblings, income, and favourite colour.
+Prototasks are defined for predicting each of these attributes given
+the others.
+\end{Session}
+
+We could also use \dmore{} to look at the specification file for a
+dataset, but we would not usually do so, since \delve{} provides a
+command \dinfo{} for conveniently displaying this and other
+information about datasets.  We can ask about information for the
+\texttt{demo} dataset as follows:
+
+\begin{Session}
+unix> dinfo /demo
+Dataset: /demo
+Origin: artificial
+Usage: development
+Order: uninformative
+Number of attributes: 5
+Prototasks: 
+        age
+        colour
+        income
+        sex
+        siblings
+\end{Session}
+
+We would see more details if we used the \texttt{-a} option (ie, 
+the command `\texttt{dinfo -a /demo}').  Similarly, we can ask for
+information about the \texttt{age} prototask from the \texttt{demo}
+dataset with the command ``\texttt{dinfo /demo/age}'', and so on.
+There is a corresponding \minfo{} command for getting information on
+learning methods, and on their application to learning tasks.
+
+
+\subsubsection*{Applying your learning method to a task --- \mgendir{} and 
+                \mgendata{}}
+
+Now that you have seen how to obtain information about datasets and
+methods in \delve, we will see how we can go about testing a simple
+learning method, which we will call {\tt mymethod}.  First, we need to
+create a directory for the method, with a structure of sub-directories
+similar to that for the \texttt{lin-1} method depicted in
+Figure~\ref{fig-my_method}.  These sub-directories will hold the
+results of applying the method to the \texttt{demo/age} prototask.  We
+could create all these sub-directories using the Unix \texttt{mkdir}
+command, but it is more convenient to use the \delve{} \mgendir{}
+command:
+
+\begin{Session}
+unix> cd delve/methods
+unix> mkdir mymethod
+unix> cd mymethod
+unix> mgendir demo/age
+demo
+demo/age
+demo/age/std.32
+demo/age/std.64
+demo/age/std.128
+demo/age/std.256
+demo/age/std.512
+\end{Session}
+
+Now that the \mgendir{} command has created the appropriate
+directories, we can proceed to put files containing training and test
+data into the sub-directory for one of the tasks (with the standard
+prior, and 256 training cases) using the \mgendata{} command:
+
+\begin{Session}
+unix> cd demo/age/std.256
+unix> mgendata
+  segmenting cases...
+  splitting test inputs and targets...
+  encoding instance 0 training data...
+  encoding instance 0 test inputs...
+  encoding instance 0 test targets...
+  encoding instance 1 training data...
+  encoding instance 1 test inputs...
+  encoding instance 1 test targets...
+  encoding instance 2 training data...
+  encoding instance 2 test inputs...
+  encoding instance 2 test targets...
+  encoding instance 3 training data...
+  encoding instance 3 test inputs...
+  encoding instance 3 test targets...
+\end{Session}
+
+This command creates files in the current directory pertaining to four
+tasks instances.  The \file{train}{n} files contain the inputs and
+targets for the training cases in instance \textit{n}, the
+\file{test}{n} files the inputs for the test cases, the
+\file{targets}{n} files the true targets for the test cases, and the
+\file{normalize}{n} files the normalization constants used in encoding
+the data.  Files called \texttt{Coding-used} and
+\texttt{Test-set-stats} are also created; they hold information used
+by later commands.  
+
+You can get information about the way this method is being applied to
+this task using the \minfo{} command.  When called with no arguments,
+this command will give information about the method and task
+associated with the current directory, as illustrated below:
+
+\begin{Session}
+unix> minfo
+Task: /demo/age/std.256
+Training set size: 256
+Inputs: 
+ col attr name          type   relevance  coding  options
+   1   1  SEX           binary   nlmh     -1/+1        -
+   2   3  SIBLINGS      integer  nlmh     nm-abs       -
+   3   4  INCOME        real     nlmh     nm-abs       -
+   4   5  COLOUR:pink   nominal  nlmh     1-of-n       -
+   5   5  COLOUR:blue                  ...
+   6   5  COLOUR:red                   ...
+   7   5  COLOUR:green                 ...
+   8   5  COLOUR:purple                ...
+Targets: 
+ col attr name          type   relevance  coding  options
+   1   2  AGE           real     nlmh     nm-abs       -
+\end{Session}
+
+This shows things such as the way the various attributes have been
+encoded in the data files to be used by the method (in this case, the
+default encodings were used).  Similar information would be displayed
+by the \dinfo{} command, but \minfo{} will show any information specific
+to how this learning method is being applied to this task, whereas \dinfo{}
+shows only information about a dataset itself, and its associated tasks.
+
+Each of the \file{train}{n} files that were created above contains one
+line for each training case.  With the default encoding used above,
+the four input attributes are encoded as eight numbers, which appear
+at the beginning of the line. (The \texttt{COLOUR} attribute is
+encoded in \texttt{1-of-n} form, which uses five numbers to represent
+which of its five possible values the attribute has.)  The target is
+encoded as a ninth number, at the end of the line.
+
+You can now train your model using the data in each of the four
+\file{train}{n} files.  This is to be done separately for each file,
+as the four training files are for four instances of the task, which
+are to be handled completely independently of each other. You then use
+the results of this training to make guesses for the targets in the
+test cases that go with each task instance, given the inputs for these
+cases in the \file{test}{n} files.  Your method should write its
+guesses in the files \texttt{cguess.S.0} though \texttt{cguess.S.3}, one
+guess per line.  Here, the prefix `\texttt{c}' indicates that the
+guess are for the coded form of the attribute, not the original form
+in which it appears in the dataset file.  The suffix \texttt{S}
+indicates that the guesses are designed for use with the squared error
+loss function.
+
+For this tutorial, we don't want to get into the complexities of
+writing a realistic learning method, so we'll use as an example a
+method that simply predicts the constant zero for every test case.
+Notice that, as seen in the output from \minfo{} above, the (default)
+encoding of the targets used here is \texttt{nm-abs}, which means that
+they are shifted and re-scaled so that the median of the target values
+in the training cases is zero, and the average absolute deviation from
+the median in the training cases is one.  Because of this, always
+predicting zero, while not very sophisticated, is at least not wholely
+unreasonable.  This method can be implemented by the following
+\texttt{awk} commands:
+
+\begin{Session}
+unix> awk ' \{ print "0.0" \} ' test.0 > cguess.S.0
+unix> awk ' \{ print "0.0" \} ' test.1 > cguess.S.1
+unix> awk ' \{ print "0.0" \} ' test.2 > cguess.S.2
+unix> awk ' \{ print "0.0" \} ' test.3 > cguess.S.3
+\end{Session}
+
+Notice that the training data is ignored here (though it is implicitly
+used through the use of a normalized encoding), and the test data is
+looked at only in order to determine how many test cases there are.
+However, this is certainly not typical behaviour for a learning
+method!
+
+
+\subsubsection*{How well did it do? --- \mloss{} and \mstats{}}
+
+Once our method has produced \file{cguess}{n} files containing its
+guesses for targets, we can use the \mloss{} command to evaluate the
+``loss'' suffered when using each of these guesses.  The loss is based
+on the difference between the guess and the actual target value.  To
+find the losses as judged by the squared difference between guess and
+target value, we would use \mloss{} with the `\texttt{-l S}' option:
+
+\begin{Session}
+unix> mloss -l S
+  decoding cguess.S.0...
+  decoding targets.0...
+  creating loss.S.0...
+  decoding cguess.S.1...
+  decoding targets.1...
+  creating loss.S.1...
+  decoding cguess.S.2...
+  decoding targets.2...
+  creating loss.S.2...
+  decoding cguess.S.3...
+  decoding targets.3...
+  creating loss.S.3...
+\end{Session}
+
+The \mloss{} command transforms the guesses in the \file{cguess.S}{n}
+files back to the original domain, storing these transformed guesses
+in the files \file{guess.S}{n}.  It then computes the loss for each
+test case and writes these losses to the \file{loss.S}{n} files.
+
+We can now use the \mstats{} command to get a summary of the predictive
+performance of our method.  Here, we give the `\texttt{-l S}' option
+to \mstats{} to say we are only interested in the squared error loss
+function:
+
+\begin{Session}
+unix> mstats -l S
+/mymethod/demo/age/std.256
+Loss: S (Squared error)
+                                                    Raw value   Standardized
+
+                         Estimated expected loss:     520.43       1.06461
+                     Standard error for estimate:       41.7     0.0853028
+
+     SD from training sets & stochastic training:    49.1004      0.100441
+SD from test cases & stoch. pred. & interactions:    1078.63       2.20648
+
+    Based on 4 disjoint training sets, each containing 256 cases and
+             4 disjoint test sets, each containing 256 cases.
+\end{Session}
+
+The first line of this summary gives an estimate for the expected loss
+when using this method on this task; the next line gives a standard
+error for this estimate.  The lines below these give the standard
+deviations for the variation in performance due to various causes.
+For a more detailed discussion of these statistics refer to
+Section~\ref{sec-analysis}.  The second column gives the same
+quantities rescaled to a standardized domain, which makes
+interpretation easier.  In the case of squared error, the losses are
+standardized by dividing by the sample variance of the targets in all
+the test cases.
+
+The \mstats{} command can also be used to compare the performance of
+different learning methods.  In the \texttt{methods} part of the
+\delve{} hierarchy are descriptions and results for a selection of
+learning methods on some of the \delve{} tasks.  If you have obtained
+the results of the linear regression method called \texttt{lin-1} from
+the \delve{} archive, you will be able to compare your method to
+the \texttt{lin-1} method as follows (again, with respect to squared
+error loss):
+
+\begin{Session}
+unix> mstats -l S -c lin-1
+/mymethod/demo/age/std.256
+Loss: S (Squared error)
+                                                    Raw value   Standardized
+
+            Estimated expected loss for mymethod:     520.43       1.06461
+              Estimated expected loss for /lin-1:     397.82      0.813792
+                   Estimated expected difference:     122.61      0.250815
+          Standard error for difference estimate:    26.9735     0.0551778
+
+     SD from training sets & stochastic training:    44.5182     0.0910678
+SD from test cases & stoch. pred. & interactions:     487.52      0.997285
+
+    Significance of difference (t-test), p = 0.0199425
+
+    Based on 4 disjoint training sets, each containing 256 cases and
+             4 disjoint test sets, each containing 256 cases.
+\end{Session}
+
+This shows that the linear method has a smaller expected loss that our
+more trivial method. Notice that the expected difference between the
+methods is approximately $4$ times greater than the standard error on
+this estimate. The p-value from the $t$-test indicates that the
+difference should be considered significant at the $2\%$ level.  The
+methods used to compute such p-values are described in
+Section~\ref{sec-analysis}.
+
+It could happen that when you tried to compare our method with
+\texttt{lin-1}, as shown above, \mstats{} could fail to find
+\texttt{loss} files for the linear method in any of the active
+\texttt{delve} directories.  If this were to happen, you could
+generate the \texttt{loss} files needed by \mstats{} yourself
+(assuming that the \texttt{guess} for \texttt{lin-1} were available).
+However, you would probably need to generate these files in your own
+\delve{} directory, since you likely don't have permission to write in
+the directory that holds information from the \delve{} archive.  To
+achieve this, you could do the following:
+
+\begin{Session}
+unix> cd $HOME/delve/methods
+unix> mkdir lin-1
+unix> cd lin-1
+unix> mgendir demo/age
+unix> cd demo/age/std.256
+unix> mloss
+\end{Session}
+
+The \mstats{} command will now be able to use these \texttt{mloss}
+files, as long as the \texttt{delve} directory they are stored within
+is mentioned in your \delvepath, or you are currently inside this
+\texttt{delve} directory.  
+
+In similar fashion, you put things in your own \texttt{delve}
+directory that extend what is in the the \delve{} archive by adding
+new datasets, new prototasks for old datasets, new methods and results
+for new methods, and new results for old methods.  However, to avoid
+confusion, \delve{} will not allow you to use names for new things
+that are the same as the names for things that already exist in the
+\delve{} archive directory.
+
+
+\subsection{What to read next}\label{intro-what-next}
+
+Section~\ref{sec-aims} contains a more detailed specification of the
+scope and aims of the \delve{} project; this section may be of general
+interest.  Sections~\ref{sec-data} and~\ref{sec-task} contain detailed
+descriptions of how datasets, prototasks, and tasks are specified in
+\delve{}. These sections may be of some interest to all users, but are
+primarily intended for people who wish to include new datasets in
+\delve{}, or who wish to create new prototasks and tasks based on
+existing datasets.  Section~\ref{sec-loss} describes the standard loss
+functions supported by \delve, and discusses how other loss functions
+can be incorporated.  Section~\ref{sec-scheme} discusses the schemes
+for learning experiments used in \delve{}, and compares these to more
+traditional schemes such as cross-validation.  
+
+Users who want to get straight into using \delve{} to test their
+learning methods may wish to just skim these initial sections, and
+start serious reading with Sections~\ref{sec-assess}
+and~\ref{sec-analysis}, which describe the methodology for \delve{}
+assessments, and the \delve{} commands required to perform them.
+
+Appendix~\ref{app-install} tells you how to get software, data,
+and results from the \delve{} archive, while Appendix~\ref{app-submit}
+tells you how to contribute things to the \delve{} archive.  Detailed
+descriptions of \delve{} commands are found in
+Appendix~\ref{app-commands}, and a glossary of \delve{} terminology is
+found in Appendix~\ref{app-glossary}.

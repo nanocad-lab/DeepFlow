@@ -1,0 +1,63 @@
+ver. 1.5.1
+June 2, 2011
+* Fixed two little bugs in functions aresanova and aresanovareduce: the functions crashed when piecewise-linear models were used due to 'null index in null matrix' while accessing t1 and t2. (Thanks to Nir Yosef for spotting this.)
+
+ver. 1.5
+September 15, 2010
+* Fixed a bug in function areseq: there was a wrong sign in the first type of hinge functions.
+* Now areseq outputs also complete piecewise-cubic models.
+* Upgraded the license to GPL ver. 3.
+
+ver. 1.4.1
+September 3, 2010
+* A tiny change so that ARESLab is fully compatible with Octave: "ttt=tic;" is replaced by "tic;" and "time = toc(ttt);" is replaced by "time = toc;". (Thanks to Julio J. Valdes for reminding me of Octave community.)
+
+ver. 1.4
+May 28, 2010
+* Added a function for ANOVA decomposition.
+* Added a function for plotting graphical representation of the ANOVA functions enabling to visualize individual and joint contributions of input variables.
+
+ver. 1.3.2
+May 5, 2010
+* Fixed a bug in function aresbuild: the function could not properly handle situation when a row in Xtr contained only identical values (e.g., all zeros).
+
+ver. 1.3.1
+April 20, 2010
+* Functions arescv and arescvc now have a proper handling of situation when trainParams is not supplied - a new trainParams with the default values is generated using function aresparams.
+* Some other minor code touch-ups.
+* Some reference manual touch-ups.
+
+ver. 1.3
+December 11, 2009
+* Now the minSpan and endSpan values can be set manually (changed the default value for useMinSpan and useEndSpan parameters from "true" to "-1" which means "automatic").
+* Fixed a bug in the forward phase: in rare occasions model coefficients were wrongly computed as NaN.
+* Some reference manual touch-ups.
+
+ver. 1.2.1
+December 1, 2009
+* Added information about the installation process of the toolbox.
+* Some reference manual touch-ups.
+
+ver. 1.2
+November 18, 2009
+* Additional training parameter for the backward phase: maxFinalFuncs
+
+ver. 1.1.1
+November 13, 2009
+* Added some clarifications on GCV calculation and arescvc function in reference manual.
+* Some additional comments in the code.
+
+ver. 1.1
+November 11, 2009
+* Now for the piecewise-cubic modelling, the final model will be piecewise-cubic (cubic=true) even if prune=false and cubicFastLevel=2.
+* The cubicFastLevel is no longer reset to 0 if no piecewise-cubic modelling is used.
+* Function aresbuild now has one more optional argument - modelOld - a previously built model which is to be pruned using the backward phase algorithm (useful for fast selection of the "best" penalty c value using Cross-Validation).
+* Added new function arescvc for fast selection of the "best" penalty c value using Cross-Validation and MSE.
+* The "effective number of parameters" term in GCV is no longer used as a stopping criterion (in the forward phase), instead just the number of model coefficients (including the intercept term) is used. This means that in the forward phase models can get considerably larger (if allowed by maxFuncs) while in the backward phase they will be pruned small either way. This will result in slightly different models and slower computations for large maxFuncs values as larger models may be considered.
+* Modified arescv function so that two Cross-Validation loops may be performed inside each other - one for evaluation of predictive performance (arescv) and one for selection of the "best" c value (using arescvc).
+* Some other minor code touch-ups.
+* Some reference manual touch-ups.
+
+ver. 1.0
+November 9, 2009
+* First public release.

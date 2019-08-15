@@ -1,0 +1,28 @@
+
+Matlab Functions for Radial Basis Function Networks
+---------------------------------------------------
+
+  Installation Instructions.
+
+    1. Unpack the distribution in some convenient folder.
+
+    2. Within this folder you will find a number of
+       subdirectories, including meth, util and demo.
+       Add these three to your Matlab path.
+
+    3. Further information is available in the manual,
+       a PostScript document called manual.ps, which can
+       be found in the man folder.
+
+  Notes
+
+    *  There's a Perl script called mstats.pl in the perl
+       folder which will be of use if you have the DELVE
+       software (www.cs.toronto.edu/~delve). It may need
+       tayloring to your local system.
+
+    *  If you need a PostScript viewer for the manual you
+       can get one free at www.cs.wisc.edu/~ghost.
+       
+    *  The latest release notes are in NOTES.txt.
+

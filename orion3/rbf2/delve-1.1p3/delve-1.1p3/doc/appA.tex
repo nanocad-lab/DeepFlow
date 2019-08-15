@@ -1,0 +1,222 @@
+%
+% $Id: appA.tex,v 1.13.2.6 1996/12/04 19:04:28 revow Exp $
+%
+\newpage
+
+\section{INSTALLING DELVE ON YOUR COMPUTER}\label{app-install}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ INSTALLING DELVE ON YOUR COMPUTER}]
+      {\fancyplain{}{\thesection.\ INSTALLING DELVE ON YOUR COMPUTER}}
+
+\delve{} consists of a set of utility programs for assessing learning
+methods, a number of datasets that can be used for such assessments,
+and the results of assessing various learning methods on these
+datasets.  To use \delve{} you must at least install the utility
+programs.  You will no doubt wish to install some of the datasets as
+well (unless you wish to use \delve{} only on your own data).  If you
+want to compare your learning methods with others, you will also need
+to install the relevant results.
+
+\subsection*{Requirements}
+
+Currently, \delve{} requires you to be running some variant of
+Unix. It has been tested under IRIX 5.3 and Sun-OS 5.4, but should run
+under other variants without problems.
+
+The datasets and method results have no requirements beyond a Unix
+file system.  The utilities currently require that you have an
+ANSI-compliant C compiler and an installed copy of \textbf{Tcl} (Tool
+Command Language).  \textbf{Tcl} is freely available on the Internet
+and are extremely portable (i.e.~it has almost certainly been ported
+to whatever variant of Unix you are running).  If you do not already
+have \textbf{Tcl} installed, copies of the source are available at the
+ftp site \texttt{ftp.smli.com} in the directory \texttt{/pub/tcl}.
+
+\subsection*{Obtaining \delve}
+
+The best way to obtain \delve{} is to visit our web site: \wwwhome{}.
+You'll find full instructions on getting and building delve there, as
+well as the latest news on the software, results, and datasets.
+
+If you don't have access to a web browser, the \delve{} distribution
+is available via anonymous ftp, in multiple compressed \texttt{tar}
+files (Unix tape archive format).  Currently the files are available
+on the machine \texttt{ftp.cs.toronto.edu} in the directory
+\texttt{/pub/neuron/delve}.
+
+The files are broken down as follows:
+\begin{enumerate}
+\item 
+The source code for the \delve{} utilities and documentation is
+available in one file: \texttt{delve-*.tar.gz}.
+\item 
+Each dataset is in its own file, where the name of the file is the
+same as the dataset (with the appropriate suffix added),
+e.g. \texttt{demo.tar.gz}.  The easiest way to obtain datasets is from the
+Delve web site at \texttt{http://www.cs.toronto.edu/\maketilde{}delve} or they
+can be obtained by ftp from  \texttt{ftp.cs.toronto.edu} in the directory
+\texttt{/pub/neuron/delve/data/tarfiles} 
+
+\item
+The complete results for each method that has been run on \delve{} is
+in its own file, named in a manner similar to the datasets, but with
+an  \texttt{all} appended, e.g. \texttt{lin-1-all.tar.gz}.
+Results for a particular method and dataset are stored in files with
+the \texttt{-all} suffix replaced with the dataset name:
+\texttt{lin-1-demo.tar.gz}.  The source code and description for the
+methods are stored in another tar file with \texttt{-all} replaced
+with \texttt{-Source}: \texttt{lin-1-Source.tar.gz}.  These files are only
+available from the Delve web site at 
+\texttt{http://www.cs.toronto.edu/\maketilde{}delve}.
+\end{enumerate}
+
+A sample \texttt{ftp} session for obtaining \delve{} might be as
+follows\footnote{This example illustrates the process for version 1.1; for
+other versions replace ``1.1'' by the version/patch number you wish.}:
+
+\begin{Session}
+ftp ftp.cs.toronto.edu
+cd /pub/neuron/delve
+binary
+get software/delve-1.1.tar.gz
+get data/tarfiles/demo.tar.gz
+quit
+\end{Session}
+
+\subsection*{Installation}
+
+Before installing the datasets and method results, you must build and
+install the \delve{} utilities as follows:
+
+\begin{enumerate}
+\item
+Obtain the distribution file from our ftp site:
+\begin{Session}
+ftp ftp.cs.toronto.edu
+get /pub/neuron/delve/software/delve-1.1.tar.gz
+bye
+\end{Session}
+%
+\item
+Uncompress and untar the distribution using the \texttt{gunzip}
+utility:
+\begin{Session}
+gunzip delve-1.1.tar.gz
+tar xvf delve-1.1.tar
+\end{Session}
+%
+\item
+Run the configuration script:
+\begin{Session}
+cd delve-1.1
+./configure
+\end{Session}
+or, for systems that don't recognize \texttt{\#!} in shell scripts:
+\begin{Session}
+cd delve-1.1
+/bin/sh ./configure
+\end{Session}
+By default, the configuration script will set things up to be
+installed in \texttt{/usr/local}. You can change this by specifying a
+different \texttt{prefix} in the \texttt{configure} command:
+\begin{Session}
+./configure --prefix=/your/install/path
+\end{Session}
+You can also add options for a particular \texttt{cc} compiler and
+compiler flags:
+\begin{Session}
+./configure --with-cc=gcc --with-cflags=-g
+\end{Session}
+For a full list of the options \texttt{configure} takes, type:
+\begin{Session}
+./configure --help
+\end{Session}
+The \texttt{configure} script generates new Makefiles from their
+respective templates (Makefile.in). If \texttt{configure} can't find
+something, you can make changes to the intermediate
+\texttt{config.status} script, and invoke this script to reconfigure
+the Makefiles:
+\begin{Session}
+vi config.status
+./config.status
+\end{Session}
+As a last resort, you can edit the Makefiles in the current directory
+and \texttt{doc/} by hand and insert the proper paths.
+%
+\item
+Build the libraries and the executables. From the top-level directory
+type:
+\begin{Session}
+make all
+\end{Session}
+%
+\item
+Install the executables, libraries, documentation, and script
+files. From the top-level directory type:
+\begin{Session}
+make install
+\end{Session}
+If you have problems with the installation, you can use a subset of
+the commands:
+\begin{Session}
+make install-binaries
+make install-libraries
+make install-doc
+make install-man
+\end{Session}
+\end{enumerate}
+
+Once you've installed the utilities, you can install the
+datasets. This involves simply extracting the files from their tape
+archives into the proper directory: the installed top-level \delve{}
+data directory. By default this directory is
+\texttt{/usr/local/lib/delve/data}. If you specified a
+\texttt{--prefix} to the \texttt{configure} command, replace the
+\texttt{/usr/local} prefix with the path of that directory.
+
+Each tape archive will create a directory with the same base name as
+the archive file. This directory will contain all the data and
+specification files \delve{} needs to generate the tasks.
+\begin{Session}
+mv demo.tar.gz /usr/local/lib/delve/data
+cd /usr/local/lib/delve/data
+zcat demo.tar.gz | tar xvf -
+\end{Session}
+
+If you want to install a dataset in a private directory, you can do
+the following
+\begin{enumerate}
+\item
+Create a directory called \texttt{delve} in your home directory (or
+anywhere else, for that matter).
+\item
+In that directory create two more directories: \texttt{data} and
+\texttt{methods}.
+\item
+In the \texttt{delve/data} directory, untar the data file as described
+above.
+\end{enumerate}
+Once you've done that, you can work in your own private delve
+directory and you will have access to the datasets you've downloaded,
+as well the ones installed in \texttt{/usr/local/lib/delve/data}.
+
+Once you've extracted the data, you can safely remove the tar file.
+
+\subsection*{Setup}
+
+Once the software has been installed you can run any of the \delve{} commands
+without further setup. There are, however, 2 environment variables that make the
+software more flexible
+
+\begin{enumerate}
+\item
+DELVE\_PATH - (see also appendix C) allows multiple delve directories to be
+active. It is similar in flavour to the normal Unix PATH environment variable.
+
+\item
+DELVE\_UNCOMPRESS - Set this environment variable to the name of the Unix
+utility that will {\em uncompress} files on the ``fly'', ie it can read
+compressed files and uncompress them to stdout. If this environment variable
+is not set, {\em zcat} is assumed.
+\end{enumerate}
