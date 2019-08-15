@@ -1,0 +1,79 @@
+% ----------------------------------------------------------------------
+% Tcl Command for manipulating matrices.
+%
+% Author: Drew van Camp (drew@cs.toronto.edu)
+%
+% Copyright (c) 1996 The University of Toronto.
+%
+% See the file "copyright" for information on usage and redistribution
+% of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+% ----------------------------------------------------------------------
+
+\documentclass{article}
+\usepackage{moretext,amstex,alltt,varioref}
+\usepackage{../library/delve}
+
+\newcommand{\dmatrix}{\textbf{d\_matrix}}
+
+\begin{document}
+
+\rcsInfo $Id: d_matrix.tex,v 1.1 1996/04/12 18:19:26 drew Exp $
+
+\title{d\_matrix: Floating point matrix manipulation}
+\author{Drew van Camp (drew@@cs.toronto.edu)\\[1ex]
+	Department of Computer Science\\
+	University of Toronto\\
+	6 Kings College Road\\
+	Toronto ON, Canada, M5S 1A4}
+
+\vfil
+\maketitle
+\vfil
+\copyrightNotice{1996}
+\vfil
+\clearpage
+
+\section{Introduction}
+
+Many \delve{} utilities have to perform operations on two-dimensional
+matrices of floating point numbers.  \tcl{} is notoriously slow at
+arithmetic operations, so many of these utilities must be written in
+C.  To allow commands to pass matrices between themselves, \delve{}
+provides the \dmatrix{} command.  It can be used to create matrices,
+store and retrieve values from them and pass them around.  The \tcl{}
+interface is described in this document.  For the C API, see the
+\textbf{GetMatrix} document.
+
+\section{The \dmatrix{} command}
+\usage{d\_matrix}{option ?arg ...?}
+This command provides several operations on a matrix.
+\texttt{Option} indicates what to do with the matrix. Valid valid
+options are:
+\begin{options}
+\item[d\_matrix create \textsl{rows columns}]
+Create a matrix with the given number of \texttt{rows} and
+\texttt{columns} and return a handle that can be used with the other
+matrix commands.  The handle allows the commands to access the C data
+structure for the matrix.  All values in the matrix are initialized to
+0.
+\item[d\_matrix delete \textsl{handle}]
+Delete the matrix associated with the given handle and release all
+resources allocated for it.
+\item[d\_matrix copy \textsl{destHandle sourceHandle}]
+Copy all values in the matrix associated with \texttt{sourceHandle}
+into the matrix associated with \texttt{destHandle}.  The matrices
+must have the same number of rows and columns.
+\item[d\_matrix entrySet \textsl{handle row column ?value?}]
+Return the value stored in a particular cell of the matrix associated
+with \texttt{handle}.  The cell is referenced by its \texttt{row} and
+\texttt{column} (both indices start at zero).  If the optional
+floating point \texttt{value} is given, it is stored in the cell
+before returning the value.
+\item[d\_matrix set \textsl{handle value}]
+Set all cells in the matrix associated with the given \texttt{handle}
+to the given floating point \texttt{value}.  The command returns an
+empty string.
+\item[d\_matrix size \textsl{handle}]
+Return a list containing the number of rows and columns in the matrix.
+\end{options}
+\end{document}

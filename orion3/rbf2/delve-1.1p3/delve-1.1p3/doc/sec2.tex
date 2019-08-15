@@ -1,0 +1,196 @@
+%
+% $Id: sec2.tex,v 1.12 1996/05/10 22:45:37 radford Exp $
+%
+\newpage
+
+\section{THE SCOPE OF THE DELVE PROJECT}\label{sec-aims}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ THE SCOPE OF THE DELVE PROJECT}]
+      {\fancyplain{}{\thesection.\ THE SCOPE OF THE DELVE PROJECT}}
+
+The aim of the DELVE project is to promote the development and use of
+empirical learning methods by providing a well-designed environment in
+which the performance of such learning methods can be assessed on data
+that is relevant to the real world.  This is a broad objective, which
+we can hope only to partially fulfill.  This section outlines the
+scope of the DELVE project at present --- the sorts of learning
+methods that DELVE can handle, the sorts of assessments that DELVE
+supports for these methods, and the kinds of dataset on which these
+assessments are performed.
+
+As researchers ourselves, we of course have ideas about which learning
+methods are most promising, but we have tried to keep such prejudices
+from affecting the design of DELVE.  We have also tried to minimize
+the extent to which DELVE constrains the sorts of questions that
+researchers can investigate.  Inevitably, however, we have had to use
+our own judgement in making tradeoffs between different design goals,
+some of which are mentioned below.
+
+
+\subsection{Learning methods that DELVE can handle}\label{scope-range}
+
+At present, DELVE supports only methods for {\em supervised
+learning\/} --- that is, methods that aim to predict one or more {\em
+target attributes\/} using the information provided by some set of
+{\em input attributes\/}.  The relationship between the inputs and the
+targets is learned from a number of {\em training cases\/}, in which
+both the inputs and targets are known.  These training cases are
+modeled as if they were generated more-or-less independently from some
+source.  The goal of learning is to predict the target in a {\em test
+case\/}, generated from the same source as the training cases, but for
+which only the inputs are known.  For some datasets, the cases are not
+truly independent, but the primary goal is always to learn the
+relationship of targets to inputs, not to learn the nature of any
+dependencies between cases.
+
+We distinguish between \emph{regression} tasks, in which the targets
+(usually one, but sometimes more) are real-valued, and
+\emph{classification} tasks, in which there is a single target, the
+\emph{class} of the item in question, which takes on values from a
+small set.  We also provide some limited support for other supervised
+learning tasks, such as those in which the target is an integer, or an
+angular value.
+
+The DELVE facilities presently treat the attributes in a case as an
+unstructured collection of values.  In some applications, such as
+image processing, the attributes (eg, pixel values) are known to have
+certain relationships to each other (eg, spatial adjacency), which can
+be of great help in learning.  Although data from such application
+areas could be included in DELVE, assessments using this data may be
+of limited interest, since DELVE provides no scheme for informing
+learning methods about such structure in the data.
+
+In future, we hope to also support \emph{unsupervised learning}
+methods and related statistical methods such as density estimation, in
+which attributes are not characterized as inputs or targets.  As well,
+we may someday add facilities for assessing \emph{time series}
+methods, in which the aim is to characterize the sequential
+dependencies between cases.
+
+
+\subsection{Aspects of performance that can be assessed using 
+            DELVE}\label{scope-aspects}
+
+DELVE is aimed primarily at assessing the \emph{predictive
+performance} of learning methods --- that is, their ability to make
+predictions in previously unseen cases by generalizing from the
+information contained in the data used for training.
+\emph{Computational performance} --- the amount of time and
+space needed for training and subsequent use of the methods --- is
+also of concern.  There will often be a tradeoff between predictive
+performance and computational performance.  However, DELVE does not
+include any datasets where computational considerations appear
+paramount, as might be the case, for example, when the amount of data
+is extremely large.
+
+Other characteristics of learning methods are also of interest,
+such as ease of use by both expert and inexpert users, and the degree
+to which the results of learning can be interpreted, but DELVE does
+not support any formal evaluation of such characteristics.
+
+
+\subsection{How DELVE encourages meaningful assessments}\label{scope-req}
+
+The DELVE environment is designed to encourage and assist users to
+produce meaningful assessments that are \emph{faithful},
+\emph{comparable}, and \emph{reproducible}.  
+
+To be \emph{faithful}, an assessment of a learning method must be
+indicative of how well it would perform on an actual task that is of
+some interest.  One must, for example, avoid any inadvertent
+``cheating'', such as would occur if parameters of the learning method
+were set on the basis of performance on the test cases.  Arbitrary
+restrictions on how learning methods may be used must also be avoided,
+if better performance might be obtained in a real application by doing
+things differently.
+
+For assessments of different learning methods to be \emph{comparable},
+they must all have been applied in the same context --- for instance,
+with training sets of the same size, and with equivalent attention
+being paid to prior information.  It is perhaps in this respect that a
+standard environment such as DELVE is most useful.
+
+One requirement for an assessment to be \emph{reproducible} is that
+the method used be adequately documented.  To encourage this, we
+have provided guidelines for proper documentation, and examples of
+their use.  Reproducibility is most easily achieved if the method
+is fully automatic.  This is not always possible, however, so we
+suggest ways of improving the reproducibility of methods that
+involve human decisions.
+
+Furthermore, DELVE is designed to provide assessments that are as {\em
+accurate\/} as is practical, and for which the degree of accuracy is
+known.  DELVE also supports comparisons of learning methods that
+provide indications of the statistical significance of any observed
+differences.  The power of these comparisons is increased by using the
+same training and test sets for different methods, which is another
+advantage of a standard environment.
+
+
+\subsection{Kinds of datasets included in \delve{}}\label{scope-data}
+
+Obtaining data is one of the most crucial, and most difficult, parts
+of building an assessment environment.  We have drawn datasets for
+DELVE from four sources, each of which has its advantages.
+
+\emph{Natural} datasets come from real-world sources, and were at one
+time used to address questions of real interest that are similar to
+those addressed by the supervised learning methods we would like to
+assess.  \emph{Cultivated} datasets also come from the real world, but
+do not represent real supervised learning problems.  Such cultivated
+data was instead gathered or selected specifically for the purpose of
+assessing learning methods.  We also include real-world datasets that
+have been altered (eg, by adding noise) in this category.
+
+\emph{Simulated} datasets are generated by a computer simulation of a
+real-world phenomenon.  To qualify for this category, the simulation
+should be reasonably realistic, and of a complexity that makes it
+difficult to see what form the relationships in the data will take.
+\emph{Artificial} datasets are randomly generated from a distribution
+defined by a relatively simple mathematical formula.
+
+Natural datasets have the advantage of being arguably representative
+of the problems we are actually interested in.  For example, a
+statistical consultant might reasonably conclude that it would be
+worthwhile to learn more about a learning method that has been found
+to perform better than others on such real-world problems.  Relevance
+to the real world is more doubtful for cultivated, simulated, and
+artificial datasets.  As the datasets become less natural, it also
+becomes more likely that a researcher may bias the assessment of a
+learning method by unconsciously selecting problems on which that
+method can be anticipated to do well.
+
+Why, then, do we include any other than natural datasets?  One reason
+is that the number of readily-available natural datasets is limited,
+and those that are available are usually not as large as we would
+like.  In the real world, the cost of collecting data is often high,
+and we must try to obtain the most information possible from a small
+dataset.  To properly assess the performance of a learning method in
+such a context, however, we need much more data, in order to reduce
+the uncertainty in our estimate of expected performance.  Simulated
+and artificial datasets can easily be made as large as required
+(limited only by storage space); this can greatly improve the accuracy
+of performance estimates.
+
+Another reason for using non-natural datasets is that they can be
+designed to address certain questions that would otherwise be
+difficult to answer, such as what the effect is of adding extra noise
+to the input attributes, or of adding extra irrelevant inputs.  In
+particular, we can design families of tasks that are related in
+interesting ways --- eg, that have more or less noise, or a larger or
+fewer number of input attributes --- and see how these dimensions of
+variation affect the performance of various learning methods.
+
+When we began collecting datasets for use in assessing supervised
+learning methods, we had hoped to confine ourselves to datasets
+where the cases were truly independent, as independence of cases is an
+assumption behind many existing supervised learning methods.  We
+found, however, that in many otherwise-interesting datasets, there is
+at least a possibility of dependencies between cases.  We therefore
+decided to include such datasets, both in order to increase the
+variety of datasets available, and because it seems to us that the
+possibility of such dependencies is a common feature of real-world
+problems, which designers of supervised learning methods may be
+well-advised to accommodate.  We have, however, avoided datasets in 
+which the dependencies themselves are the primary focus of interest.

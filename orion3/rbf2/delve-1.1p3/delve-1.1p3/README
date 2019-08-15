@@ -1,0 +1,273 @@
+------------------------------------------------------------------------
+			 DELVE - version 1.0
+------------------------------------------------------------------------
+
+     Please send comments or suggestions to delve@cs.utoronto.ca
+========================================================================
+	Copyright (c) 1995-1996 by The University of Toronto,
+		      Toronto, Ontario, Canada.
+========================================================================
+			 All Rights Reserved
+========================================================================
+ Permission to use, copy, modify, and distribute this software and its
+ documentation for  NON-COMMERCIAL  PURPOSES  ONLY  is hereby  granted
+ without fee, provided that the above copyright  notice appears in all
+ copies and that both the copyright  notice and this permission notice
+ appear  in  supporting  documentation, and  that   the  name  of  The
+ University  of Toronto  not  be   used  in advertising or   publicity
+ pertaining to distribution  of the software without specific, written
+ prior permission.  The University of Toronto makes no representations
+ about   the  suitability of  this software  for   any purpose.  It is
+ provided "as is" without express or implied warranty.
+
+ THE  UNIVERSITY OF  TORONTO  DISCLAIMS ALL WARRANTIES  WITH REGARD TO
+ THIS SOFTWARE,  INCLUDING  ALL IMPLIED WARRANTIES  OF MERCHANTABILITY
+ AND FITNESS, IN NO  EVENT SHALL THE  UNIVERSITY OF TORONTO BE  LIABLE
+ FOR  ANY  SPECIAL, INDIRECT OR  CONSEQUENTIAL DAMAGES  OR ANY DAMAGES
+ WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ ACTION OF CONTRACT, NEGLIGENCE OR OTHER  TORTIOUS ACTION, ARISING OUT
+ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+========================================================================
+ $Id: README,v 1.5.2.4 1996/12/06 16:25:21 revow Exp $
+========================================================================
+
+ OVERVIEW
+------------------------------------------------------------------------
+ - Where can I get Delve
+ - How to contact us
+ - What is Delve?
+ - Getting started
+ - Installation
+ - Version numbers
+ - Acknowledgements
+------------------------------------------------------------------------
+
+Where can I get Delve?
+------------------------------------------------------------------------
+The primary source is via the World Wide Web (WWW) from
+http://www.cs.utoronto.ca/~delve It can also be obtained via  anonymous
+ftp from the machine "ftp.cs.utoronto.ca" in the directory
+"/pub/neuron/delve". 
+
+How to contact us
+------------------------------------------------------------------------
+We can be reached at delve@cs.toronto.edu. There is also an electronic 
+mailing list for users of delve; to join the list, send a request to
+delve-request@cs.utoronto.ca
+
+ What is Delve?
+------------------------------------------------------------------------
+ Delve --- Data for Evaluating Learning in Valid Experiments --- is a
+ collection of datasets from many sources, and an environment within
+ which this data can be used to assess the performance of procedures
+ that learn relationships using such data.
+
+ Many procedures for learning from empirical data have been developed
+ by researchers in statistics, pattern recognition, artificial
+ intelligence, neural networks, and other fields.  Learning procedures
+ in common use include simple linear models, nearest neighbor methods,
+ decision trees, multilayer perceptron networks, and many others of
+ varying degrees of complexity.  Comparing the performance of these
+ learning procedures in realistic contexts is a surprisingly difficult
+ task, requiring both an extensive collection of real-world data, and
+ a carefully-designed scheme for performing experiments.
+
+ The aim of Delve is to help researchers and potential users to assess
+ learning procedures in a way which is relevant to real-world problems
+ and which allows for statistically-valid comparisons of different
+ procedures.  Improved assessments will make it easier to determine
+ which learning procedures work best for various applications, and
+ will promote the development of better learning procedures by
+ allowing researchers to easily determine how the performance of a new
+ procedure compares to that of existing procedures.
+
+ Getting started
+------------------------------------------------------------------------
+
+ The Delve distribution is available via the world wide web (WWW) from
+ the site http://www.cs.utoronto.ca/~delve For those without WWW access
+ it is  also available via  anonymous ftp from the machine
+ "ftp.cs.utoronto.ca" in the  directory "/pub/neuron/delve". 
+ In cases where both these options are unavailable, it may be possible
+ to get  Delve (8 mm exabyte) tape media from us (send mail to
+ delve@cs.toronto.edu).
+
+ Three components of delve are available via ftp (and of through our WWW
+ page): 
+
+ 1) doc - Detailed documentation. Available in single and souble column
+ format.
+ 2) software - Tar files of the software referred to in the documention.
+ Instructions for building and installing the software are given below.
+ 3) data - Tar files of data sets in the Delve collection. The list of
+ datasets is constantly growing.
+
+ The final component of Delve, the learning methods submitted to delve,
+ is only available through the WWW page.
+
+
+ Requirements
+------------------------------------------------------------------------
+
+To build and install the delve utilities you must first have installed
+Tcl (Tool Command Language) version 7.3 or higher.  The software is
+available from the following sites:
+
+	http://www.smli.com/research/tcl/
+
+For more information on Tcl, you can check out The Santa Cruz
+Operation database of Tcl/Tk Web pages. 
+
+	http://www.sco.com/Technology/tcl/Tcl.html
+
+It has links to just about everything imaginable on the Web that's
+related to Tcl or Tk, including mirror sites for the Tcl distribution.
+
+
+ Installation (See Appendix A in the Delve manual)
+------------------------------------------------------------------------
+
+
+  1) Obtain the latest software distribution and some datasets and
+  methods.  The preferred method for retrieving these is via the WWW at
+  http://www.cs.utoronto.ca/~delve However in the following
+  illustartion, we show how these can be obtained via ftp This
+  illustration is for version 1.0 of the software, replace the "1.0"
+  in delve-1.0 by the version that you wish, see "Version numbers" below.
+
+
+	ftp ftp.cs.utoronto.ca
+	cd /pub/neuron/delve
+	binary
+	cd software
+	get delve-1.0.tar.gz	# Replace "1.0" by the latest version available
+
+  2) Uncompress and untar the distribution:
+
+	gunzip delve-1.0.tar.gz
+	tar xvf delve-1.0.tar
+
+  3) Run the configuration script:
+
+	cd delve-1.0
+	./configure
+
+     or, for systems that don't recognize "#!" in shell scripts:
+
+	cd delve-1.0
+	/bin/sh ./configure
+
+     By default, the configuration script will set things up to be
+     installed in "/usr/local".  You can change this by specifying a
+     different "prefix" in the "configure" command:
+
+        ./configure --prefix=/your/install/path
+
+     You can also add options for a particular "cc" compiler and
+     compiler flags:
+
+        ./configure --with-cc=gcc --with-cflags=-g
+
+     For a full list of the options "configure" takes, type:
+
+	./configure --help
+
+     The "configure" script generates new Makefiles from their
+     respective templates (Makefile.in).
+
+     If "configure" can't find something, you can make changes to the
+     intermediate "config.status" script, and invoke this script to
+     reconfigure the Makefiles:
+
+        vi config.status
+        ./config.status
+
+     As a last resort, you can edit the Makefiles in the current
+     directory and "doc/" by hand and insert the proper paths.
+
+  4) Build the libraries and the executables.  From the toplevel
+     directory type:
+
+        make all
+
+  5) Install the executables, libraries, documentation, and script
+     files.  From the top-level directory type:
+
+        make install
+
+     If you have problems, you can also use a subset of the commands:
+
+	make install-binaries
+	make install-libraries
+	make install-doc
+	make install-man
+
+  6) Now that you have built and installed the Delve utilities, you
+     can install the datasets and methods. The preferred method for
+     obtaining datasets and methods is via the WWW at
+     http://www.cs.utoronto.ca/~delve  You need only
+     retrieve those datasets and methods that you are interested in. In
+     the following example we assume that you have downloaded the "demo"
+     dataset and the basic linear regression method "lin-1" 
+
+     Installing datasets and methods means simply extracting the files
+     from their tar achives into your "delve" directory. By default this
+     director is "/usr/local/lib/delve", but if you specified a
+     "--prefix" to the "configure" command (setp 3 above), then replace
+     "/usr/local" with that directory. In fact datasets and methods can
+     be installed anywhere, see appendic C in the delve manual.
+
+	mv demo.tar.gz /usr/local/lib/delve/data/
+	cd /usr/local/lib/delve/data
+	zcat data-boston.tar.gz | tar xvf -
+	mv lin-1-all.tar.gz /usr/local/lib/delve/methods/
+	cd /usr/local/lib/delve/methods
+	zcat lin-1-all.tar.gz | tar xvf -
+
+
+ Version numbers
+------------------------------------------------------------------------
+
+Each Delve release is identified by two numbers separated by a dot,
+e.g.  1.0 or 3.2.  If a new release contains changes that are likely
+to break existing results or specification files then the major
+release number increments and the minor number resets to zero: 2.0,
+3.0, etc.  If a new release contains only bug fixes and compatible
+changes, then the minor number increments without changing the major
+number, e.g. 1.1, 1.2, etc.  If you datasets or results that work with
+release X.Y, then they should also work with any release X.Z as long
+as Z > Y.
+
+Alpha and beta releases have an additional suffix of the form a2 or b1.
+For example, Delve 1.0b1 is the first beta release of Delve version 1.0,
+Delve 1.0b2 is the second beta release, and so on.  A beta release is an
+initial version of a new release, used to fix bugs and bad features before
+declaring the release stable.  An alpha release is like a beta release,
+except it's likely to need even more work before it's "ready for prime
+time".  New releases are normally preceded by one or more alpha and beta
+releases.  We hope that lots of people will try out the alpha and beta
+releases and report problems.  We'll make new alpha/beta releases to fix
+the problems, until eventually there is a beta release that appears to
+be stable.  Once this occurs we'll make the final release.
+
+We can't promise to maintain compatibility among alpha and beta releases.
+For example, release 1.1b2 may not be backward compatible with 1.1b1, even
+though the final 1.1 release will be backward compatible with 1.0.  This
+allows us to change new features as we find problems during beta testing.
+We'll try to minimize incompatibilities between beta releases, but if
+a major problem turns up then we'll fix it even if it introduces an
+incompatibility.  Once the official release is made then there won't
+be any more incompatibilities until the next release with a new major
+version number.
+
+ Acknowledgements
+------------------------------------------------------------------------
+Members of the DELVE Development Group:
+
+ C. E. Rasmussen   G. E. Hinton      R. M. Neal    D. van Camp   
+ M. Revow          Z. Ghahramani     R. Kustra     R. Tibshirani   
+
+ This project was supported by grants from the Natural Sciences and
+ Engineering Research Council of Canada and the Institute for Robotics
+ and Intelligent Systems
+

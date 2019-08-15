@@ -1,0 +1,130 @@
+Execution time 314.032646 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.25, 'core': 0.25, 'L2': 0.25}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 314.03264554 314.03264554
+param: DRAM, search_param_value: 0.25005
+Exec time improv = 6.625400000076118 314.03264554 314.03231427
+param: core, search_param_value: 0.25005
+Exec time improv = 1249.057000000131 314.03264554 313.97019269
+param: L2, search_param_value: 0.25005
+Exec time improv = 0.0 314.03264554 314.03264554
+OrderedDict([('core', 1249.057000000131), ('DRAM', 6.625400000076118), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.06278412000001037
+0.06278412000001037
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.625400000076118), ('core', 1249.057000000131)])
+Execution time 251.602823 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.2503312700000038, 'core': 0.31245285000000655, 'L2': 0.18721587999998962}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 251.60282292 251.60282292
+param: DRAM, search_param_value: 0.25038133625400383
+Exec time improv = 6.607644342392461 251.60282292 251.6024921
+param: core, search_param_value: 0.3125153405700066
+Exec time improv = 799.6376093224576 251.60282292 251.55285311
+param: L2, search_param_value: 0.1872533231759896
+Exec time improv = 0.0 251.60282292 251.60282292
+OrderedDict([('core', 799.6376093224576), ('DRAM', 6.607644342392461), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.040312262683242506
+0.040312262683242506
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.607644342392461), ('core', 799.6376093224576)])
+Execution time 223.250900 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.25066165221712344, 'core': 0.35243473046612944, 'L2': 0.14690361731674711}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 223.25090008 223.25090008
+param: DRAM, search_param_value: 0.2507117845475669
+Exec time improv = 6.590357900658756 223.25090008 223.25056969
+param: core, search_param_value: 0.3525052174122227
+Exec time improv = 628.4993527940769 223.25090008 223.20659908
+param: L2, search_param_value: 0.14693299804021046
+Exec time improv = 0.0 223.25090008 223.25090008
+OrderedDict([('core', 628.4993527940769), ('DRAM', 6.590357900658756), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.03175448553473679
+0.03175448553473679
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.590357900658756), ('core', 628.4993527940769)])
+Execution time 205.111428 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.2509911701121564, 'core': 0.3838596981058333, 'L2': 0.11514913178201033}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 205.11142781 205.11142781
+param: DRAM, search_param_value: 0.2510413683461788
+Exec time improv = 6.573139602257007 205.11142781 205.11109785
+param: core, search_param_value: 0.38393647004545445
+Exec time improv = 529.8064657571988 205.11142781 205.07075354
+param: L2, search_param_value: 0.11517216160836673
+Exec time improv = 0.0 205.11142781 205.11142781
+OrderedDict([('core', 529.8064657571988), ('DRAM', 6.573139602257007), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.026818980267972792
+0.026818980267972792
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.573139602257007), ('core', 529.8064657571988)])
+Execution time 191.977920 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.25131982709226924, 'core': 0.41035002139369325, 'L2': 0.08833015151403754}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 191.97792021 191.97792021
+param: DRAM, search_param_value: 0.2513700910576877
+Exec time improv = 6.555789963345082 191.97792021 191.97759069
+param: core, search_param_value: 0.410432091397972
+Exec time improv = 463.61055216709906 191.97792021 191.93987169
+param: L2, search_param_value: 0.08834781754434035
+Exec time improv = 0.0 191.97792021 191.97792021
+OrderedDict([('core', 463.61055216709906), ('DRAM', 6.555789963345082), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.023508317106522205
+0.023508317106522205
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.555789963345082), ('core', 463.61055216709906)])
+Execution time 181.801621 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.2516476165904365, 'core': 0.4335305490020482, 'L2': 0.06482183440751534}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 181.80162127 181.80162127
+param: DRAM, search_param_value: 0.25169794611375457
+Exec time improv = 6.538905562600723 181.80162127 181.80129217
+param: core, search_param_value: 0.43361725511184857
+Exec time improv = 415.35827270873966 181.80162127 181.76560717
+param: L2, search_param_value: 0.06483479877439684
+Exec time improv = 0.0 181.80162127 181.80162127
+OrderedDict([('core', 415.35827270873966), ('DRAM', 6.538905562600723), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.021094858913567018
+0.021094858913567018
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.538905562600723), ('core', 415.35827270873966)])
+Execution time 173.566052 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.25197456186856654, 'core': 0.4542984626374852, 'L2': 0.043726975493948314}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 173.56605227 173.56605227
+param: DRAM, search_param_value: 0.2520249567809402
+Exec time improv = 6.521888510298739 173.56605227 173.5657236
+param: core, search_param_value: 0.45438932233001267
+Exec time improv = 378.2506746827954 173.56605227 173.53168453
+param: L2, search_param_value: 0.043735720889047106
+Exec time improv = 0.0 173.56605227 173.56605227
+OrderedDict([('core', 378.2506746827954), ('DRAM', 6.521888510298739), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.01923862815965471
+0.01923862815965471
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.521888510298739), ('core', 378.2506746827954)])
+Execution time 166.694782 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.2523006562940815, 'core': 0.47321099637162495, 'L2': 0.024488347334293604}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 166.69478249 166.69478249
+param: DRAM, search_param_value: 0.2523511164253403
+Exec time improv = 6.505135674576014 166.69478249 166.69445424
+param: core, search_param_value: 0.47330563857089925
+Exec time improv = 348.6202798854109 166.69478249 166.6617883
+param: L2, search_param_value: 0.02449324500376046
+Exec time improv = 0.0 166.69478249 166.69478249
+OrderedDict([('core', 348.6202798854109), ('DRAM', 6.505135674576014), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.017756270777999347
+0.017756270777999347
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.505135674576014), ('core', 348.6202798854109)])
+Entered here
+Execution time 166.694782 with TDP parameters {'shared_mem': 0.25, 'DRAM': 0.2523006562940815, 'core': 0.47321099637162495, 'L2': 0.024488347334293604}
+param: shared_mem, search_param_value: 0.25005
+Exec time improv = 0.0 166.69478249 166.69478249
+param: DRAM, search_param_value: 0.2523511164253403
+Exec time improv = 6.505135674576014 166.69478249 166.69445424
+param: core, search_param_value: 0.47330563857089925
+Exec time improv = 348.6202798854109 166.69478249 166.6617883
+param: L2, search_param_value: 0.02449324500376046
+Exec time improv = 0.0 166.69478249 166.69478249
+OrderedDict([('core', 348.6202798854109), ('DRAM', 6.505135674576014), ('shared_mem', 0.0), ('L2', 0.0)])
+shared_mem
+Amount Increased:  0.017756270777999347
+0.017756270777999347
+OrderedDict([('L2', 0.0), ('shared_mem', 0.0), ('DRAM', 6.505135674576014), ('core', 348.6202798854109)])
+160.83058308 160.83058308
+Saturated, done with search {'shared_mem': 0.25, 'DRAM': 0.2523006562940815, 'core': 0.47321099637162495, 'L2': 0.024488347334293604} 166.69478249
+For Batch-Size: 512, the TDP breakdown is as follows:  ({'shared_mem': 0.25, 'DRAM': 0.2523006562940815, 'core': 0.47321099637162495, 'L2': 0.024488347334293604}, 166.69478249)

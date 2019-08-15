@@ -1,0 +1,168 @@
+#!/bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: mgendir,v 1.15.2.6 1996/11/12 16:20:04 revow Exp $
+#
+# This script generates a delve directory hierarchy. It starts with a
+# dataset name, followd by one or more prototasks, and finally a set
+# of tasks. Task names are generated from the names of the prior
+# information files and task instance sizes. For a full description of
+# what this means, see the "delve" documentation.
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+# 		overlapping delve directory hierarchy.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1995-1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# The string "usage" has a nicely formatted message describing the
+# usage of the script. It is used in error and help messages.
+# ----------------------------------------------------------------------
+
+set usage "usage: [file tail $argv0] \[ options \] \[ path \]
+    Where 'options' are:
+	-d	Turn on error stack traces for debugging.
+	-h	 Print this help message.
+	-q       Run quietly.
+	-l 	 Local; run only on specifed path, do not recurse 
+		 through subdirectories.
+
+    And 'path' is:
+	The true path name of a method, dataset, prototask, or task
+	hierarchy to create, e.g. './boston/nox'."
+
+# ----------------------------------------------------------------------
+# The procedure "parseOptions" parses all the command line options in
+# "list" and leaves the result in the array "options". If an error
+# occurs, it uses "usage" in the error message. The procedure returns
+# all arguments left in "list" after removing options. Default options
+# are set here as well.
+# ----------------------------------------------------------------------
+
+set options(local)	0 ;
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ![lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -d		{ delve_debug 1 }
+	    -h		{ puts stderr "$usage" ; exit 0 }
+	    -q		{delve_quiet 1}
+	    -l		{ set options(local)	1 }
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    return $list ;
+}
+
+#----------------------------------------------------------------------#
+# Genereates all subdirectories of a directory.
+#----------------------------------------------------------------------#
+
+proc mgensubdirs { path } {
+
+    set cpath	[m_cpath $path] ;
+    set type	[m_type $cpath] ;
+
+    switch [m_type $cpath] {
+	root		{
+	    error "can't generate subdirectories without a method name"
+	}
+	method		{ set subdirs [d_info [m_cvtcpath $cpath] datasets] }
+	dataset		{ set subdirs [d_info [m_cvtcpath $cpath] prototasks]}
+	prototask	{ set subdirs [d_info [m_cvtcpath $cpath] tasks] }
+	default		{ set subdirs {} }
+    }
+
+    foreach subdir $subdirs {
+	set subpath [cleanpath $path/$subdir] ;
+	if ![file isdirectory $subpath] {
+	   pwrap $subpath {} ;
+	    mkdir $subpath ;
+	}
+	mgensubdirs $subpath ;
+    }
+}
+
+#----------------------------------------------------------------------#
+# The "mgendir" procedure that can be used to generate the
+# directories. "Path" is the directory to create. It must be a
+# master delve methods directory. If "local" is non-zero, you don't
+# want sub directories generated.
+#----------------------------------------------------------------------#
+
+proc mgendir { path local } {
+    if { [string compare [delve_root $path] {}] == 0 } {
+	error "$path is not in a delve root directory" ;
+    }
+
+    if { [string compare [string index $path 0] "/"] == 0 } {
+	set subpath	"" ;
+	set path	[string range $path 1 end] ;
+    }
+
+    foreach dir [split $path /] {
+	if [info exists subpath] {
+	    append subpath	"/$dir" ;
+	} else {
+	    set subpath		"$dir" ;
+	}
+
+	if { [string compare [delve_root $subpath] {}] == 0 } {
+	    continue ;
+	}
+
+	set cpath	[d_cpath $subpath] ;
+	if ![d_exists $cpath] {
+	    error "\"$cpath\" does not exist"
+	}
+
+	if ![file isdirectory $subpath] {
+	   pwrap $subpath {} ;
+	    mkdir $subpath ;
+	}
+    }
+
+    if { ! $local } {
+	mgensubdirs $subpath ;
+    }
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line.
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+# ----------------------------------------------------------------------
+# And here we go...
+# ----------------------------------------------------------------------
+
+if { [llength $argv] == 0 } {
+    set path "." ;
+} elseif { [llength $argv] == 1 } {
+    set path [cleanpath [lindex $argv 0]] ;
+} else {
+    error $usage ;
+}
+
+mgendir $path $options(local) ;
+
+exit 0

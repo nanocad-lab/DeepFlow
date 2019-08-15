@@ -1,0 +1,729 @@
+%
+% $Id: sec4.tex,v 1.27.2.3 1996/11/29 21:33:27 revow Exp $
+%
+\newpage
+
+\section{FROM DATASETS TO TASKS}\label{sec-task}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ FROM DATASETS TO TASKS}]
+      {\fancyplain{}{\thesection.\ FROM DATASETS TO TASKS}}
+
+A dataset does not, by itself, define a problem to be solved.  To get
+a well-defined learning task, we must specify additional information,
+such as what part of the data we are concerned with, what we hope to
+predict about this data, and what contextual information is available
+to assist learning.  In the \delve{} environment, these specifications
+have a hierarchical form, in which specificity increases as we go from
+a \emph{dataset}, to a \emph{prototask}, to a \emph{task}, and finally
+to a \emph{task instance}.
+
+A \emph{prototask} fixes only the most basic aspects of the learning
+task --- just enough so that it makes sense to compare the performance
+of various learning methods on the various tasks that derive from the
+prototask.  Specifically, a prototask will define the following:\vspace{-5pt}
+\begin{itemize}
+\item The \emph{subset of cases} that a learning method is expected to handle.
+\item The set of \emph{target attributes} that the method is supposed to 
+      predict, and the set of \emph{input attributes} that it may refer to
+      when making these predictions.\vspace{-5pt}
+\end{itemize}
+
+A \emph{task} is derived from a prototask by specifying the additional
+information required so that each learning method will have a
+well-defined \emph{expected performance} on the task, with respect to some given
+\emph{loss function} (see Section~\ref{sec-loss}).  In particular, to
+define a task, we must supplement the specifications for the prototask
+by specifying the following:\vspace{-5pt}
+\begin{itemize} 
+\item The \emph{number of training cases} in the training set
+      that will be provided to the learning method, and (if applicable)
+      whether this training set will be \emph{stratified} by target value.
+\item The \emph{prior information} that the method may
+      use to assist the learning.
+\end{itemize}\vspace{-5pt}
+Note that expected performance is estimated using \emph{task instances},
+for which particular training cases are specified, as
+discussed in Sections~\ref{sec-scheme} and~\ref{sec-assess}.
+
+Specifications and other information relating to a prototask and its
+tasks are kept in a sub-directory associated with the prototask,
+located within the directory for the dataset.  Some of the files that
+may appear within such a prototask directory are listed in
+Figure~\ref{fig-prototask-dir}.
+
+\begin{figure}[b]
+
+\vspace*{-10pt}
+\rule{\textwidth}{0.5pt}
+
+\hspace*{-4pt}\begin{tabular}{ll} \\[-7pt]
+{\tt Summary} & A brief description of the prototask \\
+{\tt Prototask.data} 
+  & Data relevant to the prototask, a subset of that in \texttt{Dataset.data} \\
+{\tt Prototask.spec}
+  & Specifications for the prototask and associated tasks, usually accessed \\
+  & using the \dinfo\ command \\[5pt]
+{\tt std.prior} & The ``standard'' prior information for the prototask \\[5pt]
+$\!\!\!\left.\begin{array}{l} 
+\mbox{\textit{Prior-1}\texttt{.prior}} \\ 
+\mbox{\textit{Prior-2}\texttt{.prior}} \\ 
+\mbox{\textit{Prior-3}\texttt{.prior}} \\ 
+\end{array}\ \right\}$
+  & Other specifications of prior information
+\end{tabular}\vspace*{-1pt}
+
+\caption{Some files that may appear within a \delve{} prototask 
+         directory.}\vspace*{-10pt}
+
+\label{fig-prototask-dir}
+\end{figure}
+
+
+\subsection{Specifications for prototasks and tasks:~~More on 
+            \dinfo}\label{task-proto}
+
+A supervised learning prototask is derived from a dataset by specifying
+the set of attributes that are available for use as inputs, the set of
+attributes that constitute the targets to be predicted, and any
+restrictions on the types of cases for which the learning method is
+expected to work.  It is possible to define many prototasks based on the
+same dataset, involving different sets of inputs, targets, and cases.
+
+Such prototask specifications are contained in files named {\tt
+Prototask.spec} in the prototask directories.  Usually, users will not
+look at such files directly, however, but will instead view the
+information using \dinfo{}.  For example, the information displayed by
+\dinfo{} for the \texttt{age} prototask of the \texttt{demo} dataset
+is shown in Figure~\ref{fig:task-dinfo}.
+
+\begin{figure}[t]
+\begin{Session}
+Prototask: /demo/age
+Origin: artificial
+Cases: all
+Order: retain
+Test set size: 1024
+Training set sizes: 32 64 128 256 512
+Test set selection: hierarchical
+Maximum number of instances: 8
+Inputs: 
+     #  name     c/u range        description
+     1  SEX       u  male female  Sex of the person
+     3  SIBLINGS  u  0..Inf       Number of siblings the person has
+     4  INCOME    u  [0,Inf)      The person's annual income (dollars)
+     5  COLOUR    u  pink blue red green purple 
+                                  The person's favourite colour
+Targets: 
+     #  name     c/u range        description
+     2  AGE       u  [0,Inf)      Age of the person in years
+Tasks: 
+        std.32
+        std.64
+        std.128
+        std.256
+        std.512
+\end{Session}\vspace{-4pt}
+\caption{Output of the command: \texttt{dinfo /demo/age}.}
+\label{fig:task-dinfo}
+\end{figure}
+
+The meaning of the prototask specifications displayed by \dinfo{} is as 
+follows:\vspace{-5pt}
+\begin{list}{}{%
+\setlength{\leftmargin}{1.1in}%
+\setlength{\labelwidth}{0.7in}%
+\setlength{\labelsep}{0.1in}%
+}
+\item[{\tt Origin:}\hfill]
+   {\tt natural} \OR {\tt cultivated} \OR {\tt simulated} \OR {\tt artificial}
+
+The origin of a prototask and the tasks derived from it is usually the
+same as that of the dataset on which the prototask is based.  For a
+natural dataset, however, there will generally be only one or a few
+natural prototasks, those that were of actual interest to the original
+investigators.  Any substantially different prototasks that are based
+on the same natural dataset are classified as cultivated. In
+particular, all prototasks based on natural datasets in which the
+effect of possible sequential dependencies among the cases has been
+suppressed by random re-ordering are classified as cultivated.
+
+\item[{\tt Cases:}\hfill]
+   {\tt all} \OR {\tt no missing} \OR filename
+
+This specifies which cases are to be included in the prototask.  The
+special string \texttt{all} specifies that all cases are included in
+the prototask.  The string \mbox{\texttt{no missing}} specifies that
+all cases are included except those for which the values of one or
+more attributes used by the prototask are missing.  Otherwise, the
+cases to include are listed in the given file, as described in
+Section~\ref{task-design}.
+
+
+\item[{\tt Order:}\hfill]
+   {\tt retain} \OR filename
+
+The order in which cases for the prototask are to be used in
+constructing training and test sets.  The specification may say to
+\texttt{retain} the order in \texttt{Dataset.data}.  Alternatively,
+the order may be as specifed in the given file; often this is
+a file called \texttt{Random-order} containing a random re-ordering of 
+cases. Section~\ref{task-design} for more details.
+
+\item[{\tt Inputs:}\hfill] list
+
+A list of indexes or names for attributes of the dataset that the
+learning method is allowed (but not obliged) to use as inputs.
+
+\item[{\tt Targets:}\hfill] list
+
+A list of indexes or names for attributes of the dataset that the learning
+method will attempt to predict.
+
+\item[{\tt Test-Set-Size:}\hfill] size
+
+The number of cases to be set aside for testing in the standard \delve{} set of
+task instances.
+
+\item[{\tt Training-Set-Sizes:}\hfill] list
+
+A list of sizes for the training sets for the standard \delve{} set of tasks
+associated with this prototask.
+
+\item[{\tt Test-Set-Selection}:\hfill]
+   {\tt hierarchical} \OR {\tt common}
+
+Specifies how the test sets should defined for the standard set of task
+instances. In the \texttt{heirarchical} scheme test sets for the different
+instances are disjoint; in the {\tt common} scheme the same test set 
+is used for all task instances.  See Section~\ref{sec-scheme} for further
+details.
+
+\item[{\tt Maximum-Number-Of-Instances:}\hfill]
+   number
+
+Specifies the maximum number of task instances used in the standard
+\delve{} scheme.  This upper limit is used to prevent a very large number 
+of instances being generated for the tasks with small training sets.
+
+\end{list}\vspace{-5pt}
+
+Note that the last four items above are not, strictly speaking,
+specifications for the prototask, but rather for the standard set of
+tasks and task instances that \delve{} defines for the prototask.
+
+Attributes in the \texttt{Inputs:} and \texttt{Targets:} list may be
+identified by number, starting with `1' for the first attribute in
+the dataset, or by name.  An additional attribute, identified by
+`0', is allowed for datasets with an informative order; its value is
+the index of the case in the original ordering, starting with one for
+the first case. (This index attribute is usually not an appropriate
+input, but provision for its use is included for completeness.)
+\emph{Note: Attribute `0' is not yet supported by the implementation.}
+
+The ordering of cases in a prototask determines which cases will make
+up the training and test sets of the various task instances for the
+standard \delve{} set of tasks.  Most typically, we will want this
+ordering to be random, to ensure that cases are effectively
+independent (even if, in reality, there were dependencies between
+cases as originally ordered).  This can be ensured by using a random
+re-ordering, though one can also choose to \texttt{retain} the
+ordering if it is certain that the original ordering is random (as
+will often be the case for simulated or artificial datasets).
+
+When the dataset is in an informative order, one may instead define a
+\emph{sequential prototask}, in which this order is retained.  To
+avoid certain complications, sequential prototasks are not allowed
+when the cases also have commonality indexes.  In order to allow an
+appropriate selection of training and test sets, the prototask
+specification must include a maximum range over which there may be
+non-negligible sequential dependences that are relevant to the
+supervised learning task.  Note that this may be less than the range
+over which there are dependencies in the input attributes, as it is
+only dependences in the noise in the relationship between inputs and
+targets that are relevant.  This maximum range should be set on the
+high side, to ensure that the performance assessments are not biased.
+A sequential prototask should not be defined if it is thought that the
+range of relevant dependencies may be comparable to the number of
+cases available.  \emph{Note: Sequential prototasks are not yet
+supported by the implementation.}
+
+\subsection{The size and nature of the training set for a task}
+\label{task-training-size}
+
+Potentially, a researcher might wish to assess the the performance of
+learning methods on a task with any number of training cases, up to
+the maximum that is feasible given the number of cases in the dataset.
+It is unrealistic, however, to expect all researchers to test their
+methods on training sets of all possible sizes. \delve\ therefore
+defines a relatively small set of training set sizes for each
+prototask, which we hope will be adequate for most purposes.
+
+The smallest standard training set size is chosen to be the smallest
+that the designer of the prototask believes might be sufficient for a
+learning method to learn something interesting.  The larger standard
+training set sizes are bigger than this smallest size by powers of
+two, up to a maximum size limited by the need to reserve an adequate
+test set.
+
+For non-sequential prototasks with a single target taking values from
+a finite set, \delve{} also provides the option of specifying that the
+training set for a task should be \emph{stratified} by target value
+--- that is, that the training set will contain equal numbers of cases
+with each target value.  The size of a stratified training set must be
+a multiple of the number of target values.  Stratification is natural
+in applications such as handwritten digit recognition, for which
+training data would often be collected in a fashion that ensured that
+there were equal numbers of cases for each digit.  The expected
+performance of a task with a stratified training set will be based on
+a distribution of test cases in which all values of the target are
+equally likely. \emph{Note: Support for stratification is not yet
+implemented.}
+
+
+\subsection{Prior information available for a task}\label{task-prior}
+
+Learning can be (some would say, must be) assisted by the provision of
+prior information about the relationship to be learned.  For real
+applications, all available prior information should be used to
+improve performance, to the extent that it can be accommodated by the
+learning method.  But for research into the performance of learning
+methods, it is not desirable for each researcher to employ whatever
+prior knowledge they may happen to have about the problem, as the
+results obtained by different researchers would then not be
+comparable.
+
+Each DELVE task specification therefore includes an explicit
+specification of the prior information that is to be regarded as
+available for use by a learning method.  Researchers who happen to
+know something about the real-world context of the problem beyond what
+is specified should \emph{not} use such additional information to
+improve the performance of their learning methods.  Indeed, if they
+happen to know that some of the prior information specified for the
+task is incorrect, they should still use this information as if they
+believed it to be true, despite any bad effects this might have on
+performance. (They could, however, create a new prior specification
+that reflects their knowledge, and apply their method to tasks based
+on this new prior.)
+
+Although prior information for real tasks can take many forms,
+\delve{} supports only prior information that is specified in the
+semi-formal form described below.  Most of this prior information is
+associated with the various input and target attributes for the
+prototask, and is used to determine the default encodings of
+attributes, as discussed in Section~\ref{assess-encodings}.  A
+learning method that uses the default encodings will therefore
+implicitly be making use of the prior information.  A learning method
+may employ some other way of selecting encodings based on the prior
+information, however, and may also use prior information in
+other ways.
+
+A prototask will typically come with a ``standard'' prior
+specification, stored in the file \texttt{std.prior}, which generally
+will be fairly unspecific (eg, will be vague about how relevant the
+various inputs are).  Other specifications of prior information may
+also be defined, stored in other files ending in \texttt{.prior}.  A
+learning task within a prototask is specified by giving both the name
+of a prior specification and the number of training cases used, for
+instance, \texttt{std.128}.  The prior for a task can be viewed using
+\dinfo{}, as illustrated in Figure~\ref{fig:task-prior}.  The output
+also shows the default encodings derived from this prior information,
+as explained in Section~\ref{assess-encodings}.
+
+\begin{figure}[t]
+\begin{Session}
+Task: /demo/age/std.128
+Training set size: 128
+Inputs: 
+ col attr name          type   relevance  def coding  options
+   1   1  SEX           binary   nlmh       -1/+1        -
+   2   3  SIBLINGS      integer  nlmh       nm-abs       -
+   3   4  INCOME        real     nlmh       nm-abs       -
+   4   5  COLOUR:pink   nominal  nlmh       1-of-n       -
+   5   5  COLOUR:blue                  ...
+   6   5  COLOUR:red                   ...
+   7   5  COLOUR:green                 ...
+   8   5  COLOUR:purple                ...
+Targets: 
+ col attr name         type    noise-lev def coding  options
+   1   2  AGE           real     nlmh       nm-abs       -
+\end{Session}\vspace{-4pt}
+
+\caption{Output of the command: \texttt{dinfo /demo/age/std.128}
+        }\label{fig:task-prior}
+\end{figure}
+
+Note that the explanations of prior specifications given below are
+meant only as rough guides to their meanings.  The precise,
+quantitative representation of prior knowledge is, after all, a topic
+for ongoing research in learning.  Note also that none of these prior
+specifications should be taken as indicating absolutely certain
+knowledge; they mean only that it is considered very likely that the
+true situation conforms to the specification.
+
+{\bf Noise in targets.\/} The amount of inherent noise that is thought
+to affect the values of a target is specified using one or more of the
+characters `N', `L', `M', and `H', representing no, low,
+medium, or high noise.  If more than one character is specified, the
+amount of noise is uncertain.  For example, a specification of `NLM'
+indicates that there might be no noise at all, or there might be a low
+or medium amount of noise, but it is thought that there is not a high
+amount of noise.
+
+If a target is noise-free, its value will be the same in all cases
+where the input attributes are the same.  This does not imply that the
+target can be always be predicted with certainty on the basis of
+information from a finite training set, since there may be no training
+case with inputs that match a particular test case.  It means, rather,
+that it \emph{would} be possible to predict the target with certainty
+if we had enough training data.  For many prototasks, the inputs will
+be different for every case that is actually available, so that the
+characterization is hypothetical in nature (as is the case below as
+well).
+
+A real-valued target is said to have a low amount of inherent noise if
+the spread in the distribution of target values over cases where the
+inputs are all the same is roughly 1\% or less of the spread of target
+values for all cases.  For a target with a medium amount of noise, the
+spread for particular values of the inputs is roughly 10\% of the
+overall spread.  For targets with a high amount of noise, the figure
+is substantially higher, perhaps approaching 100\%.  Here, the spread
+is assumed to be measured in a unit such as standard deviation, but
+the term is left deliberately vague, as it could be, for example, that
+the standard deviation is not defined for a target that takes on
+occasional extreme values.  The intent is that the rough figures of
+1\% and 10\% should be interpreted with respect to some intuitively
+appropriate notion of spread.
+
+For discrete targets, a low amount of noise means that the target
+value differs from that which is most common for the given inputs
+about 1\% or less of the time, with the corresponding figure for
+medium noise being about 10\%, and for high noise something
+substantially greater than that.
+
+{\em Note: At present, the noise level specified does not affect the
+default encoding, but this may soon change.  For the moment, it is
+probably best to always specify a noise level prior of `NLMH', as it
+is expected that the default coding with this specification will not
+change in the future.}
+
+{\bf Dependencies between cases.\/} For a sequential prototask, or a
+prototask based on a dataset containing cases with commonality
+indexes, the prior specification for a task must include information
+on the anticipated strength of any dependencies between cases with the
+same commonality index, or which are close to each other in sequential
+order.  This specification will consist of one or more of the
+characters `N', `L', `M', and `H', representing the possibility of no,
+low, medium, or high dependencies.
+
+If there is a high degree of dependence between such cases, knowing
+the true target for one case would, if the true nature of the
+relationship were known, permit one to predict the target in another
+case that is nearby, or has the same commonality index, with an
+accuracy that is better than would be possible without knowing the
+true target for such another case, by a factor of around 100 or more
+(in terms of some intuitively appropriate measure of ``spread'' such
+as discussed above for noise levels).  For a medium degree of
+dependence, the corresponding factor would be around 10, and for a low
+degree of dependence, much less (perhaps around 2).  If there is
+``no'' dependence, very little or no improvement in predictions would
+be possible from knowing the true target in another case that is close
+in sequential order, or that has the same commonality index.
+
+For a sequential prototask, the maximum range over which it is thought
+that non-negligible dependencies may occur will also be specified as
+part of the prior information.  This maximum range will often be the
+same as that specified in the prototask specification, but might
+differ if the effect of changing this aspect of the prior information
+is being investigated.  Note that it is possible for dependencies to
+persist over a long range even if the magnitude of these dependencies
+is low.  It is usually reasonable, however, to expect that the
+strength of the dependencies will likely decline at least somewhat
+with increasing range, even before the maximum is reached.
+
+{\em Note: These prior specifications regarding dependencies between
+cases have not yet been implemented.}
+
+{\bf Relevance of inputs.\/} The degree of relevance that an input
+attribute is thought to possess is specified using one or more of the
+characters `N', `L', `M', and `H', representing no, low,
+medium, or high relevance.  If more than one character is specified,
+this indicates that the degree of relevance is uncertain, except that
+it is likely to be in one of the categories mentioned.
+
+The meaning of degree of relevance can be explained in terms of the
+variation in target valuess, after the component of the variation due
+to inherent noise is eliminated.  An input is considered to be of high
+relevance if as it varies over the range of values that may actually
+occur in combination with the other input values (which are kept
+fixed), the target attributes often vary over close to their full
+range (discounting variation that is due to inherent noise).  The
+effects of some inputs may depend on the values of other inputs.  To
+be considered highly relevant, it is not necessary that the input
+always have a big effect; only that it does so in many of the cases.
+Note the mention above of the range of values for the input that
+actually occur in conjunction with the other inputs.  It may sometimes
+be known that an input would have a big effect if it were to take on
+an extreme value, but this does not make the input highly relevant
+unless such extreme values are likely to actually occur.
+
+An input is considered to be of medium relevance if it can have a
+somewhat smaller effect on the targets --- say, changing them by about
+10\% of their range.  Variation in inputs of low relevance might
+affect the targets to the extent of about 1\% of their range.  Inputs
+of ``no'' relevance have substantially less effect (perhaps none).
+
+Learning methods may use prior information about relevance in various
+ways.  A Bayesian method might use this information to set up a prior
+distribution for model parameters.  A method prone to ``overfitting''
+might reduce the number of model parameters when the training set is
+small by looking only at inputs thought to be highly relevant .
+
+{\em Note: At present, the relevance specification does not affect the
+default encoding, but this may soon change.  For the moment, it is
+probably best to always specify a relevance prior of `NLMH', as it
+is expected that the default coding with this specification will not
+change in the future.}
+
+{\bf Binary attributes.\/} An input or target attribute that takes on
+only two possible values (not counting missing values) can be
+specified to be either {\em symmetric\/} or {\em active-passive}.  
+
+For a symmetric binary attribute, nothing is known about the two
+possible values that would justify treating one differently from
+another.  The actual significance of the two values may be quite
+different, however --- we just have no prior knowledge of which way
+around the effects might go.
+
+For an active-passive attribute, one of the two values is specified to
+be \emph{passive}; the other is then \emph{active}.  Exactly what this
+means will depend on the problem; the general concept is best defined
+by an example.  In a medical diagnosis task, binary input attributes
+indicating whether the patient has fever, chest pain, and yellow
+toenails are active-passive, with the presence of the symptom being
+the active value.  We expect that the presence of such a symptom will
+have specific diagnostic implications, pointing to a relatively small
+class of diseases.  In contrast, the absence of fever does not in
+itself suggest a diagnosis.  For a binary target, the ``passive''
+value is considered to be the ``default'', though this does not
+necessarily mean that it occurs more often than the ``active'' value.
+
+What, if anything, the distinction between symmetric and
+active-passive attributes should mean for the proper treatment of
+binary inputs and targets is a matter for researchers developing
+learning methods to judge.  However, the default DELVE encodings
+(see section~\ref{assess-encodings}) do treat symmetric inputs
+symmetrically, and active-passive inputs asymmetrically.
+
+{\bf Categorical attributes.\/} An input or target attribute that
+takes on a finite number of possible values (three or more, not
+counting missing values) may be specified to be \emph{nominal} or
+\emph{ordinal}.  This distinction affects the default encoding
+of the attribute, as discussed in Section~\ref{assess-encodings}.
+
+The values of a nominal attribute are significant only in that they
+are distinct from one another, except that one of the values may
+optionally be singled out as the \emph{passive} value.  The meaning
+of such a passive specification is analogous to that described above for
+binary attributes.
+
+The values of an ordinal attribute have a defined ordering, which must
+be specified, if it differs from the order in which the possible
+values are listed in the dataset specification.  The first value 
+in this ordering may optionally be specified to be \emph{passive}.
+\emph{Note: There is currently no way of overriding the ordering of
+attribute values in the dataset specification.}
+
+{\bf Real-valued attributes.\/} Currently, no specific prior
+information pertaining to real-valued attributes is recorded, other
+than the noise level and degree of relevance, as discussed above.
+Formal specification of prior information regarding promising
+transformations of real-valued input and target attributes may be
+allowed in future.  The expected degree of smoothness in the
+relationship between a real-valued input attribute and the targets
+might also be useful prior information, but this also has not been
+standardized.  In the absence of such information, it is appropriate
+to assume that relationships are often smooth, or at least continuous,
+but that discontinuities are not impossible.
+
+{\bf Integer attributes.\/} At present, no special special prior 
+specifications are defined for integer attributes.  The relevance
+and noise level priors apply, however.
+
+{\bf Angular attributes.\/} Numeric attributes interval can be
+specified to be \emph{angular}.  These attributes are thought to have
+a circular meaning, for which all that matters is the modulus of the
+value with respect to some unit.  For instance, a attribute giving the
+time of day could be considered to be angular, with a modulus of 24
+hours.
+
+Angular attributes are by default encoded in terms of the sine and
+cosine of the angle they define (see Section~\ref{assess-encodings}).
+This representation respects the assumed continuity as values wrap
+around.
+
+ 
+\subsection{Defining prototasks:~~The \dgenorder{} and \dgenproto{} 
+            commands}\label{task-design}
+
+Before a new dataset can be used to assess learning methods in
+\delve{}, at least one prototask must be defined for it.  Researchers
+may also wish to define new prototasks for existing datasets.  This
+section describes how to do these things, as well as the approach
+taken in defining the standard \delve{} prototasks.
+
+The purpose of defining a prototask is to support interesting
+experiments, which say something significant about the learning
+methods that are assessed.  For some datasets, such interesting
+prototasks may need to have special features. For example, if a
+potential input attribute is very highly correlated with a target
+attribute, it may be best to leave it out of the allowed set of input
+attributes, in order to prevent the prototask from being so easy that
+it is uninteresting.  If the inputs in a few cases differ greatly from
+those in the other cases, it might be of interest to define a
+prototask that excludes cases with these extreme inputs, in order to
+assess learning methods that do not purport to handle such
+extrapolation well.  The documentation for a prototask with unusual
+features should include a statement of the research questions the
+prototask is meant to address, and a justification for its
+specifications in terms of these objectives.
+
+Most standard \delve{} prototasks are defined with no specialized
+objectives in mind, however, and include all attributes and all cases.
+Complications due to \emph{missing data} arise fairly often, however.
+Since many of the supervised learning methods we would like to assess
+do not naturally handle missing data, we hope to obtain a good
+collection of \delve{} prototasks in which the values of input
+attributes are never missing.  We expect that this will require
+creating some such prototasks by excluding a few input attributes
+whose values are missing in many cases, or by excluding a few cases
+for which the values of one or more attributes are missing, or by
+doing a bit of both.  
+
+The designer of a prototask decide how to deal with any dependencies
+between cases that may be present.  We take two approaches to this for
+the standard \delve{} prototasks.  For some prototasks, we accommodate
+the dependencies in a proper fashion (\emph{or rather, we will do so
+once the required facilities are implemented}).  In particular, we
+ensure that there are no significant dependencies between training and
+test cases, as this would invalidate the results.  Other times,
+however, we instead circumvent sequential dependencies by randomly
+reordering the dataset.  This second approach allows us to define
+tasks for which ignoring dependencies gives internally consistent
+results, although such tasks no longer correspond to real-world
+situations.
+
+When a non-sequential prototask is defined it is recommended that the
+cases always be randomly re-ordered, unless it is known for certain
+that the existing order is random.  Certainly this must be done if the
+ordering is \texttt{informative}, or is sorted by some attribute
+value.  It should also be done even if it is thought that the order is
+arbitrary, in order to provide greater certainty that assessments
+based on the assumption of no sequential dependence will be internally
+valid. When cases have commonality indexes, this random re-ordering
+must keep cases with the same index grouped together (in random
+order), while randomly ordering the groups themselves.
+
+To create a prototask, you first must create a directory for the
+prototask within the \delve{} hierarchy.  This directory must have the
+same name as the new prototask, and be located within one of the
+directories for the dataset in the \delve{} hierarchy.  Within this
+prototask directory, you must create a \texttt{Prototask.spec} file,
+containing the specifications for the prototask and the standard set
+of tasks associated with it, and also one or more files containing
+prior specifications, usually including \texttt{std.prior}, which
+contains the ``standard'' prior information.
+
+These files have formats paralleling the output of \dinfo{} for a
+prototask and for a task.  A \texttt{.prior} file should have one line
+per attribute, specifying the attribute number, the noise level or
+relevance prior, the type of the variable, and any additional options.
+For example, the line for a nominal attribute, numbered 2, thought to
+be of at least medium relevance, and which has a passive value of
+\texttt{none}, would be be\vspace{-5pt} \begin{Session}
+  2 MH nominal passive=none
+\end{Session}\vspace{-5pt}
+An angular attribute must be accompanied by a \texttt{unit={\rm\em modulus}}
+specification.
+
+The \texttt{Prototask.spec} and \texttt{std.prior} files for the
+\texttt{/demo/age} prototask are shown in Figure~\ref{fig:task-spec}.
+
+\begin{figure}[t]
+\begin{Session}
+        Prototask.spec                                std.prior
+
+Cases: all                                         1 NLMH binary
+Inputs: 1 3 4 5                                    3 NLMH integer
+Order: retain                                      4 NLMH real
+Origin: artificial                                 5 NLMH nominal
+Targets: 2                                         2 NLMH real
+Test-Set-Size: 1024                        
+Training-Set-Sizes: 32 64 128 256 512      
+Test-Set-Selection: hierarchical           
+Maximum-Number-Of-Instances: 8             
+\end{Session}\vspace{-4pt}
+\caption{Prototask specification (\texttt{Prototask.spec}) and standard 
+         prior specification (\texttt{std.prior}) for the \texttt{age} 
+         prototask of the \texttt{demo} dataset.}
+\label{fig:task-spec}
+\end{figure}
+
+The \texttt{/demo/age} prototask includes \texttt{all} cases in the
+dataset.  Another built-in option is \mbox{\texttt{no missing}}, which
+specifies that all cases should be included except those for which one
+or more of the attributes used in the prototask are missing.  One can
+also give for \texttt{Cases} the name of a file that contains an explicit
+list of case numbers to include, one case per line, with numbers
+starting at one.  The order of lines in this file does not matter.
+This case file should be located in the \delve{} hierarchy, within the
+prototask directory.
+
+The order for the \texttt{/demo/age} prototask is specified as
+\texttt{retain}.  This prototask is non-sequential, but the data is
+artificially generated in a fashion that guarantees that the original
+data file is in random order.  For a natural or cultivated dataset,
+one would normally randomize the ordering explicitly (assuming that
+the prototask is not meant to be sequential).  One does this by
+specifying a file that contains such an ordering.  This file must be
+located in the \delve{} hierarchy, within the prototask directory.
+The order file should have one line per case, with each line
+containing the index of a case.  Indexes start at one, and go up to
+the number of cases that are used in the prototask.  Note that if any
+cases were left out of the prototask, these will \emph{not} be the
+indexes of the cases in \texttt{Dataset.spec}.
+
+Most often, this ordering file will be called \texttt{Random-order},
+and will be generated automatically using the \dgenorder{} command.
+This command will also take care of the complications involved in
+handling commonality indexes.  \emph{Or at least it will once
+commonality indexes have been properly implemented}
+
+Another command that you will often wish to use after creating a new
+prototask is \dgenproto{}, which creates the intermediate file
+\texttt{Prototask.data}, containing the portion of
+\texttt{Dataset.data} relevant to this prototask.  This intermediate
+file will be created ``on-the-fly'' by other commands, as needed, but
+creating a single permanent copy will save time.  You will also
+want to use the \dcheck{} command, in order to check that the 
+prototask specifications are consistent with the dataset specifications.
+
+Here is how you would go about creating a non-sequential prototask for
+a natural dataset:\vspace{-4pt}
+\begin{Session}
+unix> cd \textit{dataset}           # Change to a delve directory for the dataset 
+unix> mkdir \textit{prototask}      # Create a directory for the new prototask
+unix> cd \textit{prototask}         #   and change into it
+unix> edit Prototask.spec  # Create the prototask specification file
+unix> edit std.prior       # Create the standard prior specification 
+unix> dcheck               # Check that it's all consistent 
+unix> dgenorder            # Generate the Random-order file
+unix> dgenproto            # Generate the Prototask.data file
+\end{Session}\vspace{-4pt}
+
+The \dgenproto{} step is optional, but usually advisable; if it is
+done, it must be after \dgenorder{} has been done.  For a simulated or
+artificial dataset, where the cases are already in random order, the
+ordering would usually be \texttt{retain}, and the \dgenorder{} step
+would be omitted.  \emph{Note: The \dcheck{} command is not 
+implemented yet, so you will have to leave out that step at present.}

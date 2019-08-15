@@ -1,0 +1,24 @@
+Version 2.2 June 30 1999
+
+  Added conf.maxse field to plot_ras utility.
+
+  Added info.gam (effective number of parameters) field for
+  rbf_fs_2 and rbf_rr_2 methods.
+  
+  Some typos fixed in manual.
+  
+Version 2.1 June 15 1999
+
+  Fixed some bugs in meth/rbf_fs_2.m. Could cause divide by zero
+  if any centres were duplicated.
+  
+  Changed incorrect URL given in util/rbf_ver.m.
+  
+  Added man/examples/ to rbf2.tar.gz distribution. In version 2.0
+  this folder had been accidently omitted.
+  
+  Fixed problem with left/right page numbering in manual and
+  correctly labelled the axis in figure 3 for rbf_dm.
+
+Version 2.0 June 11 1999
+

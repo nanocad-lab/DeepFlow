@@ -1,0 +1,307 @@
+# Commands covered:  d_matrix
+#
+# This file contains a collection of tests for one or more of the
+# commands added for delve.  Sourcing this file into Tcl runs
+# the tests and generates output for errors.  No output means no errors
+# were found.
+#
+# Copyright (c) 1991-1993 The Regents of the University of California.
+# Copyright (c) 1994 Sun Microsystems, Inc.
+# Copyright (c) 1996 University of Toronto
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: d_matrix.test,v 1.2.2.2 1996/05/29 14:06:37 drew Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+test d_matrix-1.1 {creating a new matrix} {
+    set matrix [d_matrix create 10 10] ;
+    list
+} ""
+
+test d_matrix-1.2 {deleting an existing matrix} {
+    d_matrix delete $matrix
+} ""
+
+test d_matrix-1.2a {deleting a non-existent matrix} {
+    list [catch {d_matrix delete foo} msg] $msg ;
+} "1 {invalid matrix handle \"foo\"}"
+
+test d_matrix-1.2b {deleting a non-existent matrix} {
+    list [catch {d_matrix delete matrix3000} msg] $msg ;
+} "1 {invalid matrix handle \"matrix3000\"}"
+
+test d_matrix-1.3 {creating a matrix with the wrong \# of args} {
+    list [catch {d_matrix create} msg] $msg ;
+} "1 {wrong # args: should be \"d_matrix create rows columns\"}"
+
+test d_matrix-1.4 {creating a matrix with the syntax error in rows} {
+    list [catch {d_matrix create 10a 10} msg] $msg ;
+} "1 {expected integer but got \"10a\"}"
+
+test d_matrix-1.5 {creating a matrix with the syntax error in columns} {
+    list [catch {d_matrix create 10 10a} msg] $msg ;
+} "1 {expected integer but got \"10a\"}"
+
+test d_matrix-1.6 {creating a matrix with the bad \# rows} {
+    list [catch {d_matrix create 0 10} msg] $msg ;
+} "1 {expected row size greater than 0, but got 0}"
+
+test d_matrix-1.7 {creating a matrix with the bad \# columns} {
+    list [catch {d_matrix create 10 0} msg] $msg ;
+} "1 {expected column size greater than 0, but got 0}"
+
+test d_matrix-1.9 {check that matrix is zeroed at creation} {
+    set matrix [d_matrix create 2 3] ;
+    set result {} ;
+    for { set row 0 } { $row < 2 } { incr row } {
+	for { set col 0 } { $col < 3 } { incr col } {
+	    lappend result [d_matrix entryset $matrix $row $col] ;
+	}
+    }
+    d_matrix delete $matrix ;
+    set result
+} "0.0 0.0 0.0 0.0 0.0 0.0" ;
+
+test d_matrix-2.1 {call matrix size with wrong \# of args} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix size $matrix 10 10} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {wrong # args: should be \"d_matrix size matrixHandle\"}" ;
+
+test d_matrix-2.2 {check that matrix is created the right size} {
+    set matrix [d_matrix create 2 3] ;
+    set result [d_matrix size $matrix] ;
+    d_matrix delete $matrix ;
+    set result
+} "2 3" ;
+
+test d_matrix-3.1 {call matrix copy with wrong \# of args} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix copy $matrix} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {wrong # args: should be \"d_matrix copy destMatrixHandle srcMatrixHandle\"}"
+
+test d_matrix-3.2 {call matrix copy with wrong \# of args} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix copy $matrix} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {wrong # args: should be \"d_matrix copy destMatrixHandle srcMatrixHandle\"}"
+
+test d_matrix-3.3 {call matrix copy with non existent destination} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix copy foo $matrix} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {invalid matrix handle \"foo\"}"
+
+test d_matrix-3.4 {call matrix copy with non existent source} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix copy $matrix foo} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {invalid matrix handle \"foo\"}"
+
+test d_matrix-3.5 {call matrix copy with different \# of rows} {
+    set srcMatrix [d_matrix create 2 3] ;
+    set dstMatrix [d_matrix create 3 3] ;
+    set result [list [catch {d_matrix copy $dstMatrix $srcMatrix} msg] $msg] ;
+    d_matrix delete $srcMatrix ;
+    d_matrix delete $dstMatrix ;
+    set result
+} "1 {matrices have different number of rows}"
+
+test d_matrix-3.6 {call matrix copy with different \# of columns} {
+    set srcMatrix [d_matrix create 2 3] ;
+    set dstMatrix [d_matrix create 2 2] ;
+    set result [list [catch {d_matrix copy $dstMatrix $srcMatrix} msg] $msg] ;
+    d_matrix delete $srcMatrix ;
+    d_matrix delete $dstMatrix ;
+    set result
+} "1 {matrices have different number of columns}"
+
+test d_matrix-3.7 {call matrix copy} {
+    set srcMatrix [d_matrix create 2 3] ;
+    set dstMatrix [d_matrix create 2 3] ;
+    for { set row 0 } { $row < 2 } { incr row } {
+	for { set col 0 } { $col < 3 } { incr col } {
+	    d_matrix entryset $srcMatrix $row $col [expr {$row*3 + $col}] ;
+	}
+    }
+    d_matrix copy $dstMatrix $srcMatrix ;
+    set result {}
+    for { set row 0 } { $row < 2 } { incr row } {
+	for { set col 0 } { $col < 3 } { incr col } {
+	    lappend result [d_matrix entryset $dstMatrix $row $col] ;
+	}
+    }
+    d_matrix delete $srcMatrix ;
+    d_matrix delete $dstMatrix ;
+    set result
+} "0.0 1.0 2.0 3.0 4.0 5.0"
+
+test d_matrix-4.1 {call matrix set with wrong \# of args} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix set} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {wrong # args: should be \"d_matrix set matrixHandle value\"}"
+
+test d_matrix-4.2 {call matrix set with non existent destination} {
+    set result [list [catch {d_matrix set foo 1.0} msg] $msg] ;
+} "1 {invalid matrix handle \"foo\"}"
+
+test d_matrix-4.3 {call matrix set with typo in value} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix set $matrix 1.0a} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected floating-point number but got \"1.0a\"}"
+
+test d_matrix-4.4 {call matrix set} {
+    set matrix [d_matrix create 2 3] ;
+    d_matrix set $matrix 2.0 ;
+    set result {}
+    for { set row 0 } { $row < 2 } { incr row } {
+	for { set col 0 } { $col < 3 } { incr col } {
+	    lappend result [d_matrix entryset $matrix $row $col] ;
+	}
+    }
+    d_matrix delete $matrix ;
+    set result
+} "2.0 2.0 2.0 2.0 2.0 2.0" ;
+
+test d_matrix-5.1 {call matrix entryset with wrong \# of args} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {wrong # args: should be \"d_matrix entryset matrixHandle row column ?value?\"}"
+
+test d_matrix-5.2 {call matrix entryset typo in row} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 1a 1} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected integer but got \"1a\"}"
+
+test d_matrix-5.3 {call matrix entryset typo in column} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 1 1a} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected integer but got \"1a\"}"
+
+test d_matrix-5.4 {call matrix entryset with non-existent matrix} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset foo 1 1} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {invalid matrix handle \"foo\"}"
+
+test d_matrix-5.4a {call matrix entryset with non-existent matrix} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset foo 1 1 0.0} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {invalid matrix handle \"foo\"}"
+
+test d_matrix-5.5 {call matrix entryset with bad row} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix -1 0} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected row index between 0 and 1, but got -1}"
+
+test d_matrix-5.5a {call matrix entryset with bad row} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix -1 0 0.0} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected row index between 0 and 1, but got -1}"
+
+test d_matrix-5.6 {call matrix entryset with bad row} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 2 0} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected row index between 0 and 1, but got 2}"
+
+test d_matrix-5.6a {call matrix entryset with bad row} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 2 0 0.0} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected row index between 0 and 1, but got 2}"
+
+test d_matrix-5.7 {call matrix entryset with bad column} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 0 -1} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected column index between 0 and 2, but got -1}"
+
+test d_matrix-5.7a {call matrix entryset with bad column} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 0 -1 0.0} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected column index between 0 and 2, but got -1}"
+
+test d_matrix-5.8 {call matrix entryset with bad column} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 0 3} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected column index between 0 and 2, but got 3}"
+
+test d_matrix-5.8a {call matrix entryset with bad column} {
+    set matrix [d_matrix create 2 3] ;
+    set result [list [catch {d_matrix entryset $matrix 0 3 0.0} msg] $msg] ;
+    d_matrix delete $matrix ;
+    set result
+} "1 {expected column index between 0 and 2, but got 3}"
+
+test d_matrix-5.9 {call matrix entryset} {
+    set matrix [d_matrix create 2 3] ;
+    set result [d_matrix entryset $matrix 0 2] ;
+    d_matrix delete $matrix ;
+    set result
+} "0.0" ;
+
+test d_matrix-5.9a {call matrix entryset} {
+    set matrix [d_matrix create 2 3] ;
+    set result [d_matrix entryset $matrix 0 2 1.0] ;
+    d_matrix delete $matrix ;
+    set result
+} "1.0" ;
+
+test d_matrix-5.9b {call matrix entryset} {
+    set matrix [d_matrix create 2 3] ;
+    d_matrix entryset $matrix 0 2 1.0
+    set result [d_matrix entryset $matrix 0 2] ;
+    d_matrix delete $matrix ;
+    set result
+} "1.0" ;
+
+test d_matrix-5.9c {call matrix entryset} {
+    set matrix [d_matrix create 2 3] ;
+    for { set row 0 } { $row < 2 } { incr row } {
+	for { set col 0 } { $col < 3 } { incr col } {
+	    d_matrix entryset $matrix $row $col [expr {$row*3 + $col}] ;
+	}
+    }
+    set result {} ;
+    for { set row 0 } { $row < 2 } { incr row } {
+	for { set col 0 } { $col < 3 } { incr col } {
+	    lappend result [d_matrix entryset $matrix $row $col] ;
+	}
+    }
+    d_matrix delete $matrix ;
+    set result
+} "0.0 1.0 2.0 3.0 4.0 5.0"

@@ -1,0 +1,61 @@
+% ----------------------------------------------------------------------
+% Tcl Command for manipulating matrices.
+%
+% Author: Drew van Camp (drew@cs.toronto.edu)
+%
+% Copyright (c) 1996 The University of Toronto.
+%
+% See the file "copyright" for information on usage and redistribution
+% of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+% ----------------------------------------------------------------------
+
+\documentclass{article}
+\usepackage{moretext,amstex,alltt,varioref}
+\usepackage{../library/delve}
+
+\newcommand{\drandom}{\textbf{d\_random}}
+
+\begin{document}
+
+\rcsInfo $Id: d_random.tex,v 1.1.2.1 1996/06/04 20:35:19 drew Exp $
+
+\title{d\_random: Pseudo-Random number generation}
+\author{Drew van Camp (drew@@cs.toronto.edu)\\[1ex]
+	Department of Computer Science\\
+	University of Toronto\\
+	6 Kings College Road\\
+	Toronto ON, Canada, M5S 1A4}
+
+\vfil
+\maketitle
+\vfil
+\copyrightNotice{1996}
+\vfil
+\clearpage
+
+\section{Introduction}
+
+Many operating systems supply pseudo-random number generators;
+however, most of them are notoriously non-random.  Those that produce
+reasonably random numbers tend to be non-standard.  To get around this
+problem \delve{} supplies its own pseudo-random number generator,
+based on the General lagged Fibonnacci generator using subtraction.
+The source code was originally written by Paul Coddington, of the
+Northeast Parallel Architectures Center at Syracuse University, and
+extensively re-written by Drew van Camp.
+
+The \tcl{} interface to the generator is described in this document.
+For the C API and a description of the algorithm, see the
+\textbf{RandomNumber} document.
+
+\section{The \drandom{} command}
+\usage{d\_random}{seed seedval}
+When the \texttt{seed} option is specified, the command resets the
+random number generator to a starting point derived from the
+\texttt{seedval}. This allows one to reproduce pseudo-random number sequences
+for testing purposes.  
+
+\usage{d\_random}{limit}
+Generates a pseudo-random integer number greater than or equal to zero
+and less than the integer \texttt{limit}.
+\end{document}

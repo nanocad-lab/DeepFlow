@@ -1,0 +1,85 @@
+%
+% $Id: appB.tex,v 1.4.2.2 1996/06/14 02:37:51 carl Exp $
+%
+\newpage
+
+\section{CONTRIBUTING TO THE DELVE ARCHIVE}\label{app-submit}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ CONTRIBUTING TO THE DELVE ARCHIVE}]
+      {\fancyplain{}{\thesection.\ CONTRIBUTING TO THE DELVE ARCHIVE}}
+
+The ultimate aim of the \delve{} project is to collect datasets,
+implementations of learning methods, and the results of learning
+experiments from a wide variety of sources. If you have datasets,
+methods or results which might be of interest to other users you can
+submit these to the \delve{} archive. To make contributions, you can
+put files on our ftp-server \texttt{ftp.cs.utoronto.ca} in the directory
+\texttt{/pub/incoming}, and notify us by email to 
+\texttt{delve@cs.utoronto.ca}. The submitted files should preferably
+conform to the usual \delve{} conventions, and be in the form of a
+compressed \texttt{tar} file.
+
+We welcome contributions of datasets to \delve{}. We are particularly
+seeking large real-world datasets, and realistic simulation programs
+that can be used to create large datasets. Contributions of datasets
+should be accompanied by descriptions of the data. For real datasets
+both the data in its original form and in \delve{} format should be
+supplied, as well as descriptions of the relevant context and the
+attributes recorded. Also suggestions for prototasks together with
+specifications of prior information should be included. Naturally,
+proprietary data cannot be included in \delve{} without permissions.
+For simulated and artificial datasets, programs to generate the data
+should be supplied (if possible) as well as descriptions of the data
+attributes and suggestions for prototasks and priors, etc.
+
+You may also contribute new learning methods to the archive.
+Typically, you would also provide results of running your method on
+various \delve{} datasets. You can conveniently submit the whole
+methods directory pertaining to your method. Also you need to supply a
+detailed description of your method. Remember, that the description
+should be detailed enough that someone else can re-implement the
+method and get comparable results to the ones you might get for any
+dataset to which the method is applicable.  The easiest way to attain
+this, is if your method is fully automatic. In particular, you should
+make sure that your description includes:
+
+\begin{itemize}
+\item implemetational details allowing someone else to re-implemet your
+method with similar results
+\item discussion of the role of all parameters of the method
+\item discussion of the heuristic rules for setting all parameters of the
+method on the basis of a particular application, including convergence
+criteria for iterative methods
+\item detailed discussion of how attributes should be encoded for the
+method
+\end{itemize} 
+
+Finally, it would be convenient if source code of the program
+implementing you method can be included in \delve{}. This may help
+clarify details of the implementation, help other researches to
+easily use the methods and help with identifying possible
+bugs. Authors should take care not to submit implementations
+containing any parts whose copyrights prohibit public distribution.
+
+For all contributions it should be considered that submission to
+\delve{} is a form of publication, and once contributions are released
+with \delve{} they cannot in general be retracted, since other people
+may have used them in their research. Therefore, care should be taken
+to avoid submissions of erroneous material. If a bug should be
+discovered in a learning method a new corrected version can be
+submitted under a different name; eg.~a buggy version of {\tt loess-1}
+could be succeeded by a corrected version named {\tt loess-2} --- but
+the original method and its results would be retained in the archive.
+
+You may also submit experimental results using new combinations of
+methods and datasets that are already in \delve{}. If you repeat
+experiments for which results are already in the archive, it is of
+interest whether your results were comparable to the earlier results.
+Notes of such confirmations can be included in \delve{}, but for
+practical reasons only one set of results can be maintained for each
+method.
+
+All submitted material will be presented in \delve{} with the date,
+name and address (or email) of the contributor(s) allowing further
+clarifications and collaboration.

@@ -1,0 +1,253 @@
+%
+% $Id: sec5.tex,v 1.15 1996/05/02 18:26:42 radford Exp $
+%
+\newpage
+
+\section{PREDICTIONS AND LOSS FUNCTIONS}\label{sec-loss}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ PREDICTIONS AND LOSS FUNCTIONS}]
+      {\fancyplain{}{\thesection.\ PREDICTIONS AND LOSS FUNCTIONS}}
+
+Together, the specifications for a prototask and for one of its tasks
+determine what is to be learned and what information will be available
+on which to base learning.  To complete the specification of a
+learning problem, we need to say what form the output of a learning
+method should take, and how the performance of a method on a task will
+be judged.
+
+DELVE supports assessments only of the predictive performance of
+learning methods --- the degree to which the relationships learned
+can be used to predict attributes in previously unseen cases.  For
+this purpose, the relevant output of a supervised learning method
+is a set of {\em predictions\/} for the target attributes in a set of
+{\em test cases\/} for which only the input attributes are known.  The
+accuracy of these predictions is judged by how well they match the
+actual values of the targets, as measured by some {\em loss function}.
+
+For some methods, learning, making predictions, and judging the
+loss from these predictions may be sequential activities, with the
+nature of the predictions required having no effect on the learning
+itself, and with the loss function by which these predictions will be
+judged having no effect on the predictions themselves.  In general,
+however, this need not be so.  A learning method may be designed to
+behave quite differently depending on the predictions that it will be
+required to produce, or on the loss function by which these
+predictions will ultimately be judged.
+
+
+\subsection{Types of predictions}\label{loss-pred}
+
+DELVE expects learning methods to produce predictions in the form
+of either {\em guesses\/} or {\em predictive distributions}.  A real
+application might require either type of prediction, and many learning
+methods will be able to produce predictions of both types.
+
+A {\em guess\/} for a target in a test case is a value of the same
+type as the target itself --- that is, if the target is categorical,
+the guess will be one of the possible target values, and if the target
+is numerical, so will the guess be (though a guess for an integer
+target need not be an integer).  If there is more than one target
+attribute, a separate guess is made for each target.  One might
+sometimes wish to allow a learning method to decide to make no
+guess for a target (at a penalty); provisions for this are described
+in Section~\ref{loss-specialized}.
+
+The accuracy of a guess is judged by a loss function that measures how
+close the guess is to the true value, as described below in
+Section~\ref{loss-standard}.
+
+A {\em predictive distribution\/} is a probability distribution for
+the targets in a test case, conditional on the known values of the
+inputs for the test case.  In theory, a learning method that
+produces predictions of this form should output a complete
+representation of the predictive distribution for each test case.
+Given this distribution and the actual value, a loss could then be
+computed using one of the loss functions described below
+(Section~\ref{loss-standard}).
+
+However, the predictive distribution for a target produced by a
+learning method could be arbitrarily complex (at least for real-valued
+targets).  When there is more than one target, the predictive
+distribution might in general involve dependencies between targets.
+Due to the difficulty of defining a standard representation for
+predictive distributions that is both convenient and sufficiently
+general, \delve\ does not require learning methods to actually output
+their predictive distributions.  Instead, the computation of the loss
+based on the predictive distribution and the actual target values is
+left for the learning method itself to compute, using its internal
+representation of the predictive distribution.
+
+Tasks with a single categorical target are an exception to this
+general procedure.  In this case only, a learning method may output
+an explicit representation of the predictive distribution for each
+test case, as described in Section~\ref{assess-mloss}, leaving the
+computation of losses to \delve.  This is in fact the preferred
+procedure, since it makes the predictive distributions available for
+examination, and avoids the possibility that the learning method
+will compute the losses incorrectly.
+
+
+\subsection{Standard loss functions supported by DELVE}\label{loss-standard}
+
+The accuracy of a prediction for a test case is measured by a {\em
+loss function\/}, which takes two arguments:\ \ The prediction output
+by the method for a particular test case, and the true values of
+the targets for that case.  The value of the loss function is a single
+real number that represents the ``loss'' suffered when the given
+prediction is used in a situation where the true values of the targets
+are as given.  
+
+Note that the loss function is defined in terms of a single test case,
+not a set of test cases.  The goal of prediction is to minimize the
+expected value of this loss on a test case that is randomly drawn from
+the distribution of cases defined for the prototask.  In assessing the
+performance of a method, we will of course use test sets with many
+cases, taking the average loss over many test cases as an estimate of
+the expected loss on a single test case.
+
+The loss function for an actual application might sometimes be quite
+complex and specialized.  DELVE does not attempt to assess methods for
+producing predictions in such a context, but concentrates instead on a
+predictions that will be judged using a few simple loss functions.
+These loss functions have been selected because they are already in
+common use, and because they emphasize somewhat different aspects of
+predictive performance.  The performance of a learning method with
+respect to these standard loss functions can be compared to that of
+the many other methods that will have been assessed with the same
+loss functions.  More specialized loss functions may be of interest
+for some prototasks, however, and DELVE does provide some support for
+them, as is described in Section~\ref{loss-specialized}.
+
+Each of the standard loss functions has a one-letter abbreviation.
+This abbreviation is used to specify a loss function, and occurs in
+the standard names for files holding predictions and losses on a task
+instance, as is described further in Section~\ref{sec-assess}.  The
+standard loss functions are summarized in Figure~\ref{fig-losses}.
+
+\begin{figure}[t]
+
+\begin{center}\begin{tabular}{lccccc}
+& {\em abbrev.} 
+& {\em categorical?} & {\em integer?} & {\em ~real?~} & {\em angular?} \\[-4pt]
+{\em For guesses:} \\
+~~~Squared-error loss      & S &         & $\surd$ & $\surd$ &         \\
+~~~Absolute-error loss     & A &         & $\surd$ & $\surd$ &         \\
+~~~0-1 loss                & Z & $\surd$ & $\surd$ &         &         \\[6pt]
+{\em For predictive distributions:} \\
+~~~Log-probability loss    & L & $\surd$ & $\surd$ & $\surd$ & $\surd$ \\
+~~~Squared-probability loss& Q & $\surd$ &         &         &         \\
+\end{tabular}\end{center}
+
+\caption{Standard loss functions, their abbreviations, and the
+types of targets for which they can be used.}
+\label{fig-losses}
+\end{figure}
+
+For predictions that take the form of guesses, the standard loss
+functions are all based on a ``distance'' of some kind between a guess
+and the true value of a target.  For tasks with more than one target,
+the total loss is simply the sum of the losses based on the distance
+of each target guess from the true target value.
+
+For guesses of targets that take on integer or real values, DELVE
+supports two loss functions, based on squared and absolute distance.
+The {\em squared-error loss\/} is the square of the difference between
+the guess and the true target value.  Those who take a probabilistic
+approach to learning should note that the expected squared-error loss
+is minimized by guessing the mean of the predictive distribution for
+the target.  The {\em absolute-error loss\/} is the absolute value of
+the difference between the guess and the true target value.  The
+expected absolute-error loss is minimized by guessing the median of
+the predictive distribution.
+
+For guesses of integer and categorical targets, DELVE supports {\em
+0-1 loss\/}, in which the loss is zero if the guess is correct, and
+one if it is incorrect.  The optimal strategy for minimizing 0-1 loss
+is to guess the target value with greatest probability (the mode of
+the predictive distribution).
+
+DELVE does not currently support any loss functions for guesses of
+targets that take on angular values.  There is also no provision for
+using different loss functions for the various targets in a case.
+
+For predictions that take the form of a predictive distribution, one
+may use {\em log probability loss}, which is minus the log (to base
+$e$) of the probability or probability density of the true target
+values under the predictive distribution.  Log probability loss may be
+used with targets of any kind.  Note that if all targets are integer
+or categorical, the predictive distribution will consist of
+probabilities for the various combinations of target values.  If
+instead the targets are all real or angular, the predictive
+distribution will take the form of a probability density (which must
+be finite if log probability loss is to be used).  If some targets are
+integer or categorical and others are real or angular, the log
+probability loss will be computed from the hybrid probability/density
+of the true target values.
+
+{\em Squared-probability loss\/} may be used with predictive
+distributions for a single categorical target.  In this case, the
+prediction takes the form of a list of probabilities, $p_1, \ldots,
+p_n$, for the possible target values, which are labeled $1$ to $n$,
+with $t$ being the true target value for the case in question.  (As
+mentioned in Section~\ref{loss-pred}, in this case only, the learning
+method may produce the predictive distribution explicitly.)  The
+squared probability loss is the square of one minus the probability
+assigned to the true target value, plus the squares of the
+probabilities assigned to all the other possible target values ---
+that is, $(1\!-\!p_t)^2\ +\ \sum\limits_{i\ne t}p_i^2$.\vspace{-3pt}
+
+Note that the expected value of both the log probability loss and the
+squared probability loss is minimized by a distribution matching the
+true probabilities.  The log probability loss will be infinite if
+the probability or probability density for the true target is zero,
+but the squared-probability loss is never greater than two.
+
+
+\subsection{Using a specialized loss function}\label{loss-specialized}
+
+{\em Note: The facilities described in this section have not yet been
+implemented.}
+
+In addition to the standard predictions and loss functions described
+above, DELVE supports specialized predictions in which guessing is
+optional, and specialized loss functions defined by an arbitrary loss
+matrix.  These facilities are intended for use with natural prototasks
+that come from application areas where such specialized predictions
+and loss functions are appropriate, or with cultivated or synthetic
+prototasks that are intended to mimic such actual applications.  For
+example, an automatic postal code recognition system may have the
+option of referring hard-to-recognize postal codes to a human worker,
+and in a medical testing application, we might wish to treat a false
+positive as less serious than a false negative.
+
+Guessing can be made optional by specifying a {\em no-guess penalty},
+which is the loss suffered when the learning method decides to make no
+guess --- presumably because the method is so uncertain of the value
+of the target that it expects the loss produced with its best guess to
+be greater than the no-guess penalty.  This form of prediction and
+loss function is specified by appending the value of the no-guess
+penalty followed by ``N'' to the abbreviation of any of the loss
+functions for guesses in Figure~\ref{fig-losses}.  For example,
+``Z0.2N'' specifies 0-1 loss with a penalty of 0.2 for not making a
+guess.
+
+A non-standard loss function for guesses of a single categorical target
+can be specified by means of a {\em loss matrix}, in which the
+loss for every possible combination of a guess and a true value for
+the target is explicitly specified, with the restriction that the
+losses must be non-negative, and be zero when the guess is correct.
+A loss for making no guess may also be specified, separately for
+each true target value.  
+
+Use of a loss matrix is specified by giving ``M'' followed by a file
+name wherever you would otherwise use an abbreviation for a standard
+loss function.  This file should be located in the {\tt data} part of
+the \delve{} hierarchy, in the directory for the corresponding
+prototask.  The file should contain as many lines as there are
+possible values for the target attribute, plus one additional line if
+the method is to be allowed to make no guess.  The lines correspond to
+possible guesses, according to the ordering of possible attribute
+values in the dataset specification.  Each such line should contain
+numerical values for the losses suffered for each possible true value
+of the target, again in the order given by the dataset specification.
