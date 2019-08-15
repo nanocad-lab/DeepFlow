@@ -70,7 +70,8 @@ class SubNetworkConfig:
     self.nominal_freq             = config_dict['nominal_frequency']
     self.nominal_voltage          = config_dict['nominal_voltage']
     self.nominal_energy_per_link  = config_dict['nominal_energy_per_link']
-    #self.nominal_area_per_link    = config_dict['nominal_area_per_link']
+    self.nominal_area_per_link    = config_dict['nominal_area_per_link']
+    self.threshold_voltage        = config_dict['threshold_voltage']
     #self.operating_freq           = config_dict['operating_frequency']
     #self.operating_voltage        = config_dict['operating_voltage']
     self.num_links_per_mm         = config_dict['num_links_per_mm']
@@ -103,7 +104,7 @@ class AreaBreakdownConfig:
   def __init__(self, config_dict):
     self.proc_chip_area_budget = config_dict['proc_chip_area_budget']
     self.core = config_dict['core']
-    #self.DRAM = config_dict['DRAM']
+    self.DRAM = config_dict['DRAM']
     self.L2 = config_dict['L2']
     self.shared_mem = config_dict['shared_mem']
     self.reg_mem = config_dict['reg_mem']

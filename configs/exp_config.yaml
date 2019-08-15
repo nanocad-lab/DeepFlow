@@ -68,10 +68,11 @@ tech_param:
           nominal_frequency: 7.5e9
           nominal_voltage: 1
           nominal_energy_per_link: 2e-12
-          #nominal_area_per_link: 1
+          nominal_area_per_link: 10e-6
           #operating_frequency: 7.5e9
           #operating_voltage: 1
           num_links_per_mm: 100
+          threshold_voltage: 0.25
           parallelMap: data, layer, kernel
         inter_node:
           topology: "torus"
@@ -79,10 +80,11 @@ tech_param:
           nominal_frequency: 7.5e9
           nominal_voltage: 1
           nominal_energy_per_link: 10e-12
-          #nominal_area_per_link: 1
+          nominal_area_per_link: 10e-6
           #operating_frequency: 7.5e9
           #operating_voltage: 1
           num_links_per_mm: 40
+          threshold_voltage: 0.25
           parallelMap:  
 
 area_breakdown:
@@ -94,7 +96,7 @@ area_breakdown:
     DRAM: 0.1
     network:
       intra_node: 0.1
-      inter_node: 0
+      inter_node: 0.01
     node_area_budget: 1230 #mm2
 
 power_breakdown:
@@ -106,7 +108,7 @@ power_breakdown:
     reg_mem: 0.15
     network:
       intra_node: 0.2
-      inter_node: 0
+      inter_node: 0.01
 
 system_hierarchy:
     num_nodes_per_wafer: 2
