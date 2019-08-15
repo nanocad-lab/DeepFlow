@@ -5,14 +5,14 @@ from collections import namedtuple as _namedtuple
 
 class CoreConfig:
   def __init__(self, core_config_dict):
-    self.nominal_energy_per_mcu = core_config_dict['nominal_energy_per_mcu']
+    self.nominal_power_per_mcu = core_config_dict['nominal_power_per_mcu']
     self.nominal_flop_rate_per_mcu = core_config_dict['nominal_flop_rate_per_mcu']
     self.nominal_area_per_mcu = core_config_dict['nominal_area_per_mcu']
     self.nominal_frequency = core_config_dict['nominal_frequency']
     self.nominal_voltage = core_config_dict['nominal_voltage']
     self.threshold_voltage = core_config_dict['threshold_voltage']
-    self.operating_frequency = core_config_dict['operating_frequency']
-    self.operating_voltage = core_config_dict['operating_voltage']
+    #self.operating_frequency = core_config_dict['operating_frequency']
+    #self.operating_voltage = core_config_dict['operating_voltage']
     self.operating_area_per_mcu = core_config_dict['operating_area_per_mcu']
     self.num_mcu_per_bundle = core_config_dict['num_mcu_per_bundle']
 
@@ -25,6 +25,7 @@ class DRAMConfig:
     self.stack_bw = mem_config_dict['stack_bandwidth']
     self.area_per_stack = mem_config_dict['area_per_stack']
     self.latency = mem_config_dict['latency']
+    self.mem_ctrl_area = mem_config_dict['mem_ctrl_area']
 
 class L2Config:
   def __init__(self, l2_config_dict):
@@ -70,8 +71,8 @@ class SubNetworkConfig:
     self.nominal_voltage          = config_dict['nominal_voltage']
     self.nominal_energy_per_link  = config_dict['nominal_energy_per_link']
     #self.nominal_area_per_link    = config_dict['nominal_area_per_link']
-    self.operating_freq           = config_dict['operating_frequency']
-    self.operating_voltage        = config_dict['operating_voltage']
+    #self.operating_freq           = config_dict['operating_frequency']
+    #self.operating_voltage        = config_dict['operating_voltage']
     self.num_links_per_mm         = config_dict['num_links_per_mm']
 
     self.parallelMap              = ParallelMap(str(config_dict['parallelMap']))

@@ -19,11 +19,11 @@
 
 /* router module parameters */
 /* general parameters */
-#define PARM_in_port 	        6	/* # of router input ports */
+#define PARM_in_port 	        3	/* # of router input ports */
 #define PARM_cache_in_port	0	/* # of cache input ports */
 #define PARM_mc_in_port		0	/* # of memory controller input ports */
 #define PARM_io_in_port		0	/* # of I/O device input ports */
-#define PARM_out_port		6	
+#define PARM_out_port		3	
 #define PARM_cache_out_port	0	/* # of cache output ports */
 #define PARM_mc_out_port	0	/* # of memory controller output ports */
 #define PARM_io_out_port	0	/* # of I/O device output ports */
