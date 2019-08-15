@@ -1,0 +1,4 @@
+For Batch-Size: 32, the TDP breakdown is as follows:  ({'DRAM': 0.32527385169339723, 'L2': 0.125657885343959, 'core': 0.5397648911251315, 'shared_mem': 0.009303371837511325}, 5.06347634)
+For Batch-Size: 64, the TDP breakdown is as follows:  ({'DRAM': 0.27583051290842264, 'L2': 0.031113390929178104, 'core': 0.6258312497933103, 'shared_mem': 0.06722484636908854}, 7.89326472)
+For Batch-Size: 128, the TDP breakdown is as follows:  ({'DRAM': 0.2188142216352026, 'L2': 0.03448905109489049, 'core': 0.684857110572398, 'shared_mem': 0.06183961669750868}, 13.73241483)
+For Batch-Size: 256, the TDP breakdown is as follows:  ({'DRAM': 0.24539392587659922, 'L2': 0.03101694915254229, 'core': 0.6585741021224563, 'shared_mem': 0.06501502284840167}, 26.82099627)

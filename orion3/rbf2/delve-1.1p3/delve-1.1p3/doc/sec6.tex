@@ -1,0 +1,170 @@
+%
+% $Id: sec6.tex,v 1.9.2.1 1996/11/25 14:34:08 revow Exp $
+%
+\newpage
+
+\section{SCHEMES FOR LEARNING EXPERIMENTS}\label{sec-scheme}
+\thispagestyle{plain}
+\setcounter{figure}{0}
+\chead[\fancyplain{}{\thesection.\ SCHEMES FOR LEARNING EXPERIMENTS}]
+      {\fancyplain{}{\thesection.\ SCHEMES FOR LEARNING EXPERIMENTS}}
+
+Tasks are sufficiently well-defined that each learning method has a
+well-defined expected performance on each task, which is the expected
+value of some specified loss function on a randomly selected test
+case, when using the predictions produced by the learning method based
+on the given prior information and a random training set of the
+specified size.  We do not, and never will, know this expected
+performance exactly, but we can estimate the expected performance by
+performing experiments in which we apply the learning method to
+several {\em task instances}, each of which has a particular set of
+training cases, and a particular set of test cases.
+
+There are many possible schemes for defining task instances, with
+different advantages and disadvantages.  This section describes the
+standard schemes used in \delve{}, and discusses why we chose this
+scheme for experiments.
+
+
+\subsection{Issues in designing learning experiments}\label{scheme-issues}
+
+For research purposes, we are usually interested not so much in the
+numerical value of the expected loss for a method applied a task, but
+rather in the relative performance of several learning methods on the
+same task.  Such performance comparisons can be done more accurately
+if the various performance estimates are all based a common set of
+task instances, in which the training and test sets contain the same
+cases.
+
+The statistical benefits of such a common set of task instances are
+discussed further in Section~\ref{sec-analysis}.  In this section, we
+describe the standard scheme used in \delve{} to define a common set
+of task instances for each task.  This scheme has been designed not
+only to allow for good estimates, and an indication of their accuracy,
+but also to limit the number of task instances, and hence the number
+of times that a learning method must be applied to a training set in
+order to obtain a performance estimate for a task.  Minimizing the
+number of applications is important if sophisticated learning methods
+are to be evaluated, which may, at least in early stages of research,
+be computationally intensive.  It is even more important for learning
+methods that involve decisions made by a human analyst.  In order to
+achieve these goals, we have been willing to forgo the use tasks based
+on small datasets, as we believe that any research questions that
+these datasets might be useful in answering can equally well be
+addressed using larger datasets.
+
+Two different situations arise depending on whether we are dealing
+with real or synthetic datasets. For real datasets the number of
+available cases is often a limiting factor, and it therefore seems
+best to use large a single common test set for all instances --- what
+is referred to in \delve{} as a \emph{common} testing scheme.  On the
+other hand, if we are dealing with synthetic data, it is usually
+possible to generate an unlimited amount of data for testing, and in
+this case the limiting factor will be the disk space needed to store
+the prediction and loss files for all the applications of methods to
+task instances.  In this case it seems more profitable to use disjoint
+test sets for different instances, allowing a much larger number of
+test cases in total for a given amount of disk storage. This is what
+we call the \emph{hierarchical} testing scheme.
+
+The standard \delve{} schemes for defining task instances are
+certainly not the only possible ways of estimating expected
+performance, however.  Some researchers may prefer to use some other
+scheme, such as leave-one-out cross-validation.  One may also wish to
+evaluate the performance of a new method on exactly the same task
+instances as were used to evaluate some older method.  For these
+reasons, we allow users to specify non-standard task instances, which
+will enable them to perform such evaluations using the \delve{}
+facilities described in Section~\ref{sec-assess}.  \emph{Note: This
+facility isn't implemented yet, however.}
+
+
+\subsection{DELVE's standard set of task instances}\label{scheme-standard}
+
+In the standard set of tasks for each prototask, the training set size
+is one of a series of numbers that differ by factors of two.  The
+designer of a prototask based on some dataset might, for example, have
+specified standard tasks with training set sizes of 20, 40, and 80.
+The same range of training set sizes, and the same actual training and
+test sets, are used for all specifications of prior information, and
+for all loss functions.  The designer of a prototask also specifies
+how many cases should be reserved for use in testing.
+
+To obtain the standard set of task instances that go with a task,
+\delve{} first reserves the specified number of cases for use in
+testing.  Training sets of the desired sizes are then obtained by
+successively dividing the set of remaining cases (whose number will
+usually have been arranged to be a multiple of the largest standard
+training set size).  In the above example, suppose that the prototask
+was applicable to 500 cases in the dataset.  We could reserve 340
+cases testing, leaving 160 cases for inclusion in training sets.  For
+the task with a training set of size 80, this allows for two task
+instances, obtained by partitioning the 160 cases not in the test set
+into two subsets.  Similarly, four instances can be created of the
+task with a training set of size 40, obtained by dividing each of the
+training sets of size 80 in half, and eight instances of the task with
+20 training cases, obtained by subdividing the 40-case training sets
+yet again.  (It would also be possible to define a single instance of
+a task with a training set of size 160, but with only a single
+training set, no empirical assessment could be made of the variability
+of performance on this task with respect to random choice of training
+set.)
+
+In the above example, the generation of test sets for each task
+instance would depend on the type of {\tt Test-Set-Selection}
+specified for the prototask, as explained in the previous section. If
+the {\tt Test-Set-Selection} is {\tt common} then all test cases will
+be included in a single common test set, used for every instance. If
+the {\tt Test-Set-Selection} is {\tt hierarchical} then the test cases
+will also be divided into smaller disjoint subsets, one for each
+instance of a particular size.
+
+The successive partitioning described above is performed using the
+order of cases as defined in the prototask specification.  For
+prototasks without any complications, the test set consists of the
+first so-many cases in this ordering, and the training sets are taken
+from the later part of the ordering.  The training sets of different
+sizes are obtained by successively dividing the full set of potential
+training cases into contiguous blocks.  Recall that the ordering of
+cases will be random unless the prototask is intended to be
+sequential.
+
+The above scheme becomes a bit more complicated if the the prototask
+has special features.  For a sequential prototask, a gap of unused
+cases will be left between the cases used for testing and those used
+for training.  The size of this gap will be the maximum range of
+dependencies given in the prototask specification.  For data with
+commonality indexes, the ordering will group cases with the same
+commonality index together, and a gap will be left if necessary to
+ensure that no cases used for testing have the same commonality index
+as a case in some training set.  These provisions to eliminate
+dependencies between the training and test sets are needed for the
+performance on the test set to be a faithful indication of real
+performance.  Note, however, that for sequential prototasks and for
+prototasks where there are commonality indexes, there may still be
+dependencies between the training sets for different instances of a
+task (though we try to avoid this with commonality indexes).  This
+could reduce the accuracy of the performance estimates, but does not
+introduce any bias.
+
+\emph{The provisions in the above paragraph have not been implemented
+yet. Special provisions will also be needed to handle tasks whose
+training sets are specified to be stratified.}
+
+
+\subsection{Using non-standard task instances}\label{scheme-non-standard}
+
+\emph{The facilities in this section have not been implemented yet.}
+
+A non-standard task instance (perhaps for a task with a non-standard
+size of training set) can be specified by giving an explicit list of
+the indexes of the cases making up the training and test sets.  These
+indexes are with respect to the ordering of the original dataset, but
+must be among those included in the prototask.
+
+For a sequential prototask, the list for the training set must be a
+sub-sequence of the prototask ordering, and the test cases must be
+further from the training cases than the maximum range of dependencies
+specified for the prototask.  It is the user's responsibility to
+ensure that the manner in which cases were selected for the training
+and test sets is valid in other respects.

@@ -1,0 +1,362 @@
+#!/bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: mstats,v 1.33.2.12 1996/11/12 16:53:35 revow Exp $
+#
+# This script evaluates the performance of a learning algorithm on a
+# number of test instances. For a full description of what this means,
+# see the "delve" documentation.
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+#		overlapping delve directory hierarchy.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1995-1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# Parse the environment variables and the command line. Set up the
+# "usage" variable so we can give meaningful error messages.
+#
+# The procedure "parseOptiosn" leaves all options in the array
+# named $optionsName.
+# ----------------------------------------------------------------------
+
+set options(loss)	"A L Q S Z" ;
+set options(lFile)	"loss" ;
+set options(compare)	"" ;
+
+set usage "usage: [file tail $argv0] \[ options \] \[ mpath \]
+    Where 'options' are:
+        -c list Compare this method to all methods in 'list'.
+	-d	Turn on error stack traces for debugging.
+	-h	Print this help message.
+	-i base	Set the base name for the input loss files.
+	-l list	Set the loss functions to be calculated to 'list'.
+
+    And the path argument is:
+	A valid Delve method path. Statistics are printed for all loss
+	files in the root directory, method, dataset, prototask, or
+	task it refers to.  If not specified, the path defaults to the
+	current derectory which must be a Delve method directory.
+
+	By default, input loss files are named 'loss.l.n' where 'l'
+	corresponds to the loss function being summarized, and 'n' to
+	the instance number. The default loss functions are
+	\"$options(loss)\"."
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ![lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -c		{ set options(compare)	[lpop list] }
+	    -d		{ delve_debug 1 }
+	    -h		{ puts "$usage" ; exit 0 }
+	    -i		{ set options(lFile)	[lpop list] }
+	    -l		{
+		regsub -all "\[ \t]" [lpop list] "" string ;
+		set options(loss) [split $string {}] ;
+	    }
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    return $list ;
+}
+
+# ----------------------------------------------------------------------
+# mstats - iterates over all sub-directories, and when it gets to
+# 	tasks, it calls mstats1
+# ----------------------------------------------------------------------
+
+proc mstats { cpath lossList lossFileBase compare } {
+
+    switch [m_type $cpath] {
+	root		{ set subdirs [m_info $cpath methods] }
+	method		{ set subdirs [m_info $cpath datasets] }
+	dataset		{ set subdirs [m_info $cpath prototasks] }
+	prototask	{ set subdirs [m_info $cpath tasks] }
+	default		{ set subdirs {} }
+    }
+
+    foreach subdir $subdirs {
+	if [m_file exists $cpath/$subdir] {
+	    mstats [cleanpath $cpath/$subdir] $lossList $lossFileBase $compare
+	}
+    }
+
+    if { [string compare [m_type $cpath] "task"] != 0 } {
+	return ;
+    }
+
+    puts "$cpath" ;
+    foreach type $lossList {
+        regsub -all " +" [d_compressExt] "|" extList
+	set pattern	"^$lossFileBase\\.$type\\.\[0-9\]*($extList)?$" ;
+	set fileList	{} ;
+
+	foreach file [m_readdir $cpath] {
+
+	    if [regexp $pattern $file] {
+	        regsub "($extList)?$" $file "" plainName
+		lappend fileList $plainName ;
+	    }
+	}
+
+	if [lempty $compare] {
+	    mstats1  $cpath $type $fileList ;
+	} else {
+	    mcstats1 $cpath $type $fileList $compare ;
+	}
+    }
+}
+
+# ----------------------------------------------------------------------
+# The real guts of mstats.
+# ----------------------------------------------------------------------
+
+proc mstats1 { cpath type fileList } {
+
+    set lossFiles {}
+    foreach file $fileList {
+	lappend lossFiles [m_getFile $cpath/$file "loss file"] ;
+    }
+
+    if [lempty $lossFiles] {
+	return ;
+    }
+
+    #
+    # Get the values we need to normalize the loss stats from the
+    # "Test-set-stats" file, then calculate the stats, then normalize.
+    #
+    
+    for_file line [m_getFile $cpath/Test-set-stats] {
+	set key	[lindex $line 0] ;
+	set val	[lindex $line 1] ;
+	set testStats($key) $val ;
+    }
+    set selection	[m_info $cpath test-set-selection]
+    set statList	[getLossStats $lossFiles $selection] ;
+    set nstatList	[normalizeLossStats $type $statList testStats] ;
+    
+    #
+    # Now just print it all nice and pretty.
+    #
+ 
+    puts "Loss: $type ([lossName $type])" ;
+    set format "%49s%13s%14s"
+    puts [format "%79s" "Raw value   Standardized\n"]
+    puts [format $format "Estimated expected loss:" \
+                         [lindex $statList 0] [lindex $nstatList 0]]
+    puts [format $format "Standard error for estimate:" \
+	      [lindex $statList 3] [lindex $nstatList 3]]\n
+    puts [format $format "SD from training sets & stochastic training:" \
+	      [lindex $statList 1] [lindex $nstatList 1]]
+    if { [string compare $selection "common"] == 0 } {
+	puts [format $format "SD from test cases:" \
+	      [lindex $statList 4] [lindex $nstatList 4]]
+	puts [format $format "SD from interactions & stochastic predictions:" \
+	      [lindex $statList 2] [lindex $nstatList 2]]\n
+    } else {
+        puts [format $format "SD from test cases & stoch. pred. & interactions:" \
+              [lindex $statList 2] [lindex $nstatList 2]]\n
+    }
+    puts [format "    Based on %s disjoint training sets, each containing %s cases and" \
+	      [llength $lossFiles] [m_info $cpath training-set-size]]
+
+    if { [string compare $selection "common"] == 0 } {
+	puts [format "             one common test set containing %s cases." \
+		  [lindex $statList 6]]
+    } else {
+	puts [format "             %s disjoint test sets, each containing %s cases." \
+		  [llength $lossFiles] [lindex $statList 5]]
+    }
+    puts "" ;
+}
+
+# ----------------------------------------------------------------------
+# Compare 2 methods.
+# ----------------------------------------------------------------------
+
+proc mcstats1 { cpath1 type fileList methods } {
+
+    foreach method $methods {
+	set method	[cleanpath /$method] ;
+	if ![m_exists $method] {
+	    error "\"$method\" doesn't exist" ;
+	}
+	set cpath2	$method[m_cvtcpath $cpath1] ;
+	if ![m_exists $cpath2] {
+	    error "\"$cpath2\" does not exist" ;
+	}
+
+	#
+	# Build two lists of loss files: one for each method.  Go
+	# through all the loss files in the file list (this method's
+	# loss files), then add the file to the list iff it exists in
+	# both method directories.
+	#
+
+	set lossFiles1 	{} ;
+	set lossFiles2 	{} ;
+	foreach file $fileList {
+	    set instance [string range [file extension $file] 1 end] ;
+	    set loss	 [string range [file extension [file root $file]] 1 end] ;
+	    set tail	 loss.$loss.$instance
+	
+	    if { [m_file exists $cpath1/$file]
+		 && [m_file exists $cpath2/$tail] } {
+		lappend lossFiles1 [m_getFile $cpath1/$file "loss file"] ;
+		lappend lossFiles2 [m_getFile $cpath2/$tail "loss file"] ;
+	    }
+	}
+    
+	if [lempty $lossFiles1] {
+	    continue ;
+	}
+	
+        #
+        # Get the values we need to normalize the loss stats from the
+        # "Test-set-stats" file, then calculate the stats, then normalize.
+        #
+	
+	for_file line [m_getFile $cpath1/Test-set-stats] {
+	    set key	[lindex $line 0] ;
+	    set val	[lindex $line 1] ;
+	    set testStats($key) $val ;
+	}
+        set selection	[m_info $cpath1 test-set-selection]
+	set statList	[getLossDiffStats $lossFiles1 $lossFiles2 $selection]
+        set nstatList	[normalizeLossStats $type $statList testStats] ;
+	
+        #
+	# Now just print it all nice and pretty.
+        #
+
+	if ![info exists lossPrinted] {
+	    puts "Loss: $type ([lossName $type])" ;
+	    set lossPrinted 1 ;
+	}
+	
+	set format	"%49s%13s%14s"
+        puts [format "%79s" "Raw value   Standardized\n"]
+	puts [format $format "Estimated expected loss for [m_name $cpath1]:" \
+	                     [lindex $statList 0] [lindex $nstatList 0]];
+	puts [format $format "Estimated expected loss for $method:" \
+                             [lindex $statList 2] [lindex $nstatList 2]];
+        puts [format $format "Estimated expected difference:" \
+                             [lindex $statList 1] [lindex $nstatList 1]];
+        puts [format $format "Standard error for difference estimate:" \
+                             [lindex $statList 6] [lindex $nstatList 6]]\n;
+        puts [format $format "SD from training sets & stochastic training:" \
+                             [lindex $statList 4] [lindex $nstatList 4]];
+	if { [string compare $selection "common"] == 0 } {
+	    puts [format $format "SD from test cases:" \
+		  [lindex $statList 7] [lindex $nstatList 7]];
+	    puts [format $format "SD from interactions & stochastic predictions:" \
+		  [lindex $statList 5] [lindex $nstatList 5]]\n;
+	} else {
+	    puts [format $format "SD from test cases & stoch. pred. & interactions:" \
+		  [lindex $statList 5] [lindex $nstatList 5]]\n;
+        }
+        switch $selection {
+            "common" {
+                if { [llength $lossFiles1]<4 && [lindex $statList 3]<0.05 } { 
+		    puts [format "    Significance of difference (F-test), p < 0.05\n"]
+                } else {
+		    puts [format "    Significance of difference (F-test), p = %s\n" [lindex $statList 3]]
+		}
+                puts [format "    Based on %s disjoint training sets, each containing %s cases and " [llength $lossFiles1] [m_info $cpath1 training-set-size]]
+	        puts [format "             one common test set containing %s cases." [lindex $statList 9]]
+	    }
+            "hierarchical" {
+                puts [format "    Significance of difference (t-test), p = %s\n" [lindex $statList 3]]
+		puts [format "    Based on %s disjoint training sets, each containing %s cases and" [llength $lossFiles1] [m_info $cpath1 training-set-size]]
+                puts [format "             %s disjoint test sets, each containing %s cases." [llength $lossFiles1] [lindex $statList 8]]
+	    }
+        }
+	puts "" ;
+    }
+}
+
+# ----------------------------------------------------------------------
+# Generates temporary loss files and returns their name. All files
+# except the prediction files are in $path. Prediction files are in
+# $cpath. The loss files are put in $dstPath. The "0 1" passed to the
+# generation procedures ensure that we don't overwrite files, and that
+# we run silently.
+# ----------------------------------------------------------------------
+
+proc genLossFiles { cpath } {
+    
+    set path	[string range $cpath 1 end] ;
+    set wd	[pwd] ;
+    set root 	[delve_root $wd] ;
+    
+    cd $root/methods ;
+    
+    if ![file isdirectory $root/$path] {
+	mkdir -path $root/$path ;
+    }
+    exec mgendata -f $path >@ stdout 2>@ stderr <@ stdin ;
+    exec mloss    -f $path >@ stdout 2>@ stderr <@ stdin ;
+    
+    cd $wd ;
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line.
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+#----------------------------------------------------------------------#
+# Figure out the canonical path name for the module.
+#----------------------------------------------------------------------#
+
+if { [llength $argv] == 0 } {
+    set path "." ;
+} elseif { [llength $argv] == 1 } {
+    set path [lindex $argv 0] ;
+} else {
+    error $usage ;
+}
+
+#
+# Clean-up the path, then convert it to an absolute dpath.
+#
+
+set path [cleanpath $path] ;
+
+if { [string compare [string index $path 0] "/"] == 0 } {
+  set cpath	$path ;
+} else {
+    set cpath	[m_cpath $path] ;
+}
+
+if { ![m_exists $cpath] } {
+    error "$path does not exist" ;
+}
+
+#----------------------------------------------------------------------#
+# And here we go...
+#----------------------------------------------------------------------#
+
+mstats $cpath $options(loss) $options(lFile) $options(compare) ;
+
+exit 0

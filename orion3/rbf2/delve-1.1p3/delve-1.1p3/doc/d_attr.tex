@@ -1,0 +1,154 @@
+% ----------------------------------------------------------------------
+% Tcl Command for encoding values.
+%
+% Author: Drew van Camp (drew@cs.toronto.edu)
+%
+% Copyright (c) 1996 The University of Toronto.
+%
+% See the file "copyright" for information on usage and redistribution
+% of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+% ----------------------------------------------------------------------
+
+\documentclass{article}
+\usepackage{moretext,amstex,alltt,varioref}
+\usepackage{../library/delve}
+
+\newcommand{\dattr}{\textbf{d\_attr}}
+
+\begin{document}
+
+\rcsInfo $Id: d_attr.tex,v 1.2.2.1 1996/06/13 15:24:12 drew Exp $
+
+\title{d\_attr: Encoding/Decoding of attributes}
+\author{Drew van Camp (drew@@cs.toronto.edu)\\[1ex]
+	Department of Computer Science\\
+	University of Toronto\\
+	6 Kings College Road\\
+	Toronto ON, Canada, M5S 1A4}
+
+\vfil
+\maketitle
+\vfil
+\copyrightNotice{1996}
+\vfil
+\clearpage
+
+\section{Introduction}
+
+\delve{} assumes that each value in a dataset belongs to a particular
+\textbf{attribute}.  Attributes have a specific type, for example
+integer, or real, and encoding scheme, for example normalization.  When
+generating data files, all the values for a given attribute are encoded
+using the same scheme.  When generating loss files, the values must be
+decoded.  The \dattr{} command is the core command used to do this
+encoding and decoding.
+
+In order to minimize pollution of the name-space, there is only one
+command for encoding attributes. It does, however, have several
+sub-commands (options) that enable it to perform many operations.
+
+\section{The \dattr{} command}
+\usage{d\_attr}{option  ?arg ...?}
+This command provides several operations on an attribute.
+\texttt{Option} indicates what to do with the attribute. Valid valid
+options are:
+\begin{options}
+\item[d\_attr create \textsl{type method ?arg ...?}]
+Create an attribute of the given \texttt{type} and arrange for it to be
+encoded with the given encoding \texttt{method}.  Return a handle with
+which other \dattr{} commands can access the attribute.
+
+The \texttt{type} can be any one of the following:
+\begin{description}
+\item[\texttt{angular}] - attributes that have a circular nature, in that
+	only the variable modulus some length is thought to be
+	important.
+\item[\texttt{binary}] - attributes that take on only two possible
+	values.
+\item[\texttt{nominal}] - nominal attributes are significant only in
+    	that they may take on a finite number of distinct values.
+\item[\texttt{ordinal}] - oridinal attributes may take on a finite
+	number of distinct values and they have a defined ordering,
+	which must be specified.
+\item[\texttt{integer}] - integer attributes take on only integer values.
+\item[\texttt{real}] - real attributes take on any real value.
+\end{description}
+
+Depending on the specified encoding method, different numbers and types
+of arguments are required.  The following encoding methods can be used.
+\begin{options}
+\item[d\_attr create \textsl{type} copy]
+    Does not encode an attribute, but returns the original value.  This
+    encoding is valid for all attribute types and takes no options.
+\item[d\_attr create \textsl{type} ignore]
+    Encodes an attribute as an empty string. This is valid for all
+    attribute types.  Since it is a many to one encoding, it cannot be
+    decoded.
+\item[d\_attr create \textsl{type} zero-up \textsl{range}]
+    Encodes an attribute as an integer, ranging from zero and up. This
+    encoding is valid for \texttt{norminal} and \texttt{ordinal}
+    variables. It requires a \texttt{range} option to determine the
+    ordering of the mapping.  The range should contain a list of all
+    valid states of the attribute, in the order they should be mapped to
+    integers.
+\item[d\_attr create \textsl{type} one-up \textsl{range}]
+    Encodes an attribute as an integer, ranging from one and up. This
+    encoding is valid for \texttt{norminal} and \texttt{ordinal}
+    variables. It requires a \texttt{range} option to determine the
+    ordering of the mapping.  The range should contain a list of all
+    valid states of the attribute, in the order they should be mapped to
+    integers.
+\item[d\_attr create \textsl{type} binary-symmetric \textsl{range}]
+    Uses symmetric binary encoding.  This is only valid for attributes
+    of type \texttt{binary}.  The encoding requires a \texttt{range}
+    which should be a list containing the two valid states of the
+    attribute.  The first state will encode as -1, the second as +1.
+\item[d\_attr create \textsl{type} one-of-n \textsl{range ?passive?}]
+    Uses \texttt{n} binary active/passive values, turning on a single
+    value for each pattern.  This encoding is valid for \texttt{nominal}
+    and \texttt{ordinal} attributes.  The number \texttt{n} is
+    determined from the number of states in the \texttt{range} list.  If
+    the optional \texttt{passive} value is given, it should be an
+    element from the \texttt{range} list for which the corresponding
+    binary value is omitted (i.e. there are \texttt{n-1} values, and the
+    \texttt{passive} value encodes to all zeroes).
+\item[d\_attr create \textsl{type} thermometer \textsl{range ?scale?}]
+    Encodes using a thermometer code with \texttt{n-1} binary
+    symmetric inputs.  For the lowest value of the attribute no units
+    are on, for the next higher value the first unit is on, etc.  This
+    encoding is valid for \texttt{nominal} and \texttt{ordinal}
+    attributes.  The number \texttt{n-1} and the order of the states
+    is determined from the \texttt{range} list, which must contain at
+    least two values.  If the optional \texttt{scale} value is
+    supplied, it must be a floating-point number by which the values
+    are to be multiplied after being encoded (e.g. if it were $0.3$,
+    then the encoding would use the values $-0.3$ and $+0.3$.
+\item[d\_attr create \textsl{type} binary-passive \textsl{range passive}]
+    Encodes \texttt{binary} attributes as an active/passive value. This
+    encoding requires a \texttt{range} containing the binary values to
+    be encoded and a \texttt{passive} value specifying which value in
+    the range is to be encoded as zero.
+\item[d\_attr create \textsl{type} normalized \textsl{mean variance}]
+    Normalize a value to zero mean and unit variance. This encoding is
+    valid for \texttt{real} and \texttt{integer} attributes.  It
+    requires you to specify a \texttt{mean} and \texttt{variance}.
+\item[d\_attr create \textsl{type} rectan \textsl{unit}]
+    Encodes \texttt{angular} attributes using two values, $\sin(2\pi
+    x/{\rm unit})$ and $\cos(2\pi x/{\rm unit})$, where $x$ is the value
+    of the attribute.  This is a many to one encoding and, as such, is
+    not decodable.
+\end{options}
+\item[d\_attr delete \textsl{handle}]
+Delete the attribute associated with the given \texttt{handle}.
+\item[d\_attr encode \textsl{handle value}]
+Encode the given \texttt{value} using the encoding method of the
+attribute with the given \texttt{handle} and return the resulting code.
+If the value is invalid (for whatever reason) for the attribute, then an
+error will be generated.
+\item[d\_attr decode \textsl{handle code}]
+Decode the given \texttt{code} using the encoding method of the
+attribute with the given \texttt{handle} and return the resulting value.
+If the code is invalid (for whatever reason) for the attribute, then an
+error will be generated.
+\end{options}
+\end{document}

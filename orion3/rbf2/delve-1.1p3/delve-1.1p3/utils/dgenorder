@@ -1,0 +1,106 @@
+#!/bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: dgenorder,v 1.3.2.4 1996/11/12 15:57:55 revow Exp $
+#
+# This script generates a "Random-order" file for a prototask.
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+# 		overlapping delve directory hierarchy.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1995-1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# The string "usage" has a nicely formatted message describing the
+# usage of the script. It is used in error and help messages.
+# ----------------------------------------------------------------------
+
+set usage "usage: [file tail $argv0] \[ options \] \[ path \]
+    Where 'options' are:
+	-d	Turn on error stack traces for debugging.
+	-h	Print this help message.
+
+    And 'path' is:
+	The true path of the directory to generate the Random-order 
+	file in.  If missing, 'path' defaults to the current directory."
+
+# ----------------------------------------------------------------------
+# The procedure "parseOptions" parses all the command line options in
+# "list" and leaves the result in the array "options". If an error
+# occurs, it uses "usage" in the error message. The procedure returns
+# all arguments left in "list" after removing options. Default options
+# are set here as well.
+# ----------------------------------------------------------------------
+
+set options(ignore)	0 ;
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ![lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -d		{ delve_debug 1 }
+	    -h		{ puts "$usage" ; exit 0 }
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    return $list ;
+}
+
+#----------------------------------------------------------------------
+# Procedure for generating the Random-order file.                      
+#----------------------------------------------------------------------
+
+proc dgenorder { path force } {
+    global d_priv ;
+
+    set cpath	[d_cpath $path] ;
+    if ![d_exists $cpath] {
+	error "\"$cpath\" does not exist"
+    }
+    set type	[d_type $cpath] ;
+
+    if { [string compare $type "prototask"] != 0 } {
+	error "\"$path\" must point to a prototask directory"
+    }
+
+    genRandomorder $cpath $path/$d_priv(Randomorder) $force ;
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+# ----------------------------------------------------------------------
+# And here we go...
+# ----------------------------------------------------------------------
+
+if { [llength $argv] == 0 } {
+    set path "." ;
+} elseif { [llength $argv] == 1 } {
+    set path [cleanpath [lindex $argv 0]] ;
+} else {
+    error $usage ;
+}
+
+dgenorder $path 1
+
+exit 0 ;

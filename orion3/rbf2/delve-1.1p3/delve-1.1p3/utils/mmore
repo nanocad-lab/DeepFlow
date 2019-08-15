@@ -1,0 +1,103 @@
+#!/bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: mmore,v 1.11.2.4 1996/11/12 16:53:34 revow Exp $
+#
+# This script lists all the files in an overlapping delve data
+# directory.
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+# 		overlapping delve directory hierarchy.
+# PAGER - the name of the pager to use to view the files.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# The string "usage" has a nicely formatted message describing the
+# usage of the script. It is used in error and help messages.
+# ----------------------------------------------------------------------
+
+set usage "usage: [file tail $argv0] \[ options \] mpath \[ mpath ... \]
+    Where 'options' are:
+	-d	Turn on error stack traces for debugging.
+	-h	Print this help message.
+
+    And the path arguments are:
+	Delve method paths of text files."
+
+# ----------------------------------------------------------------------
+# The procedure "parseOptions" parses all the command line options in
+# "list" and leaves the result in the array "options". If an error
+# occurs, it uses "usage" in the error message. The procedure returns
+# all arguments left in "list" after removing options. Default options
+# are set here as well.
+# ----------------------------------------------------------------------
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ![lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -d		{ delve_debug 1 }
+	    -h		{ puts stderr "$usage" ; exit 0 }
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    return $list ;
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line.
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+# ----------------------------------------------------------------------
+# And here we go...
+# ----------------------------------------------------------------------
+
+if { [llength $argv] == 0 } {
+    error $usage ;
+} else {
+    set paths $argv ;
+}
+
+if [info exists env(PAGER)] {
+    set pager $env(PAGER) ;
+} else {
+    set pager "more" ;
+}
+
+foreach path $paths {
+    #
+    # Clean up the path, then convert it to a mpath.
+    #
+
+    set path [cleanpath $path] ;
+
+    if { [string compare [string index $path 0] "/"] == 0 } {
+	set cpath	$path ;
+    } else {
+	set cpath	[m_cpath $path] ;
+    }
+
+    foreach file [m_getFile $cpath] {
+	eval exec $pager $file <@ stdin >@ stdout 2>@ stderr ;
+    }
+}

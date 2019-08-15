@@ -1,0 +1,10 @@
+# This file contains a top-level script to run all of the Delve tests.
+# Execute it by invoking "source all" when running delvesh in this
+# directory.
+#
+# $Id: all,v 1.1 1996/04/12 18:43:44 drew Exp $
+
+foreach i [lsort [glob *.test]] {
+    puts stdout $i
+    source $i
+}

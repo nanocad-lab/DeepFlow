@@ -1,0 +1,138 @@
+#!/bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: dls,v 1.10.2.4 1996/11/12 16:08:28 revow Exp $
+#
+# This script lists all the files in an overlapping delve data
+# directory.
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+# 		overlapping delve directory hierarchy.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# The string "usage" has a nicely formatted message describing the
+# usage of the script. It is used in error and help messages.
+# ----------------------------------------------------------------------
+
+set usage "usage: [file tail $argv0] \[ options \] \[ dpath|mpath \]
+    Where 'options' are:
+	-d	Turn on error stack traces for debugging.
+	-h	Print this help message.
+	-l	Long; generate a long listing.
+
+    And the path argument is:
+	A Delve data or method path.  If a method path is given, it is
+	converted to a data path by removing the method name.  If no
+	path is specified, the current directory, which must be a
+	Delve directory, is used."
+
+# ----------------------------------------------------------------------
+# The procedure "parseOptions" parses all the command line options in
+# "list" and leaves the result in the array "options". If an error
+# occurs, it uses "usage" in the error message. The procedure returns
+# all arguments left in "list" after removing options. Default options
+# are set here as well.
+# ----------------------------------------------------------------------
+
+set options(long)	0 ;
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ![lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -d		{ delve_debug 1 }
+	    -h		{ puts stderr "$usage" ; exit 0 }
+	    -l		{ set options(long)	1 }
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    return $list ;
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line.
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+# ----------------------------------------------------------------------
+# And here we go...
+# ----------------------------------------------------------------------
+
+if { [llength $argv] == 0 } {
+    set path "." ;
+} elseif { [llength $argv] == 1 } {
+    set path [cleanpath [lindex $argv 0]] ;
+} else {
+    error $usage ;
+}
+
+#
+# Clean-up the path, then convert it to an absolute dpath.
+#
+
+set path [cleanpath $path] ;
+
+if { [string compare [string index $path 0] "/"] == 0 } {
+    if { [d_file exists $path] } {
+	set cpath	$path ;
+    } else {
+	set cpath	[m_cvtcpath $path] ;
+    }
+} else {
+    set cpath	[d_cpath $path] ;
+}
+
+if { ![d_file exists $cpath] } {
+    error "$path does not exist" ;
+}
+
+set list	[d_ls $cpath $options(long)] ;
+if { $options(long) } {
+    if { [llength $list] == 1 } {
+	puts "$list" ;
+    } else {
+	set prefix "" ;
+	while { ![lempty $list] } {
+	    set heading	"[lpop list]:" ;
+	    set format	"[delve_format [lpop list]]" ;
+	    if { [string compare $format {}] != 0 } {
+		puts "$prefix$heading\n$format" ;
+		set prefix "\n"
+	    }
+	}
+    }
+	    
+} else {
+    puts [delve_format $list] ;
+}
+
+set conflicts [d_conflicts $cpath] ;
+if ![lempty $conflicts] {
+    puts stderr "\nWarning, duplicate files found:"
+    foreach conflict $conflicts {
+	foreach file $conflict {
+	    puts stderr $file ;
+	}
+    }
+    puts stderr "" ;
+}

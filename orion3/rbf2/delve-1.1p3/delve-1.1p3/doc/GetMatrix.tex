@@ -1,0 +1,94 @@
+% ----------------------------------------------------------------------
+% C API for the delve matrix utilities.
+%
+% Author: Drew van Camp (drew@cs.toronto.edu)
+%
+% Copyright (c) 1996 The University of Toronto.
+%
+% See the file "copyright" for information on usage and redistribution
+% of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+% ----------------------------------------------------------------------
+
+\documentclass{article}
+\usepackage{moretext,amstex,alltt,varioref}
+\usepackage{../library/delve}
+
+\newcommand{\dmatrix}{\textbf{d\_matrix}}
+\newcommand{\getmatrix}{\textbf{Delve\_GetMatrix}}
+
+\begin{document}
+
+\rcsInfo $Id: GetMatrix.tex,v 1.1 1996/04/12 18:19:25 drew Exp $
+
+\title{Delve\_GetMatrix: Obtain Access to a Delve Matrix}
+\author{Drew van Camp (drew@@cs.toronto.edu)\\[1ex]
+	Department of Computer Science\\
+	University of Toronto\\
+	6 Kings College Road\\
+	Toronto ON, Canada, M5S 1A4}
+
+\vfil
+\maketitle
+\vfil
+\copyrightNotice{1996}
+\vfil
+\clearpage
+
+\section{Introduction}
+
+Many \delve{} utilities have to perform operations on two-dimensional
+matrices of floating point numbers.  \tcl{} is notoriously slow at
+arithmetic operations, so many of these utilities must be written in
+C.  To allow commands to pass matrices between themselves, \delve{}
+provides the \dmatrix{} command.  It can be used to create matrices,
+store and retrieve values from them and pass them around.  This
+document describes the C API for the command.  The \tcl{} interface is
+described in the \textbf{d\_matrix} document.
+
+\section{The \getmatrix{} function}
+\subsection{Synopsis}
+\begin{alltt}
+#include <delve.h>
+
+int
+Delve_GetMatrix(interp, handle, matrixPtrPtr)
+\end{alltt}
+\subsection{Arguments}
+\begin{options}
+\item[Tcl\_Interp *interp]
+The interpreter in which the matrix was created.  Also used for error
+reporting. 
+\item[const char *handle]
+The handle associated with the matrix.
+\item[matrix\_t **matrixPtrPtr]
+Points to a place to store the pointer to the matrix data structure.
+\end{options}
+\subsection{Description}
+Matrices can only be created and destroyed at the \tcl{} command
+level; however, once they have been created, they can be manipulated
+at the C level.  To gain access to the data structure used to
+represent the matrix, you must call the function \getmatrix{} passing
+in the inerpreter in which the matrix was created, \texttt{interp} and
+the handle returned by the \texttt{d\_matrix} command when the matrix
+was created, \texttt{handle}.  The function will search for the matrix
+associated with the handle and, if found, store a pointer to the data
+structure in the location pointed to by \texttt{matrixPtrPtr} and
+return \texttt{TCL\_OK}.  If no matrix is associated with the given
+\texttt{handle}, it will leave an error message in
+\texttt{interp->result}, and return \texttt{TCL\_ERROR}.
+
+The \texttt{matrix\_t} data structure has three visible fields:
+\begin{verbatim}
+typedef const struct matrix_t {
+    int       rows ;
+    int       cols ;
+    double ** x ;
+} matrix_t
+\end{verbatim}
+\texttt{Rows} and \texttt{cols} are the number of rows and columns in
+the matrix respectively.  \texttt{X} contains all of the elements of
+the matrix, i.e. it has dimension \texttt{rows$\times$cols}.
+
+You cannot modify the number of rows or columns; however, you can
+freely manipulate the values stored in the \texttt{x} matrix.
+\end{document}

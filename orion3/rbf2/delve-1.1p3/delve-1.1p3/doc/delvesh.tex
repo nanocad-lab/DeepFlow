@@ -1,0 +1,118 @@
+% ----------------------------------------------------------------------
+% Simple command shell for delve utilities.
+%
+% Author: Drew van Camp (drew@cs.toronto.edu)
+%
+% Copyright (c) 1996 The University of Toronto.
+%
+% See the file "copyright" for information on usage and redistribution
+% of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+% ----------------------------------------------------------------------
+
+\documentclass{article}
+\usepackage{moretext,amstex,alltt,varioref}
+\usepackage{../library/delve}
+
+\newcommand{\delvesh}{\texttt{delvesh}}
+
+\begin{document}
+
+\rcsInfo $Id: delvesh.tex,v 1.1.2.1 1996/06/05 14:11:51 drew Exp $
+
+\title{delvesh: Simple Delve shell}
+\author{Drew van Camp (drew@@cs.toronto.edu)\\[1ex]
+	Department of Computer Science\\
+	University of Toronto\\
+	6 Kings College Road\\
+	Toronto ON, Canada, M5S 1A4}
+
+\vfil
+\maketitle
+\vfil
+\copyrightNotice{1996}
+\vfil
+\clearpage
+
+\section{Introduction}
+
+The \texttt{delve} shell is implemented using \tcl{} - The Tool
+Command Language.  For descriptions of \tcl{}, see its on-line
+documentation.  \texttt{Delve} extends the standard \tcl{} shell
+\texttt{tclsh} by adding compiled in commands for manipulating matrices,
+encoding and decoding attributes, and doing statistical analysis.  As
+well, it has a library of run-time loadable procedures that are used
+to implement the \delve{} environment.  Currently, there is no on-line
+documentation for these commands; however, the source directory for
+the \texttt{DELVE\_LIBRARY} contains latex files describing many of
+the extensions.
+
+\section{The \texttt{delvesh} command}
+\usage{delvesh}{?filename arg arg ...?}
+\subsubsection{Description}
+\texttt{Delvesh} is a shell-like application that reads Tcl commands from its
+standard input or from a file and evaluates them.  If invoked with no
+arguments then it runs interactively, reading Tcl commands from
+standard input and printing command results and error messages to
+standard output.  It runs until the exit command is invoked or until
+it reaches end-of-file on its standard input.  If there exists a file
+\texttt{.delverc} in the home directory of the user, \delvesh{}
+evaluates the file as a Tcl script just before reading the first
+command from standard input.
+
+\subsection{Script files}
+If \delvesh{} is invoked a script file name any additional arguments
+are made available to the script as variables (see below). Instead of
+reading commands from standard input \delvesh{} will read Tcl commands
+from the named file; \delvesh{} will exit when it reaches the end of
+the file.  There is no automatic evaluation of \texttt{.delverc} in
+this case, but the script file can always source it if desired.
+
+If you create a \delve{} script in a file whose first line is
+\begin{centering}
+\verb+#!/usr/local/bin/delvesh+
+\end{centering}
+then you can invoke the script file directly from your shell if you
+mark the file as executable.  This assumes that \delvesh{} has been
+installed in the default location in /usr/local/bin; if it's installed
+somewhere else then you'll have to modify the above line to match.
+
+\subsection{Variables}
+\texttt{Delvesh} sets the following Tcl variables:
+\begin{options}
+\item[argc] 
+    Contains a count of the number of arg arguments (0 if none), not
+    including the name of the script file.
+\item[argv]
+    Contains a Tcl list whose elements are the arg arguments, in
+    order, or an empty string if there are no arg arguments.
+\item[argv0]
+    Contains fileName if it was specified.  Otherwise, contains the
+    name by which \delvesh{} was invoked.
+\item[tcl\_interactive]
+    Contains 1 if \delvesh{} is running interactively (no fileName was
+    specified and standard input is a terminal-like device), 0
+    otherwise.
+\item[delve\_library]
+    Contains the path name of the directory containing the delve
+    run-time loadable library files.  It is automatically appended to
+    the \texttt{auto\_path}.  It's value may be over-ridden using the
+    environment variable \texttt{DELVE\_LIBRARY}.
+\item[delve\_path]
+    Contains the path name of the master delve directory. It's value
+    may be over-ridden using the environment variable
+    \texttt{DELVE\_PATH}.
+\end{options}
+
+\subsection{Environment}
+The \texttt{delve} shell uses the following environment variables.
+\begin{options}
+\item[DELVE\_LIBRARY]
+    specifies the directory containing run time loadable libraries
+    used by the utilities.  If not set, a compiled in default value
+    will be used.  
+\item[DELVE\_PATH]
+    specifies the path to be used when resolving dpaths and mpaths.
+    If set, it should contain a colon separated list of \delve{}
+    root directories.
+\end{options}
+\end{document}

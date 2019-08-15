@@ -1,0 +1,141 @@
+#!/bin/sh
+# \
+	exec delvesh "$0" ${1+"$@"}
+
+# ----------------------------------------------------------------------
+# $Id: dgenproto,v 1.12.2.4 1996/11/12 16:06:53 revow Exp $
+#
+# This script generates a "prototask" from a "dataset" in the master
+# delve directory. It is normally only used once when delve is
+# installed. 
+#
+# Besides command line flags, it uses the following environment
+# variables:
+#
+# DELVE_LIBRARY	- the library where the Tcl library files are.
+# DELVE_PATH - the colon separated list of directories to use as the
+# 		overlapping delve directory hierarchy.
+#
+# Author: Delve (delve@cs.toronto.edu)
+#
+# Copyright (c) 1995-1996 The University of Toronto.
+#
+# See the file "copyright" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# ----------------------------------------------------------------------
+
+# ----------------------------------------------------------------------
+# The string "usage" has a nicely formatted message describing the
+# usage of the script. It is used in error and help messages.
+# ----------------------------------------------------------------------
+
+set usage "usage: [file tail $argv0] \[ options \] \[ path \]
+    Where 'options' are:
+	-d	Turn on error stack traces for debugging.
+	-h	Print this help message.
+        -i      Ignore errors.
+
+    And 'path' is:
+	The true path of the directory to generate the prototask data
+	file in.  If 'dpath' points to a dataset or the root data
+	directory, all prototask data files below the path will be
+	generated.  If missing, 'path' defaults to the current
+	directory."
+
+# ----------------------------------------------------------------------
+# The procedure "parseOptions" parses all the command line options in
+# "list" and leaves the result in the array "options". If an error
+# occurs, it uses "usage" in the error message. The procedure returns
+# all arguments left in "list" after removing options. Default options
+# are set here as well.
+# ----------------------------------------------------------------------
+
+set options(ignore)	0 ;
+
+proc parseOptions { list usage optionsName } {
+    upvar $optionsName options ;
+
+    while { ![lempty $list] } {
+	set option [lpop list] ;
+	switch -glob -- $option {
+	    -d		{ delve_debug 1 }
+	    -h		{ puts "$usage" ; exit 0 }
+	    -i		{ set options(ignore) 	1 }
+	    --		{ break }
+	    -*		{ error "Illegal option \"$option\"\n$usage" }
+	    default	{ lpush list $option ; break }
+	}
+    }
+    return $list ;
+}
+
+#----------------------------------------------------------------------#
+# Procedure for generating all the prototask data files.
+#----------------------------------------------------------------------#
+
+proc dgenproto { path force ignore } {
+    global d_priv ;
+
+    set cpath	[d_cpath $path] ;
+    if ![d_exists $cpath] {
+	error "\"$cpath\" does not exist"
+    }
+    set type	[d_type $cpath] ;
+
+
+    switch $type {
+	root		{ set subdirs [d_info $cpath datasets] }
+	dataset		{ set subdirs [d_info $cpath prototasks] }
+	task		{ error "\"$path\" points to a task directory" }
+	default		{ set subdirs {} }
+    }
+
+    foreach subdir $subdirs {
+	if [d_file exists $cpath/$subdir] {
+	    dgenproto [cleanpath $path/$subdir] $force $ignore ;
+	}
+    }
+
+    if { [string compare $type "prototask"] != 0 } {
+	return ;
+    }
+
+    set code [catch {
+	if ![file exists $path] {
+	    mkdir -path $path ;
+	}
+	genPrototask $cpath $path/$d_priv(prototaskFile) $force ;
+    } result] ;
+
+    if { $code } {
+	if $ignore {
+	    puts stderr "$result" ;
+	} else {
+	    global errorInfo errorCode ;
+	    error $result $errorInfo $errorCode ;
+	} 
+    }
+}
+
+#----------------------------------------------------------------------#
+# Parse the command line
+#----------------------------------------------------------------------#
+
+set argv [parseOptions $argv $usage options] ;
+
+# ----------------------------------------------------------------------
+# And here we go...
+# ----------------------------------------------------------------------
+
+if { [llength $argv] == 0 } {
+    set path "." ;
+} elseif { [llength $argv] == 1 } {
+    set path [cleanpath [lindex $argv 0]] ;
+} else {
+    error $usage ;
+}
+
+dgenproto $path 1 $options(ignore)
+
+exit 0 ;
