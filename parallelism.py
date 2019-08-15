@@ -25,7 +25,7 @@ class Parallelism():
             pass
         elif (self.autoPar == "greedy"):
             self.greedyScheduler()
-        elif (self.autoPar=="dynamic"):#dynamic programminf solution
+        elif (self.autoPar=="dynamic"):#dynamic programming solution
             self.dynamic()
         else:
             print("Scheduling types supported are None/False/greedy/dynamic")
@@ -43,8 +43,8 @@ class Parallelism():
         #Step 2. If it does not fit, check if individual items fit on one GPU,
         #if it does allocate a  seperate GPU per item
         #Step 3. If it does not, try layer parallelism across hidden layers
-        #Step 4. If it does not fit, try kernel parallelism across hidden layers
-        #Step 5. For softmax and embedding try kernel parallelism
+        #Step 4. If it does not, try kernel parallelism across hidden layers
+        #Step 5. For softmax and embedding layers, try kernel parallelism
         tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(self.exp_config)
         #tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getTotMemReq(self.exp_config)
         print("Value of M is {.1d}\n"
@@ -139,7 +139,7 @@ class Parallelism():
             self.lp = num_bags
     
     
-        #Find minimum value between A and B that B is divisible by
+    #Find minimum value between A and B that B is divisible by
     def findDiv(self, A, B):
             smallestFactor = -1
             for i in range(A,B+1):

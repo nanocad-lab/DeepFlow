@@ -17,7 +17,7 @@ class Topology:
     e2                      = exp_config.sch_config.kp_embedding_dim2
     p2                      = exp_config.sch_config.kp_projection_dim2
 
-    self.kp_dim             = max(h1, h2, s1, s2, p1, p2, e1, e2)
+    self.kp_dim             = max(h1 * h2, s1 * s2, p1 * p2, e1 * e2)
 
     data                    = (net_config.parallelMap.data and 
                                self.dp > 1)
