@@ -1,5 +1,6 @@
 import ruamel as _ruamel
 import ruamel.yaml as _yaml
+import math
 from collections import namedtuple as _namedtuple
 
 
@@ -56,7 +57,6 @@ class RegConfig:
     self.bank_bw                  = reg_config_dict['bank_bandwidth']
     self.controller_area_per_link = reg_config_dict['controller_area_per_link']
     self.latency                  = reg_config_dict['latency']
-
 
 class NetworkConfig:
   def __init__(self, net_config_dict):
@@ -140,7 +140,25 @@ class SystemHierarchyConfig:
     #A node is an accelerator which can itself be composed of many single cores
     #This number does not say anything about number of cores within an accelerator.
     #It is the number of accelerators per wafer.
-    self.num_nodes_per_wafer =  config_dict['num_nodes_per_wafer'] 
+    self.num_nodes_per_wafer = config_dict['num_nodes_per_wafer'] 
+    #This is redundant but makes my life easier.
+    #tot_nodes = dp * lp * kp
+    self.tot_nodes           = config_dict['tot_nodes']
+    #assert(self.tot_nodes == dp * lp * kp)
+    self.num_wafers          = math.ceil(self.tot_nodes / self.num_nodes_per_wafer)
+    devicePlacement          = DevicePlacementConfig(config_dict['device_placement'], 
+                                                     self.num_wafers, 
+                                                     self.num_nodes_per_wafer)
+
+class DevicePlacementConfig:
+  def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
+    par2Dev = {}
+    for i in range(0, num_wafers):
+        for j in range(0, num_nodes_per_wafer):
+            key = config_dict['w' + str(i)]['n' + str(j)]
+            val = (i,j)
+            par2Dev[key] = val
+
 
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 

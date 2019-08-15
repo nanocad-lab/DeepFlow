@@ -109,8 +109,22 @@ power_breakdown:
       inter_node: 0
 
 system_hierarchy:
-  num_nodes_per_wafer: 128
-    
+    num_nodes_per_wafer: 2
+    tot_nodes: 8
+    device_placement:
+      w0: 
+          n0: 1,1,1 #dp, kp, lp
+          n1: 1,1,2
+      w1:
+          n0: 1,2,1
+          n1: 1,2,2
+      w2:
+          n0: 2,1,1
+          n1: 2,1,2
+      w3:
+          n0: 2,2,1
+          n1: 2,2,2
+
 scheduling_param:
     auto: False 
     dp: 2
