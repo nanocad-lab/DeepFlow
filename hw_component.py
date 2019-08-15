@@ -139,7 +139,7 @@ class DRAM(Memory):
       #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       #self.size                       = min((self.nominal_throughput / self.stack_bw) * self.stack_capacity,
       #                                         self.cell_area / self.area_per_byte)
-      self.size                       = min(self.num_channels * self.stack_capacity)
+      self.size                       = self.num_channels * self.stack_capacity
 
   def calcTileDim(self):
       self.tile_dim = 0
@@ -353,6 +353,7 @@ class SubNetwork(Base):
       self.nominal_voltage            = net_config.nominal_voltage
       self.nominal_energy_per_link    = net_config.nominal_energy_per_link
       self.nominal_area_per_link      = net_config.nominal_area_per_link
+      self.threshold_voltage          = net_config.threshold_voltage
       #self.operating_freq             = net_config.operating_freq
       #self.operating_voltage          = net_config.operating_voltage
       self.num_links_per_mm           = net_config.num_links_per_mm
@@ -360,6 +361,7 @@ class SubNetwork(Base):
       node_width                      = math.sqrt(self.proc_chip_area_budget)
       self.num_links                  = min(self.tot_area/self.nominal_area_per_link, 4*node_width/2*self.num_links_per_mm)
 
+      print(self.tot_area, node_width)
       self.calcOperatingVoltageFrequency()
 
       self.energy_per_bit             = self.calcEnergyPerBit()
@@ -367,8 +369,8 @@ class SubNetwork(Base):
       self.throughput                 = self.calcThroughput()
 
   def calcOperatingVoltageFrequency(self):
-      self.tot_nominal_power_links      = self.nominal_energy_per_link * self.num_links * self.frequency
-      self.operating_voltage            = (math.sqrt(self.tot_power/self.tot_nominal_power_cores))*self.nominal_voltage
+      self.tot_nominal_power_links      = self.nominal_energy_per_link * self.num_links * self.nominal_freq
+      self.operating_voltage            = (math.sqrt(self.tot_power/self.tot_nominal_power_links))*self.nominal_voltage
 
       if self.operating_voltage < (self.threshold_voltage + 0.4):
           self.frequency_scaling_factor = ((self.operating_voltage)/(self.threshold_voltage + 0.4))**2
@@ -394,5 +396,5 @@ class SubNetwork(Base):
         #throughput                     = min(self.power_per_p2p2_connection / self.energy_per_bit,
                                          #    (node_width * self.num_links_per_mm*self.operating_freq), 
                                          #    self.tot) / 8  #in Bytes/sec
-      throughput                       = (self.num_links * self.operating_frequency)/8 
+      throughput                       = (self.num_links * self.operating_freq)/8 
       return throughput
