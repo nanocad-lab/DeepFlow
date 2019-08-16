@@ -134,6 +134,7 @@ class DRAM(Memory):
       #TODO: @Saptadeep, do you know how to capture the DRAM circutry overhead
       self.overhead_area              = 0
       self.cell_area                  = self.tot_area - self.overhead_area
+      assert(self.overhead_area < self.tot_area)
   
   def calcSize(self):
       #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
@@ -176,6 +177,7 @@ class L2(Memory):
       core                            = Core(self.exp_config)
       self.overhead_area              = self.num_banks * core.num_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
+      assert(self.overhead_area < self.tot_area)
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
@@ -224,6 +226,7 @@ class SharedMem(Memory):
       core                            = Core(self.exp_config)
       self.overhead_area              = self.num_banks * core.num_mcu_per_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
+      assert(self.overhead_area < self.tot_area)
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
@@ -274,6 +277,7 @@ class RegMem(Memory):
       #SP: Usually the overhead gets a bit amortized as the bank size grows, but the sense amps etc. also scale with bitline length, so not a straight-forward model. I am assuming about 25% overhead which is reasonable based on ISSCC 2018 SRAM papers from Intel and Samsung 
       self.overhead_area              = self.tot_area * 0.25
       self.cell_area                  = self.tot_area - self.overhead_area
+      assert(self.overhead_area < self.tot_area)
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?

@@ -156,10 +156,17 @@ class DevicePlacementConfig:
     par2Dev = {}
     for i in range(0, num_wafers):
         for j in range(0, num_nodes_per_wafer):
-            key = config_dict['w' + str(i)]['n' + str(j)]
-            val = (i,j)
-            par2Dev[key] = val
-
+            parMapStr = config_dict['w' + str(i)]['n' + str(j)]
+            parMapList = parMapStr.split()
+            parMapId = tuple(i for i in parMapList)
+            hwId = (i,j)
+            if parMapId not in par2Dev:
+                par2Dev[parMapId] = hwId
+            else:
+                print("Duplicate mapping:")
+                print("parallelMapping: {} has been mapped to {} and {}".
+                      format(parMapId, hwId, par2Dev[parMapId]))
+                exit(0)
 
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
