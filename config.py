@@ -76,20 +76,20 @@ class SubNetworkConfig:
     #self.operating_voltage        = config_dict['operating_voltage']
     self.num_links_per_mm         = config_dict['num_links_per_mm']
 
-    self.parallelMap              = ParallelMap(str(config_dict['parallelMap']))
+    #self.parallelMap              = ParallelMap(str(config_dict['parallelMap']))
 
-class ParallelMap:
-  def __init__(self, par2network):
-    self.data     = False
-    self.kernel   = False
-    self.layer    = False
-    if "data" in par2network:
-      self.data   = True
-    if "kernel" in par2network:
-      self.kernel = True
-    if "layer" in par2network:
-      self.layer = True
-
+#class ParallelMap:
+#  def __init__(self, par2network):
+#    self.data     = False
+#    self.kernel   = False
+#    self.layer    = False
+#    if "data" in par2network:
+#      self.data   = True
+#    if "kernel" in par2network:
+#      self.kernel = True
+#    if "layer" in par2network:
+#      self.layer = True
+#
 
 class TechConfig:
   def __init__(self, tech_config_dict):
@@ -147,13 +147,13 @@ class SystemHierarchyConfig:
     self.tot_nodes           = config_dict['tot_nodes']
     #assert(self.tot_nodes == dp * lp * kp)
     self.num_wafers          = math.ceil(self.tot_nodes / self.num_nodes_per_wafer)
-    devicePlacement          = DevicePlacementConfig(config_dict['device_placement'], 
+    self.devicePlacement      = ParallelMap(config_dict['device_placement'], 
                                                      self.num_wafers, 
                                                      self.num_nodes_per_wafer)
 
-class DevicePlacementConfig:
+class ParallelMap:
   def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
-    par2Dev = {}
+    self.par2Dev = {}
     for i in range(0, num_wafers):
         for j in range(0, num_nodes_per_wafer):
             parMapStr = config_dict['w' + str(i)]['n' + str(j)]
@@ -167,7 +167,9 @@ class DevicePlacementConfig:
                 print("parallelMapping: {} has been mapped to {} and {}".
                       format(parMapId, hwId, par2Dev[parMapId]))
                 exit(0)
-
+  def getPar2Dev():
+      return self.par2Dev
+      
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
                           "num_layers", "layer_size", "seq_len", "projection", 
