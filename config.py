@@ -1,5 +1,6 @@
 import ruamel as _ruamel
 import ruamel.yaml as _yaml
+import math
 from collections import namedtuple as _namedtuple
 
 
@@ -57,7 +58,6 @@ class RegConfig:
     self.controller_area_per_link = reg_config_dict['controller_area_per_link']
     self.latency                  = reg_config_dict['latency']
 
-
 class NetworkConfig:
   def __init__(self, net_config_dict):
     self.intra_node               = SubNetworkConfig(net_config_dict['intra_node'])
@@ -76,20 +76,20 @@ class SubNetworkConfig:
     #self.operating_voltage        = config_dict['operating_voltage']
     self.num_links_per_mm         = config_dict['num_links_per_mm']
 
-    self.parallelMap              = ParallelMap(str(config_dict['parallelMap']))
+    #self.parallelMap              = ParallelMap(str(config_dict['parallelMap']))
 
-class ParallelMap:
-  def __init__(self, par2network):
-    self.data     = False
-    self.kernel   = False
-    self.layer    = False
-    if "data" in par2network:
-      self.data   = True
-    if "kernel" in par2network:
-      self.kernel = True
-    if "layer" in par2network:
-      self.layer = True
-
+#class ParallelMap:
+#  def __init__(self, par2network):
+#    self.data     = False
+#    self.kernel   = False
+#    self.layer    = False
+#    if "data" in par2network:
+#      self.data   = True
+#    if "kernel" in par2network:
+#      self.kernel = True
+#    if "layer" in par2network:
+#      self.layer = True
+#
 
 class TechConfig:
   def __init__(self, tech_config_dict):
@@ -141,8 +141,33 @@ class SystemHierarchyConfig:
     #A node is an accelerator which can itself be composed of many single cores
     #This number does not say anything about number of cores within an accelerator.
     #It is the number of accelerators per wafer.
-    self.num_nodes_per_wafer =  config_dict['num_nodes_per_wafer'] 
+    self.num_nodes_per_wafer = config_dict['num_nodes_per_wafer'] 
+    #This is redundant but makes my life easier.
+    self.tot_nodes           = config_dict['tot_nodes']
+    self.num_wafers          = math.ceil(self.tot_nodes / self.num_nodes_per_wafer)
+    self.device_placement    = ParallelMap(config_dict['device_placement'], 
+                                           self.num_wafers, 
+                                           self.num_nodes_per_wafer)
 
+class ParallelMap:
+  def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
+    self.par2Dev = {}
+    for i in range(0, num_wafers):
+        for j in range(0, num_nodes_per_wafer):
+            parMapStr = config_dict['w' + str(i)]['n' + str(j)]
+            parMapList = [int(x) for x in parMapStr.split(',')]
+            parMapId = tuple(i for i in parMapList)
+            hwId = (i,j)
+            if parMapId not in self.par2Dev:
+                self.par2Dev[parMapId] = hwId
+            else:
+                print("Duplicate mapping:")
+                print("parallelMapping: {} has been mapped to {} and {}".
+                      format(parMapId, hwId, self.par2Dev[parMapId]))
+                exit(0)
+  def getPar2Dev():
+      return self.par2Dev
+      
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
                           "num_layers", "layer_size", "seq_len", "projection", 

@@ -13,6 +13,7 @@ class Base:
       self.precision                = exp_config.sw_config.precision
       self.proc_chip_area_budget    = exp_config.area_breakdown.proc_chip_area_budget
       self.TDP                      = exp_config.power_breakdown.TDP
+      self.topology                 = Topology(exp_config)
       self.throughput               = -1
   def calcThroughput(self):
       print("Each class should have its own calcThroughput")
@@ -134,6 +135,7 @@ class DRAM(Memory):
       #TODO: @Saptadeep, do you know how to capture the DRAM circutry overhead
       self.overhead_area              = 0
       self.cell_area                  = self.tot_area - self.overhead_area
+      assert(self.overhead_area < self.tot_area)
   
   def calcSize(self):
       #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
@@ -176,6 +178,7 @@ class L2(Memory):
       core                            = Core(self.exp_config)
       self.overhead_area              = self.num_banks * core.num_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
+      assert(self.overhead_area < self.tot_area)
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
@@ -224,6 +227,7 @@ class SharedMem(Memory):
       core                            = Core(self.exp_config)
       self.overhead_area              = self.num_banks * core.num_mcu_per_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
+      assert(self.overhead_area < self.tot_area)
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
@@ -274,6 +278,7 @@ class RegMem(Memory):
       #SP: Usually the overhead gets a bit amortized as the bank size grows, but the sense amps etc. also scale with bitline length, so not a straight-forward model. I am assuming about 25% overhead which is reasonable based on ISSCC 2018 SRAM papers from Intel and Samsung 
       self.overhead_area              = self.tot_area * 0.25
       self.cell_area                  = self.tot_area - self.overhead_area
+      assert(self.overhead_area < self.tot_area)
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
@@ -300,25 +305,29 @@ class Network(Base):
       self.intra_network              = SubNetwork(exp_config, 
                                                    exp_config.tech_config.network.intra_node,
                                                    exp_config.power_breakdown.network.intra_node,
-                                                   exp_config.area_breakdown.network.intra_node)
+                                                   exp_config.area_breakdown.network.intra_node,
+                                                   'intra')
       self.inter_network              = SubNetwork(exp_config,
                                                    exp_config.tech_config.network.inter_node,
                                                    exp_config.power_breakdown.network.inter_node,
-                                                   exp_config.area_breakdown.network.inter_node)
+                                                   exp_config.area_breakdown.network.inter_node,
+                                                   'inter')
 
 
-      intra_data                      = exp_config.tech_config.network.intra_node.parallelMap.data
-      inter_data                      = exp_config.tech_config.network.inter_node.parallelMap.data
-      data_dim                        = exp_config.sch_config.dp
-      self.data_throughput, self.data_latency = self.calcThroughput(intra_data, inter_data, data_dim)
+      #intra_data                      = exp_config.tech_config.network.intra_node.parallelMap.data
+      #inter_data                      = exp_config.tech_config.network.inter_node.parallelMap.data
+      #data_dim                        = exp_config.sch_config.dp
+      #self.data_throughput, self.data_latency = self.calcThroughput(intra_data, inter_data, data_dim)
+      self.data_throughput, self.data_latency = self.calcThroughput('data')
 
-      intra_layer                     = exp_config.tech_config.network.intra_node.parallelMap.layer
-      inter_layer                     = exp_config.tech_config.network.inter_node.parallelMap.layer
-      lp_dim                          = exp_config.sch_config.lp
-      self.layer_throughput, self.layer_latency = self.calcThroughput(intra_layer, inter_layer, lp_dim)
+      #intra_layer                     = exp_config.tech_config.network.intra_node.parallelMap.layer
+      #inter_layer                     = exp_config.tech_config.network.inter_node.parallelMap.layer
+      #lp_dim                          = exp_config.sch_config.lp
+      #self.layer_throughput, self.layer_latency = self.calcThroughput(intra_layer, inter_layer, lp_dim)
+      self.layer_throughput, self.layer_latency = self.calcThroughput('layer')
 
-      intra_kernel                    = exp_config.tech_config.network.intra_node.parallelMap.kernel
-      inter_kernel                    = exp_config.tech_config.network.inter_node.parallelMap.kernel
+      #intra_kernel                    = exp_config.tech_config.network.intra_node.parallelMap.kernel
+      #inter_kernel                    = exp_config.tech_config.network.inter_node.parallelMap.kernel
       h1                              = exp_config.sch_config.kp_hidden_dim1
       s1                              = exp_config.sch_config.kp_softmax_dim1
       e1                              = exp_config.sch_config.kp_embedding_dim1
@@ -327,27 +336,37 @@ class Network(Base):
       s2                              = exp_config.sch_config.kp_softmax_dim2
       e2                              = exp_config.sch_config.kp_embedding_dim2
       p2                              = exp_config.sch_config.kp_projection_dim2
-      kp_dim                          = max(h1, h2, s1, s2, p1, p2, e1, e2)
-      self.kernel_throughput, self.kernel_latency = self.calcThroughput(intra_kernel, inter_kernel, kp_dim)
+      #kp_dim                          = max(h1 * h2, s1 *s2, p1 * p2, e1 * e2)
+      #self.kernel_throughput, self.kernel_latency = self.calcThroughput(intra_kernel, inter_kernel, kp_dim)
+      self.kernel_throughput, self.kernel_latency = self.calcThroughput('kernel')
 
-  def calcThroughput(self,intra_map, inter_map, sch_parallelism):
-      if intra_map and sch_parallelism > 1:
-          throughput        = self.intra_network.throughput
-          latency           = self.intra_network.latency
-      elif inter_map and sch_parallelism > 1:
-          throughput        = self.inter_network.throughput
-          latency           = self.inter_network.latency
+  def calcThroughput(self, sch_parallelism):
+      if 'data' in sch_parallelism:
+          throughput, latency = self.topology.getDataThroughput(self.intra_network.throughput,
+                                                                self.inter_network.throughput,
+                                                                self.intra_network.latency,
+                                                                self.inter_network.latency)
+      elif 'kernel' in sch_parallelism:
+          throughput, latency = self.topology.getKernelThroughput(self.intra_network.throughput,
+                                                                  self.inter_network.throughput,
+                                                                  self.intra_network.latency,
+                                                                  self.inter_network.latency)
+      elif 'layer' in sch_parallelism:
+          throughput, latency = self.topology.getLayerThroughput(self.intra_network.throughput,
+                                                                 self.inter_network.throughput,
+                                                                 self.intra_network.latency,
+                                                                 self.inter_network.latency)
       else:
           throughput        = 0
           latency           = 0
+
       return throughput, latency 
 
 class SubNetwork(Base):
-  def __init__(self, exp_config, net_config, power_breakdown, area_breakdown):
+  def __init__(self, exp_config, net_config, power_breakdown, area_breakdown, netLevel):
       super().__init__(exp_config)
       self.tot_power                  = power_breakdown * self.TDP
       self.tot_area                   = area_breakdown  * self.proc_chip_area_budget
-      self.topology                   = Topology(net_config, exp_config)
       self.latency                    = net_config.latency
       self.nominal_freq               = net_config.nominal_freq
       self.nominal_voltage            = net_config.nominal_voltage
@@ -357,11 +376,19 @@ class SubNetwork(Base):
       #self.operating_freq             = net_config.operating_freq
       #self.operating_voltage          = net_config.operating_voltage
       self.num_links_per_mm           = net_config.num_links_per_mm
-      self.parallelMap                = net_config.parallelMap
+      self.inter                      = True if netLevel == 'inter' else False
+      self.intra                      = True if netLevel == 'intra' else False
+      #Calculate num_links dedicated to inter or intra network
+      inter_fraction, intra_fraction  = self.topology.get_fractions()
+      perimeter_fraction              = inter_fraction if self.inter else intra_fraction
       node_width                      = math.sqrt(self.proc_chip_area_budget)
-      self.num_links                  = min(self.tot_area/self.nominal_area_per_link, 4*node_width/2*self.num_links_per_mm)
+      perimeter                       = node_width * 4
+      self.num_links                  = int(min(self.tot_area / 
+                                                self.nominal_area_per_link, 
+                                                perimeter_fraction * 
+                                                perimeter * 
+                                                self.num_links_per_mm))
 
-      print(self.tot_area, node_width)
       self.calcOperatingVoltageFrequency()
 
       self.energy_per_bit             = self.calcEnergyPerBit()
@@ -369,32 +396,31 @@ class SubNetwork(Base):
       self.throughput                 = self.calcThroughput()
 
   def calcOperatingVoltageFrequency(self):
-      self.tot_nominal_power_links      = self.nominal_energy_per_link * self.num_links * self.nominal_freq
-      self.operating_voltage            = (math.sqrt(self.tot_power/self.tot_nominal_power_links))*self.nominal_voltage
-
-      if self.operating_voltage < (self.threshold_voltage + 0.4):
-          self.frequency_scaling_factor = ((self.operating_voltage)/(self.threshold_voltage + 0.4))**2
-          self.operating_voltage        = self.threshold_voltage + 0.4
+      if self.inter and self.topology.interNodeDegree == 0:
+          self.operating_freq             = 0
+          self.operating_voltage          = 0
+      elif self.intra and self.topology.intraNodeDegree == 0:
+          self.operating_freq             = 0
+          self.operating_voltage          = 0
       else:
-          self.frequency_scaling_factor = 1 
+          self.tot_nominal_power_links      = self.nominal_energy_per_link * self.num_links * self.nominal_freq
+          self.operating_voltage            = (math.sqrt(self.tot_power/self.tot_nominal_power_links))*self.nominal_voltage
 
-      self.operating_freq               = self.frequency_scaling_factor * (self.nominal_freq * (self.operating_voltage - self.threshold_voltage)**2 * 
-                                          self.nominal_voltage / (self.operating_voltage * (self.nominal_voltage- self.threshold_voltage)**2))
+          if self.operating_voltage < (self.threshold_voltage + 0.4):
+              self.frequency_scaling_factor = ((self.operating_voltage)/(self.threshold_voltage + 0.4))**2
+              self.operating_voltage        = self.threshold_voltage + 0.4
+          else:
+              self.frequency_scaling_factor = 1 
+
+          self.operating_freq               = self.frequency_scaling_factor * (self.nominal_freq * (self.operating_voltage - self.threshold_voltage)**2 * 
+                                              self.nominal_voltage / (self.operating_voltage * (self.nominal_voltage- self.threshold_voltage)**2))
 
   def calcEnergyPerBit(self):
-      self.operating_energy_per_link  = (self.nominal_energy_per_link * 
+      self.operating_energy_per_link    = (self.nominal_energy_per_link * 
                                          (self.operating_voltage / self.nominal_voltage)**2)
-      energy_per_bit                  = self.operating_energy_per_link
+      energy_per_bit                    = self.operating_energy_per_link
       return energy_per_bit
 
   def calcThroughput(self):
-      if self.topology.num_links == 0:
-        throughput                = 0
-      else:
-        self.power_per_p2p2_connection = self.tot_power / self.topology.num_links
-        node_width                     = math.sqrt(self.proc_chip_area_budget)
-        #throughput                     = min(self.power_per_p2p2_connection / self.energy_per_bit,
-                                         #    (node_width * self.num_links_per_mm*self.operating_freq), 
-                                         #    self.tot) / 8  #in Bytes/sec
-      throughput                       = (self.num_links * self.operating_freq)/8 
+      throughput                      = (self.num_links * self.operating_freq)/8 
       return throughput

@@ -133,7 +133,7 @@ class TimeCalculation:
             "Register Memory Bandwidth: {:.1f} TB/s\n"
             "Register Size: {:.1f} MB\n"
             "Interconnection Bandwidth (Data Dimension): {:.1f} GB/s"
-            .format(self.core.nominal_throughput/1e12, 
+            .format(self.core.operating_throughput/1e12, 
                     self.mm.dynamic_throughput/(gigaByte), 
                     self.mm.size/(gigaByte), 
                     self.L2Mem.dynamic_throughput/(teraByte), 
