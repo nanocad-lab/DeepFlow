@@ -143,13 +143,11 @@ class SystemHierarchyConfig:
     #It is the number of accelerators per wafer.
     self.num_nodes_per_wafer = config_dict['num_nodes_per_wafer'] 
     #This is redundant but makes my life easier.
-    #tot_nodes = dp * lp * kp
     self.tot_nodes           = config_dict['tot_nodes']
-    #assert(self.tot_nodes == dp * lp * kp)
     self.num_wafers          = math.ceil(self.tot_nodes / self.num_nodes_per_wafer)
-    self.devicePlacement      = ParallelMap(config_dict['device_placement'], 
-                                                     self.num_wafers, 
-                                                     self.num_nodes_per_wafer)
+    self.device_placement    = ParallelMap(config_dict['device_placement'], 
+                                           self.num_wafers, 
+                                           self.num_nodes_per_wafer)
 
 class ParallelMap:
   def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
@@ -157,15 +155,15 @@ class ParallelMap:
     for i in range(0, num_wafers):
         for j in range(0, num_nodes_per_wafer):
             parMapStr = config_dict['w' + str(i)]['n' + str(j)]
-            parMapList = parMapStr.split()
+            parMapList = [int(x) for x in parMapStr.split(',')]
             parMapId = tuple(i for i in parMapList)
             hwId = (i,j)
-            if parMapId not in par2Dev:
-                par2Dev[parMapId] = hwId
+            if parMapId not in self.par2Dev:
+                self.par2Dev[parMapId] = hwId
             else:
                 print("Duplicate mapping:")
                 print("parallelMapping: {} has been mapped to {} and {}".
-                      format(parMapId, hwId, par2Dev[parMapId]))
+                      format(parMapId, hwId, self.par2Dev[parMapId]))
                 exit(0)
   def getPar2Dev():
       return self.par2Dev
