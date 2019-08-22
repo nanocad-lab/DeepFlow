@@ -1,5 +1,5 @@
 import math
-
+import numpy as np
 import util
 from topology import Topology
 
@@ -20,6 +20,11 @@ class Base:
   def getThroughput(self):
       assert(self.throughput != -1)
       return self.throughput
+  def solve_poly(self, p0, p1, p2, p3):
+    #solve p0.x^3 + p1.x^2 + p2.x + p3 = 0
+    roots = np.roots([p3, p2, p1, p0]);
+    real_roots = roots.real[abs(roots.imag)<1e-10] # where I chose 1-e10 as a threshold
+    return real_roots[0]
 
 class Memory(Base):
   def __init__(self, exp_config):
@@ -71,19 +76,28 @@ class Core(Base):
       #self.calcEnergyPerUnit()
       self.calcThroughput()
 
+
   def calcOperatingVoltageFrequency(self):
-      self.tot_nominal_power_cores      = self.nominal_power_per_mcu * self.num_mcu
-      self.operating_voltage            = (math.sqrt(self.tot_power/self.tot_nominal_power_cores))*self.nominal_voltage
+      self.nominal_power                = self.nominal_power_per_mcu * self.num_mcu
+      #self.operating_voltage           = (math.sqrt(self.tot_power/self.nominal_power)) * 
+      #                                    self.nominal_voltage
+      self.operating_voltage            = self.solve_poly(p0 = 1, 
+                                                          p1 = -2 * self.threshold_voltage, 
+                                                          p2 = self.threshold_voltage**2, 
+                                                          p3 = -1 * self.tot_power / self.nominal_power * self.nominal_voltage * (self.nominal_voltage - self.threshold_voltage)**2); 
 
+      self.frequency_scaling_factor = 1 
       if self.operating_voltage < (self.threshold_voltage + 0.2):
-          self.frequency_scaling_factor = ((self.operating_voltage)/(self.threshold_voltage + 0.2))**2
-          self.operating_voltage        = self.threshold_voltage + 0.2
-      else:
-          self.frequency_scaling_factor = 1 
+          #self.frequency_scaling_factor = ((self.operating_voltage) / (self.threshold_voltage + 0.2))**2
+          self.scaled_voltage           = self.threshold_voltage + 0.2
+          self.frequency_scaling_factor = (((self.scaled_voltage - self.threshold_voltage)**2 / (self.scaled_voltage)) /
+                                           ((self.operating_voltage - self.threshold_voltage)**2 / self.operating_voltage)) 
+          self.operating_voltage        = self.scaled_voltage
 
-      self.operating_freq               = self.frequency_scaling_factor * (self.nominal_freq * (self.operating_voltage - self.threshold_voltage)**2 * 
-                                          self.nominal_voltage / (self.operating_voltage * (self.nominal_voltage- self.threshold_voltage)**2))
-
+      #self.operating_freq               = self.frequency_scaling_factor * (self.nominal_freq * (self.operating_voltage - self.threshold_voltage)**2 * 
+      #                                    self.nominal_voltage / (self.operating_voltage * (self.nominal_voltage- self.threshold_voltage)**2))
+      
+      self.operating_freq               = self.frequency_scaling_factor * self.nominal_freq
 
   def calcEnergyPerUnit(self):
       self.nominal_energy_per_flop      = (self.nominal_energy_per_mcu / 
