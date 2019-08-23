@@ -65,7 +65,6 @@ class NetworkConfig:
 
 class SubNetworkConfig:
   def __init__(self, config_dict):
-    self.topology                 = config_dict['topology']
     self.latency                  = config_dict['latency']
     self.nominal_freq             = config_dict['nominal_frequency']
     self.nominal_voltage          = config_dict['nominal_voltage']
@@ -110,6 +109,12 @@ class AreaBreakdownConfig:
     self.reg_mem = config_dict['reg_mem']
     self.node_area_budget = config_dict['node_area_budget']
     self.network = NetworkAreaConfig(config_dict['network'])
+
+class PerimeterBreakDownConfig:
+  def __init__(self, config_dict):
+    self.inter_network = config_dict['inter_network']
+    self.intra_network = config_dict['intra_network']
+    self.memory = config_dict['memory']
 
 class NetworkAreaConfig:
   def __init__(self, config_dict):
@@ -194,7 +199,7 @@ SchedulingConfig = _namedtuple("scheduling_param", ["auto",
 
 FullConfig = _namedtuple("FullConfig",["model_config", "sw_config",
                          "tech_config", "power_breakdown", "sch_config", 
-                         "area_breakdown", "system_config"])
+                         "area_breakdown", "perimeter_config", "system_config"])
 
 def convert(d):
   for key1, val1 in d.items():
@@ -254,9 +259,11 @@ def parse_config(filename):
   tech_config = TechConfig(config_dict['tech_param'])
   power_config = PowerBreakdownConfig(config_dict['power_breakdown'])
   area_config = AreaBreakdownConfig(config_dict['area_breakdown'])
+  perimeter_config = PerimeterBreakdownConfig(config_dict['perimeter_breakdown'])
   system_config = SystemHierarchyConfig(config_dict['system_hierarchy'])
 
   return FullConfig(model_config=model_config, sw_config=sw_config, 
                     sch_config=sch_config, tech_config=tech_config, 
                     power_breakdown=power_config, area_breakdown=area_config,
+                    perimeter_breakdown=perimeter_config,
                     system_config=system_config)
