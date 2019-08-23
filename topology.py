@@ -130,9 +130,9 @@ class Topology:
         intraNodeDegree = 0
         for i in range(0, self.tot_nodes):
           if (self.adj[nid][i] == 1):
-            interNodeDegree = interNodeDegree + 1
-          elif (self.adj[nid][i] == 2):
             intraNodeDegree = intraNodeDegree + 1
+          elif (self.adj[nid][i] == 2):
+            interNodeDegree = interNodeDegree + 1
         if (interNodeDegree > max_interNodeDegree):
           max_interNodeDegree = interNodeDegree
         if (intraNodeDegree > max_intraNodeDegree):

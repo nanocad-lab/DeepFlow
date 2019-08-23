@@ -132,7 +132,8 @@ class TimeCalculation:
             "Shared Memory Size: {:.1f} MB\n"
             "Register Memory Bandwidth: {:.1f} TB/s\n"
             "Register Size: {:.1f} MB\n"
-            "Interconnection Bandwidth (Data Dimension): {:.1f} GB/s"
+            "Intra-node Bandwidth: {:.1f} GB/s\n"
+            "Inter-node Bandwidth: {:.1f} GB/s"
             .format(self.core.operating_throughput/1e12, 
                     self.mm.dynamic_throughput/(gigaByte), 
                     self.mm.size/(gigaByte), 
@@ -142,8 +143,8 @@ class TimeCalculation:
                     self.sharedMem.size/(megaByte),
                     self.regMem.dynamic_throughput/(teraByte),
                     self.regMem.size/(megaByte),
-                    self.IBD/(gigaByte)))
-       
+                    self.network.intra_network.throughput/(gigaByte),
+                    self.network.inter_network.throughput/(gigaByte)))
 
       M = self.mem_size
       tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
