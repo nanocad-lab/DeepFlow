@@ -462,6 +462,10 @@ class SubNetwork(Base):
       energy_per_bit                    = self.operating_energy_per_link
       return energy_per_bit
 
+  #Return P2P bw
   def calcThroughput(self):
-      throughput                      = (self.num_links * self.operating_freq)/8 
+      degree                            = self.topology.intraNodeDegree if self.intra else self.topology.interNodeDegree
+      throughput                        = 0
+      if degree > 0 :
+        throughput                        = (self.num_links * self.operating_freq)/(8 * degree) 
       return throughput

@@ -37,10 +37,16 @@ class Topology:
     self.layer_intra        = True;
 
 
-    self.mem_frac         = exp_config.perimeter_breakdown.DRAM
+    self.mem_frac           = exp_config.perimeter_breakdown.DRAM
     self.inter_frac         = exp_config.perimeter_breakdown.inter_node
-    self.intra_frac         = exp_config.perimeter_breakdown.inter_node
+    self.intra_frac         = exp_config.perimeter_breakdown.intra_node
 
+    self.createAdjacancyMatrix(kp = self.kp_dim, lp = self.lp_dim, dp = self.dp_dim);
+    self.interNodeDegree, self.intraNodeDegree = self.findMaxDegree()
+    
+    self.intra_par          = True if self.intraNodeDegree > 0 else False
+    self.inter_par          = True if self.interNodeDegree > 0 else False
+  
     #Verify system_hierarchy configuration is valid
     try:
       self.sanityCheckPerimeterBreakdown()
@@ -49,15 +55,13 @@ class Topology:
             "{}".format(e), flush=True)
       _sys.exit(0)
     
-    self.createAdjacancyMatrix(kp = self.kp_dim, lp = self.lp_dim, dp = self.dp_dim);
-    self.interNodeDegree, self.intraNodeDegree = self.findMaxDegree()
-  
+
   def sanityCheckPerimeterBreakdown(self):
-      assert( self.mem_frac + self.inter_frac + self.intra_frac == 1)
+      assert( self.mem_frac + self.inter_frac + self.intra_frac == 1), "perimeter fractions are not adding up to 1 (current sum = {})".format(self.mem_frac + self.inter_frac + self.intra_frac)
       if self.inter_frac > 0: 
-          assert (self.dp_dim * self.kp_dim * self.lp_dim > 1), "Can't assign inter_node perimeter breakdown > 0 while there are no parallelism (dp = 1, kp = 1, lp = 1)"
+          assert (self.inter_par), "Can't assign inter_node perimeter breakdown > 0 while there are no inter parallelism"
       if self.intra_frac > 0:
-          assert (self.dp_dim * self.kp_dim * self.lp_dim > 1), "Can't assign inter_node perimeter breakdown > 0 while there are no parallelism (dp = 1, kp = 1, lp = 1)"
+          assert (self.intra_par), "Can't assign intra_node perimeter breakdown > 0 while there are no intra parallelism"
 
   
   def sanityCheckSysHierarchy(self):
@@ -151,9 +155,9 @@ class Topology:
           elif (self.adj[nid][i] == 2):
             interNodeDegree = interNodeDegree + 1
         if (interNodeDegree > max_interNodeDegree):
-          max_interNodeDegree = interNodeDegree
+            max_interNodeDegree = interNodeDegree
         if (intraNodeDegree > max_intraNodeDegree):
-          max_intraNodeDegree = intraNodeDegree
+            max_intraNodeDegree = intraNodeDegree
             
     return max_interNodeDegree, max_intraNodeDegree
 
@@ -162,16 +166,16 @@ class Topology:
 
   #get P2P bandwidth between data shards
   def getDataThroughput(self, intra_bw, inter_bw, intra_lat, inter_lat):
-    return ((intra_bw/self.intraNodeDegree, intra_lat) if self.data_intra 
-             else (inter_bw/self.interNodeDegree, inter_lat))
+    return ((intra_bw, intra_lat) if self.data_intra 
+             else (inter_bw, inter_lat))
 
   #get P2P bandwidth between kernel shards
   def getKernelThroughput(self, intra_bw, inter_bw, intra_lat, inter_lat):
-    return ((intra_bw/self.intraNodeDegree, intra_lat) if self.kernel_intra 
-            else (inter_bw/self.interNodeDegree, inter_lat))
+    return ((intra_bw, intra_lat) if self.kernel_intra 
+            else (inter_bw, inter_lat))
 
   #get P2P bandwidth between layer shards
   def getLayerThroughput(self, intra_bw, inter_bw, intra_lat, inter_lat):
-    return ((intra_bw/self.intraNodeDegree, intra_lat) if self.layer_intra 
-            else (inter_bw/self.interNodeDegree, inter_lat))
+    return ((intra_bw, intra_lat) if self.layer_intra 
+            else (inter_bw, inter_lat))
 
