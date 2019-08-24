@@ -21,6 +21,7 @@ tech_param:
         nominal_frequency: 1.38e9
         nominal_voltage: 1 
         threshold_voltage: 0.25 
+        margin_voltage: 0.2
         operating_area_per_mcu: 1
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
@@ -32,6 +33,10 @@ tech_param:
         area_per_stack: 100 #mm2
         latency: 50e-9
         mem_ctrl_area: 2 #mm2 
+        nominal_frequency: 1.38e9
+        nominal_voltage: 0.85 
+        threshold_voltage: 0.25 
+        margin_voltage: 0.6
     L2:
         dynamic_energy_per_bit: 2.28e-15
         static_power_per_bit: 0
@@ -60,24 +65,28 @@ tech_param:
         controller_power_per_link: 0.04 #W
         latency: 0 
     network:
+        num_links_per_mm: 100
         intra_node:
           latency: 16e-7 
           nominal_frequency: 7.5e9
           nominal_voltage: 1
           nominal_energy_per_link: 2e-12
           nominal_area_per_link: 10e-6
-          num_links_per_mm: 100
+          #num_links_per_mm: 100
           threshold_voltage: 0.25
+          margin_voltage: 0.4
         inter_node:
           latency: 16e-7
           nominal_frequency: 7.5e9
           nominal_voltage: 1
           nominal_energy_per_link: 10e-12
           nominal_area_per_link: 10e-6
-          num_links_per_mm: 40
+          #num_links_per_mm: 40
           threshold_voltage: 0.25
+          margin_voltage: 0.2
 
 area_breakdown:
+    node_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
     core: 0.3
     L2: 0.2
@@ -87,7 +96,6 @@ area_breakdown:
     network:
       intra_node: 0.1
       inter_node: 0.01
-    node_area_budget: 1230 #mm2
 
 power_breakdown:
     TDP: 300
@@ -101,9 +109,9 @@ power_breakdown:
       inter_node: 0.01
 
 perimeter_breakdown:
-  memory: 0.8  
-  inter_network: 0.1
-  intra_network: 0.1
+  DRAM: 0.8  
+  inter_node: 0.1
+  intra_node: 0.1
 
 system_hierarchy:
     num_nodes_per_wafer: 2

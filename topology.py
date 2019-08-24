@@ -36,12 +36,29 @@ class Topology:
     self.kernel_intra       = True;
     self.layer_intra        = True;
 
-    self.createAdjacancyMatrix(kp = self.kp_dim, lp = self.lp_dim, dp = self.dp_dim);
 
+    self.mem_frac         = exp_config.perimeter_breakdown.DRAM
+    self.inter_frac         = exp_config.perimeter_breakdown.inter_node
+    self.intra_frac         = exp_config.perimeter_breakdown.inter_node
+
+    #Verify system_hierarchy configuration is valid
+    try:
+      self.sanityCheckPerimeterBreakdown()
+    except Exception as e:
+      print("Unexpected error occurred during sanity check of perimeter breakdown:\n"
+            "{}".format(e), flush=True)
+      _sys.exit(0)
+    
+    self.createAdjacancyMatrix(kp = self.kp_dim, lp = self.lp_dim, dp = self.dp_dim);
     self.interNodeDegree, self.intraNodeDegree = self.findMaxDegree()
-    self.inter_frac         = self.interNodeDegree / (self.intraNodeDegree + self.interNodeDegree)
-    self.intra_frac         = self.intraNodeDegree / (self.intraNodeDegree + self.interNodeDegree)
   
+  def sanityCheckPerimeterBreakdown(self):
+      assert( self.mem_frac + self.inter_frac + self.intra_frac == 1)
+      if self.inter_frac > 0: 
+          assert (self.dp_dim * self.kp_dim * self.lp_dim > 1), "Can't assign inter_node perimeter breakdown > 0 while there are no parallelism (dp = 1, kp = 1, lp = 1)"
+      if self.intra_frac > 0:
+          assert (self.dp_dim * self.kp_dim * self.lp_dim > 1), "Can't assign inter_node perimeter breakdown > 0 while there are no parallelism (dp = 1, kp = 1, lp = 1)"
+
   
   def sanityCheckSysHierarchy(self):
       assert (self.tot_nodes == self.dp_dim * self.kp_dim * self.lp_dim), "tot_nodes != dp * kp * lp"
@@ -118,11 +135,11 @@ class Topology:
                       (1 if (start_point_wafer_id == end_point_wafer_id) else 2)
           if start_point_wafer_id != end_point_wafer_id:
             self.data_intra = False;
-  
+
+  #Across all wafers, across all nodes, find maximum inter and intra node degree
   def findMaxDegree(self):
     max_interNodeDegree = 0
     max_intraNodeDegree = 0
-    #Across all wafers, across all nodes, find maximum inter and intra node degree
     for wid in range(0, self.num_wafers):
       for cid in range(0, self.num_nodes_per_wafer):
         nid = self.node_id((wid,cid));
@@ -142,13 +159,19 @@ class Topology:
 
   def get_fractions(self):
     return self.inter_frac, self.intra_frac
-  
+
+  #get P2P bandwidth between data shards
   def getDataThroughput(self, intra_bw, inter_bw, intra_lat, inter_lat):
-    return ((intra_bw, intra_lat) if self.data_intra else (inter_bw, inter_lat))
+    return ((intra_bw/self.intraNodeDegree, intra_lat) if self.data_intra 
+             else (inter_bw/self.interNodeDegree, inter_lat))
 
+  #get P2P bandwidth between kernel shards
   def getKernelThroughput(self, intra_bw, inter_bw, intra_lat, inter_lat):
-    return ((intra_bw, intra_lat) if self.kernel_intra else (inter_bw, inter_lat))
+    return ((intra_bw/self.intraNodeDegree, intra_lat) if self.kernel_intra 
+            else (inter_bw/self.interNodeDegree, inter_lat))
 
+  #get P2P bandwidth between layer shards
   def getLayerThroughput(self, intra_bw, inter_bw, intra_lat, inter_lat):
-    return ((intra_bw, intra_lat) if self.layer_intra else (inter_bw, inter_lat))
+    return ((intra_bw/self.intraNodeDegree, intra_lat) if self.layer_intra 
+            else (inter_bw/self.interNodeDegree, inter_lat))
 

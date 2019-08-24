@@ -12,6 +12,7 @@ class CoreConfig:
     self.nominal_frequency = core_config_dict['nominal_frequency']
     self.nominal_voltage = core_config_dict['nominal_voltage']
     self.threshold_voltage = core_config_dict['threshold_voltage']
+    self.margin_voltage = core_config_dict['margin_voltage']
     #self.operating_frequency = core_config_dict['operating_frequency']
     #self.operating_voltage = core_config_dict['operating_voltage']
     self.operating_area_per_mcu = core_config_dict['operating_area_per_mcu']
@@ -27,6 +28,10 @@ class DRAMConfig:
     self.area_per_stack = mem_config_dict['area_per_stack']
     self.latency = mem_config_dict['latency']
     self.mem_ctrl_area = mem_config_dict['mem_ctrl_area']
+    self.nominal_frequency = mem_config_dict['nominal_frequency']
+    self.nominal_voltage = mem_config_dict['nominal_voltage']
+    self.threshold_voltage = mem_config_dict['threshold_voltage']
+    self.margin_voltage = mem_config_dict['margin_voltage']
 
 class L2Config:
   def __init__(self, l2_config_dict):
@@ -60,6 +65,7 @@ class RegConfig:
 
 class NetworkConfig:
   def __init__(self, net_config_dict):
+    self.num_links_per_mm         = net_config_dict['num_links_per_mm']
     self.intra_node               = SubNetworkConfig(net_config_dict['intra_node'])
     self.inter_node               = SubNetworkConfig(net_config_dict['inter_node'])
 
@@ -71,9 +77,10 @@ class SubNetworkConfig:
     self.nominal_energy_per_link  = config_dict['nominal_energy_per_link']
     self.nominal_area_per_link    = config_dict['nominal_area_per_link']
     self.threshold_voltage        = config_dict['threshold_voltage']
+    self.margin_voltage           = config_dict['margin_voltage']
     #self.operating_freq           = config_dict['operating_frequency']
     #self.operating_voltage        = config_dict['operating_voltage']
-    self.num_links_per_mm         = config_dict['num_links_per_mm']
+    #self.num_links_per_mm         = config_dict['num_links_per_mm']
 
     #self.parallelMap              = ParallelMap(str(config_dict['parallelMap']))
 
@@ -110,11 +117,11 @@ class AreaBreakdownConfig:
     self.node_area_budget = config_dict['node_area_budget']
     self.network = NetworkAreaConfig(config_dict['network'])
 
-class PerimeterBreakDownConfig:
+class PerimeterBreakdownConfig:
   def __init__(self, config_dict):
-    self.inter_network = config_dict['inter_network']
-    self.intra_network = config_dict['intra_network']
-    self.memory = config_dict['memory']
+    self.DRAM = config_dict['DRAM']
+    self.inter_node = config_dict['inter_node']
+    self.intra_node = config_dict['intra_node']
 
 class NetworkAreaConfig:
   def __init__(self, config_dict):
@@ -199,7 +206,7 @@ SchedulingConfig = _namedtuple("scheduling_param", ["auto",
 
 FullConfig = _namedtuple("FullConfig",["model_config", "sw_config",
                          "tech_config", "power_breakdown", "sch_config", 
-                         "area_breakdown", "perimeter_config", "system_config"])
+                         "area_breakdown", "perimeter_breakdown", "system_config"])
 
 def convert(d):
   for key1, val1 in d.items():
