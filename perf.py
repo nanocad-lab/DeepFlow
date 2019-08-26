@@ -322,12 +322,12 @@ class TimeCalculation:
              reload_AB = 1
              reload_BC = 1
              reload_AC = 1
+             
+             As = X1
+             Bs = X1
+             Cs = X1
             
              if X2 > 0:
-                As = X1
-                Bs = X1
-                Cs = X1
-                
                 if X2 > X1:
                     X2 = X1
 
@@ -340,14 +340,14 @@ class TimeCalculation:
                     reload_BC = math.ceil(As / X2)
                     reload_AC = 1
 
-             num_repeat = A/X1 * C/X1
+                num_repeat = A/X1 * C/X1
              
-             GEMM_l2mem = (num_repeat *
-                           self.core.num_bundle * 
-                           (As * Bs * reload_AB + 
-                            Bs * Cs * reload_BC + 
-                            As * Cs * reload_AC) *
-                            self.precision)
+                GEMM_l2mem = (num_repeat *
+                              self.core.num_bundle * 
+                              (As * Bs * reload_AB + 
+                               Bs * Cs * reload_BC + 
+                               As * Cs * reload_AC) *
+                               self.precision)
              if self.debug:
                 print("Matrix dimension at Shared Memory: {:,} x {:,} x {:,}".format(X2, X2, X2))
 
@@ -359,12 +359,11 @@ class TimeCalculation:
              reload_BC = 1
              reload_AC = 1
              
+             Ar = X2
+             Br = X2 
+             Cr = X2
             
              if X3 > 0:
-                Ar = X2
-                Br = X2 
-                Cr = X2
-
                 if X3 > X2:
                     X3 = X2
 
@@ -374,15 +373,15 @@ class TimeCalculation:
                     reload_AC = 0 # Results are usually directly written to higher-level 
                 else:
                     reload_AB = math.ceil(Cr / X3)
-                    reload_BC = math.ceil(As / X3)
+                    reload_BC = math.ceil(Ar / X3)
                     reload_AC = 0
              
-             num_repeat  *= As/X2 * Cs/X2 
-             GEMM_smem    = (num_repeat *
-                             (Ar * Br * reload_AB + 
-                              Br * Cr * reload_BC + 
-                              Ar * Cr * reload_AC) * 
-                              self.precision)
+                num_repeat  *= As/X2 * Cs/X2 
+                GEMM_smem    = (num_repeat *
+                                (Ar * Br * reload_AB + 
+                                 Br * Cr * reload_BC + 
+                                 Ar * Cr * reload_AC) * 
+                                 self.precision)
 
              if self.debug:
                 print("Matrix dimension at Register Memory: {:,} x {:,} x {:,}".format(X3, X3, X3))
