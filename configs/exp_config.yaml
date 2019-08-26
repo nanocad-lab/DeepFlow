@@ -25,7 +25,7 @@ tech_param:
         operating_area_per_mcu: 1
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
-        dynamic_energy_per_bit: 3.6e-12
+        dynamic_energy_per_bit: 6e-12
         static_power_per_bit: 0.4e-12
         area_per_bit: 11e-10 #mm2
         stack_bandwidth: 225 GB/s
@@ -65,7 +65,7 @@ tech_param:
         controller_power_per_link: 0.04 #W
         latency: 0 
     network:
-        num_links_per_mm: 100
+        num_links_per_mm: 10
         intra_node:
           latency: 16e-7 
           nominal_frequency: 7.5e9
@@ -95,23 +95,23 @@ area_breakdown:
     DRAM: 0.1
     network:
       intra_node: 0.1
-      inter_node: 0.01
+      inter_node: 0.0
 
 power_breakdown:
     TDP: 300
     core: 0.625
     DRAM: 0.155
     L2: 0.05
-    shared_mem: 0.028
-    reg_mem: 0.15
+    shared_mem: 0.08
+    reg_mem: 0.08
     network:
-      intra_node: 0.2
-      inter_node: 0.01
+      intra_node: 0.01
+      inter_node: 0.0
 
 perimeter_breakdown:
-  DRAM: 0.8  
-  inter_node: 0.1
-  intra_node: 0.1
+  DRAM: 0.5
+  inter_node: 0.0
+  intra_node: 0.5
 
 system_hierarchy:
     num_nodes_per_wafer: 2
