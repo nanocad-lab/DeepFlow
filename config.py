@@ -116,12 +116,19 @@ class AreaBreakdownConfig:
     self.reg_mem = config_dict['reg_mem']
     self.node_area_budget = config_dict['node_area_budget']
     self.network = NetworkAreaConfig(config_dict['network'])
+    tot_sum = (self.core + self.DRAM + self.L2 + self.shared_mem + 
+               self.reg_mem + self.network.inter_node + self.network.intra_node)
+    assert (tot_sum == 1), \
+            "Error: Area fractions are not adding up to 1 (current sum = {})".format(tot_sum)
 
 class PerimeterBreakdownConfig:
   def __init__(self, config_dict):
     self.DRAM = config_dict['DRAM']
     self.inter_node = config_dict['inter_node']
     self.intra_node = config_dict['intra_node']
+    tot_sum = self.DRAM + self.inter_node + self.intra_node
+    assert (tot_sum == 1), \
+            "Error: Perimeter fractions are not adding up to 1 (current sum = {})".format(tot_sum)
 
 class NetworkAreaConfig:
   def __init__(self, config_dict):
@@ -138,6 +145,10 @@ class PowerBreakdownConfig:
     self.reg_mem = config_dict['reg_mem']
     self.network = NetworkPowerConfig(config_dict['network'])
 
+    tot_sum = (self.core + self.DRAM + self.L2 + self.shared_mem + 
+               self.reg_mem + self.network.inter_node + self.network.intra_node)
+    assert (tot_sum == 1), \
+            "Error: Power fractions are not adding up to 1 (current sum = {})".format(tot_sum)
 
 class NetworkPowerConfig:
   def __init__(self, config_dict):
