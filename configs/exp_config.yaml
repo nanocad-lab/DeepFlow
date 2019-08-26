@@ -15,18 +15,17 @@ sw_param:
 
 tech_param:
     core:
-        nominal_power_per_mcu: 1e-11
+        nominal_power_per_mcu: 1e-3
         nominal_flop_rate_per_mcu: 42
         nominal_area_per_mcu: 0.9
         nominal_frequency: 1.38e9
         nominal_voltage: 1 
-        #operating_frequency: 1.38e9
         threshold_voltage: 0.25 
-        #operating_voltage: 1
+        margin_voltage: 0.2
         operating_area_per_mcu: 1
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
-        dynamic_energy_per_bit: 3.6e-12
+        dynamic_energy_per_bit: 6e-12
         static_power_per_bit: 0.4e-12
         area_per_bit: 11e-10 #mm2
         stack_bandwidth: 225 GB/s
@@ -34,6 +33,10 @@ tech_param:
         area_per_stack: 100 #mm2
         latency: 50e-9
         mem_ctrl_area: 2 #mm2 
+        nominal_frequency: 1.38e9
+        nominal_voltage: 0.85 
+        threshold_voltage: 0.25 
+        margin_voltage: 0.6
     L2:
         dynamic_energy_per_bit: 2.28e-15
         static_power_per_bit: 0
@@ -62,32 +65,28 @@ tech_param:
         controller_power_per_link: 0.04 #W
         latency: 0 
     network:
+        num_links_per_mm: 10
         intra_node:
-          topology: "torus"
           latency: 16e-7 
           nominal_frequency: 7.5e9
           nominal_voltage: 1
           nominal_energy_per_link: 2e-12
           nominal_area_per_link: 10e-6
-          #operating_frequency: 7.5e9
-          #operating_voltage: 1
-          num_links_per_mm: 100
+          #num_links_per_mm: 100
           threshold_voltage: 0.25
-          parallelMap: data, layer, kernel
+          margin_voltage: 0.4
         inter_node:
-          topology: "torus"
           latency: 16e-7
           nominal_frequency: 7.5e9
           nominal_voltage: 1
           nominal_energy_per_link: 10e-12
           nominal_area_per_link: 10e-6
-          #operating_frequency: 7.5e9
-          #operating_voltage: 1
-          num_links_per_mm: 40
+          #num_links_per_mm: 40
           threshold_voltage: 0.25
-          parallelMap:  
+          margin_voltage: 0.2
 
 area_breakdown:
+    node_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
     core: 0.3
     L2: 0.2
@@ -96,27 +95,31 @@ area_breakdown:
     DRAM: 0.1
     network:
       intra_node: 0.1
-      inter_node: 0.01
-    node_area_budget: 1230 #mm2
+      inter_node: 0.0
 
 power_breakdown:
     TDP: 300
     core: 0.625
     DRAM: 0.155
     L2: 0.05
-    shared_mem: 0.028
-    reg_mem: 0.15
+    shared_mem: 0.08
+    reg_mem: 0.08
     network:
-      intra_node: 0.2
-      inter_node: 0.01
+      intra_node: 0.01
+      inter_node: 0.0
+
+perimeter_breakdown:
+  DRAM: 0.5
+  inter_node: 0.0
+  intra_node: 0.5
 
 system_hierarchy:
-    num_nodes_per_wafer: 1
-    tot_nodes: 1
+    num_nodes_per_wafer: 2
+    tot_nodes: 2
     device_placement:
       w0: 
           n0: 0,0,0 #dp, lp, kp
-          n1: 0,0,0
+          n1: 1,0,0
       w1:
           n0: 0,1,0
           n1: 0,1,1
@@ -129,7 +132,7 @@ system_hierarchy:
 
 scheduling_param:
     auto: False 
-    dp: 1
+    dp: 2
     lp: 1
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1
