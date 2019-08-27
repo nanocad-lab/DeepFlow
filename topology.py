@@ -94,13 +94,14 @@ class Topology:
           start_point_id            = self.node_id(start_point);
           end_point_id              = self.node_id(end_point);
           
-          start_point_wafer_id,_   = start_point
-          end_point_wafer_id,_     = end_point
-          self.adj[start_point_id][end_point_id] = \
-                      (1 if (start_point_wafer_id == end_point_wafer_id) else 2)
-          if start_point_wafer_id != end_point_wafer_id:
-            self.kernel_intra = False;
-    
+          if start_point_id != end_point_id:
+            start_point_wafer_id,_   = start_point
+            end_point_wafer_id,_     = end_point
+            self.adj[start_point_id][end_point_id] = \
+                        (1 if (start_point_wafer_id == end_point_wafer_id) else 2)
+            if start_point_wafer_id != end_point_wafer_id:
+              self.kernel_intra = False;
+      
     #connect layer parallel connections
     #Assumption: across layers, for a given data shard, each kernel shard
     #need to have connections to all kernel shards in previous layers.
@@ -114,14 +115,15 @@ class Topology:
 
             start_point_id = self.node_id(start_point);
             end_point_id   = self.node_id(end_point);
-            
-            start_point_wafer_id,_   = start_point
-            end_point_wafer_id,_     = end_point
-            self.adj[start_point_id][end_point_id] = \
-                        (1 if (start_point_wafer_id == end_point_wafer_id) else 2)
-            if start_point_wafer_id != end_point_wafer_id:
-              self.layer_intra = False;
-
+          
+            if start_point_id != end_point_id:
+              start_point_wafer_id,_   = start_point
+              end_point_wafer_id,_     = end_point
+              self.adj[start_point_id][end_point_id] = \
+                          (1 if (start_point_wafer_id == end_point_wafer_id) else 2)
+              if start_point_wafer_id != end_point_wafer_id:
+                self.layer_intra = False;
+  
     #connect data parallel connections
     #Assumption: within a layer, each parallel kernel can be reduced
     for j in range(0, lp):
@@ -133,13 +135,14 @@ class Topology:
           start_point_id = self.node_id(start_point);
           end_point_id   = self.node_id(end_point);
           
-          start_point_wafer_id,_   = start_point
-          end_point_wafer_id,_    = end_point
-          self.adj[start_point_id][end_point_id] = \
-                      (1 if (start_point_wafer_id == end_point_wafer_id) else 2)
-          if start_point_wafer_id != end_point_wafer_id:
-            self.data_intra = False;
-
+          if start_point_id != end_point_id:
+            start_point_wafer_id,_   = start_point
+            end_point_wafer_id,_    = end_point
+            self.adj[start_point_id][end_point_id] = \
+                        (1 if (start_point_wafer_id == end_point_wafer_id) else 2)
+            if start_point_wafer_id != end_point_wafer_id:
+              self.data_intra = False;
+  
   #Across all wafers, across all nodes, find maximum inter and intra node degree
   def findMaxDegree(self):
     max_interNodeDegree = 0
