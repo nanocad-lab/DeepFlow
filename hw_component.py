@@ -84,20 +84,18 @@ class Core(Base):
 
   def calcOperatingVoltageFrequency(self):
       self.nominal_power                = self.nominal_power_per_mcu * self.num_mcu
-      #self.operating_voltage           = (math.sqrt(self.tot_power/self.nominal_power)) * 
-      #                                    self.nominal_voltage
+      #minimum voltage that meets power constraints
       self.operating_voltage            = self.solve_poly(p0 = 1, 
                                                           p1 = -2 * self.threshold_voltage, 
                                                           p2 = self.threshold_voltage**2, 
                                                           p3 = -1 * self.tot_power / self.nominal_power * self.nominal_voltage * (self.nominal_voltage - self.threshold_voltage)**2)
-
+      #operating frequency at minimum voltage
+      self.operating_freq               = self.nominal_freq * (((self.operating_voltage - self.threshold_voltage)**2 / (self.operating_voltage)) /
+                                                              ((self.nominal_voltage - self.threshold_voltage)**2 / self.nominal_voltage)) 
       self.frequency_scaling_factor = 1 
       if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
-          #self.frequency_scaling_factor = ((self.operating_voltage) / (self.threshold_voltage + 0.2))**2
           self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
-          self.frequency_scaling_factor = (((self.scaled_voltage - self.threshold_voltage)**2 / (self.scaled_voltage)) /
-                                           ((self.operating_voltage - self.threshold_voltage)**2 / self.operating_voltage)) 
-          self.operating_voltage        = self.scaled_voltage
+          self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
       
       self.operating_freq               = self.frequency_scaling_factor * self.nominal_freq
 
@@ -155,11 +153,13 @@ class DRAM(Memory):
                                                           p1 = -2 * self.threshold_voltage, 
                                                           p2 = self.threshold_voltage**2, 
                                                           p3 = -1 * self.dynamic_power / self.nominal_power * self.nominal_voltage * (self.nominal_voltage - self.threshold_voltage)**2)
+      #operating frequency at minimum voltage
+      self.operating_freq               = self.nominal_freq * (((self.operating_voltage - self.threshold_voltage)**2 / (self.operating_voltage)) /
+                                                              ((self.nominal_voltage - self.threshold_voltage)**2 / self.nominal_voltage)) 
+      self.frequency_scaling_factor = 1 
       if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
           self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
-          self.frequency_scaling_factor = (((self.scaled_voltage - self.threshold_voltage)**2 / (self.scaled_voltage)) /
-                                           ((self.operating_voltage - self.threshold_voltage)**2 / self.operating_voltage)) 
-          self.operating_voltage        = self.scaled_voltage
+          self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
     
       self.operating_freq               = self.frequency_scaling_factor * self.nominal_freq
 
@@ -435,19 +435,20 @@ class SubNetwork(Base):
           self.operating_voltage          = 0
       else:
           self.nominal_power              = self.nominal_energy_per_link * self.num_links * self.nominal_freq
-          #self.operating_voltage            = (math.sqrt(self.tot_power/self.tot_nominal_power_links))*self.nominal_voltage
+          #minimum voltage to meet the power constraint
           self.operating_voltage          = self.solve_poly(p0 = 1, 
                                                             p1 = -2 * self.threshold_voltage, 
                                                             p2 = self.threshold_voltage**2, 
                                                             p3 = -1 * self.tot_power / self.nominal_power * self.nominal_voltage * (self.nominal_voltage - self.threshold_voltage)**2)
+          #operating frequency at minimum voltage
+          self.operating_freq             = self.nominal_freq * (((self.operating_voltage - self.threshold_voltage)**2 / (self.operating_voltage)) /
+                                                                  ((self.nominal_voltage - self.threshold_voltage)**2 / self.nominal_voltage)) 
           self.frequency_scaling_factor = 1 
           if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
               self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
-              self.frequency_scaling_factor = (((self.scaled_voltage - self.threshold_voltage)**2 / (self.scaled_voltage)) /
-                                               ((self.operating_voltage - self.threshold_voltage)**2 / self.operating_voltage)) 
-              self.operating_voltage        = self.scaled_voltage
+              self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
 
-          self.operating_freq               = self.frequency_scaling_factor * self.nominal_freq
+          self.operating_freq               = self.frequency_scaling_factor * self.operating_freq
 
   def calcEnergyPerBit(self):
       self.operating_energy_per_link    = (self.nominal_energy_per_link * 

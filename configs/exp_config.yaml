@@ -70,7 +70,7 @@ tech_param:
           latency: 16e-7 
           nominal_frequency: 7.5e9
           nominal_voltage: 1
-          nominal_energy_per_link: 20e-12
+          nominal_energy_per_link: 15e-12
           nominal_area_per_link: 10e-6
           num_links_per_mm: 100
           threshold_voltage: 0.25
