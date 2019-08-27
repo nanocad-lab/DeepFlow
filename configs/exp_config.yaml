@@ -37,6 +37,7 @@ tech_param:
         nominal_voltage: 0.85 
         threshold_voltage: 0.25 
         margin_voltage: 0.6
+        num_links_per_mm: 100
     L2:
         dynamic_energy_per_bit: 2.28e-15
         static_power_per_bit: 0
@@ -65,23 +66,22 @@ tech_param:
         controller_power_per_link: 0.04 #W
         latency: 0 
     network:
-        num_links_per_mm: 10
         intra_node:
           latency: 16e-7 
           nominal_frequency: 7.5e9
           nominal_voltage: 1
-          nominal_energy_per_link: 2e-12
+          nominal_energy_per_link: 20e-12
           nominal_area_per_link: 10e-6
-          #num_links_per_mm: 100
+          num_links_per_mm: 100
           threshold_voltage: 0.25
           margin_voltage: 0.4
         inter_node:
           latency: 16e-7
           nominal_frequency: 7.5e9
           nominal_voltage: 1
-          nominal_energy_per_link: 10e-12
+          nominal_energy_per_link: 50e-12
           nominal_area_per_link: 10e-6
-          #num_links_per_mm: 40
+          num_links_per_mm: 40
           threshold_voltage: 0.25
           margin_voltage: 0.2
 
