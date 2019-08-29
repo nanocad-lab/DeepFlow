@@ -119,8 +119,8 @@ class AreaBreakdownConfig:
                                    self.shared_mem + self.reg_mem + 
                                    self.network.inter_node + 
                                    self.network.intra_node)
-    assert (tot_sum == 1), \
-            "Error: Area fractions are not adding up to 1 (current sum = {})".format(tot_sum)
+    #assert (tot_sum == 1), \
+    #        "Error: Area fractions are not adding up to 1 (current sum = {})".format(tot_sum)
 
 class PerimeterBreakdownConfig:
   def __init__(self, config_dict):
@@ -128,8 +128,8 @@ class PerimeterBreakdownConfig:
     self.inter_node             = config_dict['inter_node']
     self.intra_node             = config_dict['intra_node']
     tot_sum                     = self.DRAM + self.inter_node + self.intra_node
-    assert (tot_sum == 1), \
-            "Error: Perimeter fractions are not adding up to 1 (current sum = {})".format(tot_sum)
+    #assert (tot_sum == 1), \
+    #        "Error: Perimeter fractions are not adding up to 1 (current sum = {})".format(tot_sum)
 
 class NetworkAreaConfig:
   def __init__(self, config_dict):
@@ -150,8 +150,8 @@ class PowerBreakdownConfig:
                                    self.shared_mem + self.reg_mem + 
                                    self.network.inter_node + 
                                    self.network.intra_node)
-    assert (tot_sum == 1), \
-            "Error: Power fractions are not adding up to 1 (current sum = {})".format(tot_sum)
+    #assert (tot_sum == 1), \
+    #        "Error: Power fractions are not adding up to 1 (current sum = {})".format(tot_sum)
 
 class NetworkPowerConfig:
   def __init__(self, config_dict):
@@ -197,7 +197,7 @@ class ParallelMap:
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
                           "num_layers", "layer_size", "seq_len", "projection", 
-                          "num_gates", "num_non_linear", "num_add"])
+                          "num_gates", "num_non_linear", "num_add", "data_scale"])
 
 SWConfig = _namedtuple("sw_param", ["kernel_launch_overhead", 
                                         "precision"])

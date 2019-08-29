@@ -66,7 +66,11 @@ class GradientDescentSearch:
                     config_dict[param_class][param] = params[param_class][param]
        
         for param in self.top_level_params:
-            config_dict[param] = self.top_level_params[param]
+            try:
+                config_dict['model_param'][param] = self.top_level_params[param]
+            except:
+                config_dict['model_param'] = {}
+                config_dict['model_param'][param] = self.top_level_params[param]
 
         if self.debug:
             for param_class in params:
@@ -256,7 +260,7 @@ class GradientDescentSearch:
 def main():
 
     GDS = GradientDescentSearch(exp_root)
-    GDS.debug=True
+    GDS.debug=False
     GDS.random_starts = 1
     
     batch_sizes = [32, 512]

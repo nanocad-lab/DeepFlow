@@ -7,7 +7,8 @@ model_param:
     seq_len: 20
     num_gates: 4
     num_non_linear: 5
-    num_add: 8 
+    num_add: 8
+    data_scale: 100 
 
 sw_param:
     kernel_launch_overhead: 37e-6
@@ -44,7 +45,7 @@ tech_param:
         area_per_bit: 3e-8 #mm2
         bank_bandwidth: 4000 GB/s
         bank_capacity: 32 KB
-        controller_area_per_link: 0.01 #mm2 
+        controller_area_per_link: 0.001 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0
     shared_mem:
@@ -53,7 +54,7 @@ tech_param:
         area_per_bit: 2e-8 #mm2
         bank_bandwidth: 4 TB/s
         bank_capacity: 32 KB
-        controller_area_per_link: 0.01 #mm2 
+        controller_area_per_link: 0.005 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0
     reg_mem:
@@ -62,7 +63,7 @@ tech_param:
         area_per_bit: 1e-8 #mm2
         bank_bandwidth: 8 TB/s
         bank_capacity: 64 KB
-        controller_area_per_link: 0.01 #mm2 
+        controller_area_per_link: 0.005 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0 
     network:
