@@ -211,7 +211,9 @@ class L2(Memory):
       core                            = Core(self.exp_config)
       self.overhead_area              = self.num_banks * core.num_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
-      assert(self.overhead_area < self.tot_area)
+      #assert(self.overhead_area < self.tot_area)
+      if self.overhead_area > self.cell_area:
+          self.cell_area              = 0
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
@@ -260,8 +262,10 @@ class SharedMem(Memory):
       core                            = Core(self.exp_config)
       self.overhead_area              = self.num_banks * core.num_mcu_per_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
-      assert(self.overhead_area < self.tot_area)
-  
+      #assert(self.overhead_area < self.tot_area)
+      if self.overhead_area > self.cell_area:
+          self.cell_area              = 0
+
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
       self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size

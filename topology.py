@@ -47,22 +47,7 @@ class Topology:
     self.intra_par          = True if self.intraNodeDegree > 0 else False
     self.inter_par          = True if self.interNodeDegree > 0 else False
   
-    #Verify system_hierarchy configuration is valid
-    try:
-      self.sanityCheckPerimeterBreakdown()
-    except Exception as e:
-      print("Unexpected error occurred during sanity check of perimeter breakdown:\n"
-            "{}".format(e), flush=True)
-      _sys.exit(0)
     
-
-  def sanityCheckPerimeterBreakdown(self):
-      assert( self.mem_frac + self.inter_frac + self.intra_frac == 1), "perimeter fractions are not adding up to 1 (current sum = {})".format(self.mem_frac + self.inter_frac + self.intra_frac)
-      if self.inter_frac > 0: 
-          assert (self.inter_par), "Can't assign inter_node perimeter breakdown > 0 while there are no inter parallelism"
-      if self.intra_frac > 0:
-          assert (self.intra_par), "Can't assign intra_node perimeter breakdown > 0 while there are no intra parallelism"
-
   
   def sanityCheckSysHierarchy(self):
       assert (self.tot_nodes == self.dp_dim * self.kp_dim * self.lp_dim), "tot_nodes != dp * kp * lp"
