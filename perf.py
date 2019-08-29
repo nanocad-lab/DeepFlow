@@ -280,6 +280,11 @@ class TimeCalculation:
         #B = B_
         #C = C_
 
+        GEMM_flop = 0
+        GEMM_gmem = 0
+        GEMM_l2mem = 0
+        GEMM_smem = 0
+        GEMM_rmem = 0
 
         if self.debug:
           print("Matrix dimension at Global Memory: {:,} x {:,} x {:,}".format(A, B, C))
@@ -327,10 +332,10 @@ class TimeCalculation:
              Bs = X1
              Cs = X1
             
-             if X2 > 0:
-                if X2 > X1:
-                    X2 = X1
+             if X2 > X1:
+                 X2 = X1
 
+             if X2 > 0:
                 if  Bs <= X2:
                     reload_AB = 1
                     reload_BC = math.ceil(As / X2)
@@ -339,8 +344,11 @@ class TimeCalculation:
                     reload_AB = math.ceil(Cs / X2)
                     reload_BC = math.ceil(As / X2)
                     reload_AC = 1
-
-                num_repeat = A/X1 * C/X1
+                
+                try:
+                    num_repeat = A/X1 * C/X1
+                except:
+                    num_repeat = 1
              
                 GEMM_l2mem = (num_repeat *
                               self.core.num_bundle * 
@@ -363,10 +371,10 @@ class TimeCalculation:
              Br = X2 
              Cr = X2
             
-             if X3 > 0:
-                if X3 > X2:
-                    X3 = X2
+             if X3 > X2:
+                X3 = X2
 
+             if X3 > 0:
                 if  Bs <= X2:
                     reload_AB = 1
                     reload_BC = math.ceil(Ar / X3)
@@ -375,8 +383,12 @@ class TimeCalculation:
                     reload_AB = math.ceil(Cr / X3)
                     reload_BC = math.ceil(Ar / X3)
                     reload_AC = 0
-             
-                num_repeat  *= As/X2 * Cs/X2 
+            
+                try:
+                    num_repeat  *= As/X2 * Cs/X2 
+                except:
+                    num_repeat  *= 1
+
                 GEMM_smem    = (num_repeat *
                                 (Ar * Br * reload_AB + 
                                  Br * Cr * reload_BC + 
@@ -395,7 +407,10 @@ class TimeCalculation:
 
 
              #Heuristics for other stuff besides multiply and add (like address calculation)
-             GEMM_flop = GEMM_flop + As * Cs * (15 + 5 * math.ceil(Bs / X2))
+             try:
+                GEMM_flop = GEMM_flop + As * Cs * (15 + 5 * math.ceil(Bs / X2))
+             except:
+                GEMM_flop = GEMM_flop + As * Cs * 15
 
 
              if self.debug:
