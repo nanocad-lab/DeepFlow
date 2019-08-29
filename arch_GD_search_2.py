@@ -229,14 +229,16 @@ class GradientDescentSearch:
                     search_params[param_class][param] = temp_params[param_class][param] + frac_to_increase[param]*amount_to_increase
 
             t = self.collect_time(search_params)
-            if t[2] == True:
-                print ("Found arch to meet timing requirement")
-                return search_params, exec_time
+            #if t[2] == True:
+            #    print ("Found arch to meet timing requirement")
+            #    return search_params, exec_time
 
             new_exec_time = t[0]
             #print("New Execution Time: {}".format(new_exec_time))
-            if prev_exec_time - new_exec_time < 0.000005:
+            if (prev_exec_time - new_exec_time < 0.000005):
                 saturated = True
+                if t[2] == False:
+                    print("Saturated but the architecture doesn't meet **Time Limit**")
             
             hyper_parameter_scaling = False
             
@@ -260,7 +262,7 @@ class GradientDescentSearch:
 def main():
 
     GDS = GradientDescentSearch(exp_root)
-    GDS.debug=False
+    GDS.debug=True
     GDS.random_starts = 1
     
     batch_sizes = [32, 512]
