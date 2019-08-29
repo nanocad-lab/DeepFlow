@@ -40,8 +40,10 @@ class GradientDescentSearch:
         self.parameters['perimeter_breakdown']['DRAM'] = 0.5
         self.parameters['perimeter_breakdown']['inter_node'] = 0.3
         self.parameters['perimeter_breakdown']['intra_node'] = 0.2
-        self.data_scale = 100
-        #self.parameters['tot_batch_size'] = 32
+        
+        self.top_level_params = {}
+        self.top_level_params['data_scale'] = 100
+        self.top_level_params['batch_size'] = 32
         self.exp_root = _exp_root
 
         self.search_params = {}
@@ -54,8 +56,18 @@ class GradientDescentSearch:
         
         for param_class in params:
             for param in params[param_class]:
-                config_dict[param_class][param] = params[param_class][param]
-        
+                if param_class != 'perimeter_breakdown' and ('node' in param):
+                    try:
+                        config_dict[param_class]['network'][param] = params[param_class][param]
+                    except:
+                        config_dict[param_class]['network'] ={}
+                        config_dict[param_class]['network'][param] = params[param_class][param]
+                else:
+                    config_dict[param_class][param] = params[param_class][param]
+       
+        for param in self.top_level_params:
+            config_dict[param] = self.top_level_params[param]
+
         if self.debug:
             for param_class in params:
                 print(config_dict[param_class], sum(params[param_class].values()))
@@ -67,7 +79,7 @@ class GradientDescentSearch:
             #for i in params[item]:
                 #exp_dir_inputs_p.append(i + str(params[item][i]))
         exp_dir_inputs_p = ['test']
-        exp_dir_inputs = [self.exp_root, 'data_scale'+str(self.data_scale), '_'.join(exp_dir_inputs_p)]
+        exp_dir_inputs = [self.exp_root, 'data_scale'+str(self.top_level_params['data_scale']), '_'.join(exp_dir_inputs_p)]
         exp_dir = '/'.join(exp_dir_inputs)
         
         try:
@@ -98,7 +110,7 @@ class GradientDescentSearch:
         os.system("python perf.py --exp_config " + exp_dir+"/exp_config.yaml --debug False >| " + exp_dir + "/summary.txt")
 
         ##Time Limit to compute a step
-        os.system("bash search_scripts/time_limit.sh " + str(self.data_scale) + " " + str(self.parameters['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
+        os.system("bash search_scripts/time_limit.sh " + str(self.top_level_params['data_scale']) + " " + str(self.top_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
 
         exec_time = 100000000
         time_limit = 1e15
@@ -145,7 +157,7 @@ class GradientDescentSearch:
         
         init_parameters = self.search_params.copy()
         for batch_size in batch_sizes:
-            self.parameters['batch_size'] = batch_size
+            self.top_level_params['batch_size'] = batch_size
             #self.parameters['tot_batch_size'] = batch_size
             self.search_params = init_parameters.copy()
             tdp_breakdown = self.multi_start_search()
@@ -244,7 +256,7 @@ class GradientDescentSearch:
 def main():
 
     GDS = GradientDescentSearch(exp_root)
-    GDS.debug=False
+    GDS.debug=True
     GDS.random_starts = 1
     
     batch_sizes = [32, 512]
