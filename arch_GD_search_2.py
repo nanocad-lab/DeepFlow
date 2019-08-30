@@ -174,6 +174,9 @@ class GradientDescentSearch:
         prev_exec_time = 1000000000
         alpha = 1.1 #size of perturbation(should be >1)
         beta_init = 0.005 #step size
+        iteration = 0
+        best_time = float('inf')
+        best_params = {}
         while (saturated == False):
             gradient_list = {}
             beta = {}
@@ -224,40 +227,55 @@ class GradientDescentSearch:
                 if self.debug:
                     print("Amount Increased: ", amount_to_increase)
                     print(search_params, temp_params, frac_to_increase)
+                
+                #Generare Gaussian noise, mean=0, std=1e-6
+                random_noise = np.random.normal(0, 1e-6, len(search_params[param_class])) 
            
-                for param in search_params[param_class]:
-                    search_params[param_class][param] = temp_params[param_class][param] + frac_to_increase[param]*amount_to_increase
+                for i, param in enumerate(search_params[param_class]):
+                    search_params[param_class][param] = (temp_params[param_class][param] + 
+                                                         frac_to_increase[param] * amount_to_increase +
+                                                         random_noise[i])
+
 
             t = self.collect_time(search_params)
-            #if t[2] == True:
-            #    print ("Found arch to meet timing requirement")
-            #    return search_params, exec_time
 
             new_exec_time = t[0]
-            #print("New Execution Time: {}".format(new_exec_time))
-            if (prev_exec_time - new_exec_time < 0.000005):
-                saturated = True
-                if t[2] == False:
-                    print("Saturated but the architecture doesn't meet **Time Limit**")
             
-            hyper_parameter_scaling = False
-            
-            if new_exec_time >= prev_exec_time:
-                hyper_parameter_scaling = True
-            else:
+            if new_exec_time < best_time:
+                best_time = new_exec_time
+                best_params = search_params 
+
+            if self.debug:
+                print("Step: {}, New_time: {}, Best_time: {}".format(iteration, new_exec_time, best_time))
+
+            if iteration % 100 == 0:
+                if (prev_exec_time - new_exec_time < 0.000005):
+                    saturated = True
+                    if t[2] == True:
+                        if self.debug:
+                            print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
+                    else:
+                        print("Saturated but no architecture meets the **Time Limit**")
                 prev_exec_time = new_exec_time
 
-            if hyper_parameter_scaling:
-                for param_class in search_params:
-                    beta[param_class] = beta[param_class]*0.5
-                    alpha = alpha*0.5
-                search_params = old_params.copy()
-
-            if saturated:
-                if self.debug:
-                    print('Saturated, done with search', search_params, exec_time)
-                return search_params, exec_time
+            #hyper_parameter_scaling = False
             
+            #if new_exec_time >= prev_exec_time:
+            #    hyper_parameter_scaling = True
+            #else:
+            #    prev_exec_time = new_exec_time
+
+            #if hyper_parameter_scaling:
+            #    for param_class in search_params:
+            #        beta[param_class] = beta[param_class]*0.5
+            #        alpha = alpha*0.5
+            #    search_params = old_params.copy()
+
+            iteration = iteration + 1    
+            
+        print("**************************************")
+        return best_params, best_time
+
 
 def main():
 
