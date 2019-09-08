@@ -77,14 +77,17 @@ class Core(Base):
       #Assumption: performance scales linearly with area
       self.operating_flop_rate_per_mcu  = self.nominal_flop_rate_per_mcu * self.area_scaling
       
-      self.calcOperatingVoltageFrequency()
-      #self.calcEnergyPerUnit()
+      try:
+        self.calcOperatingVoltageFrequency()
+      except:
+        self.self.operating_freq = 0
+      
       self.calcThroughput()
-
 
   def calcOperatingVoltageFrequency(self):
       self.nominal_power                = self.nominal_power_per_mcu * self.num_mcu
       #minimum voltage that meets power constraints
+
       self.operating_voltage            = self.solve_poly(p0 = 1, 
                                                           p1 = -2 * self.threshold_voltage, 
                                                           p2 = self.threshold_voltage**2, 
@@ -136,9 +139,9 @@ class DRAM(Memory):
       self.num_channels               = min(self.tot_area // self.area_per_stack, 
                                             self.tot_mem_ctrl_area // self.mem_ctrl_area)
       self.num_links_per_mm           = exp_config.tech_config.DRAM.num_links_per_mm
-      self.num_links                  = (self.core_perimeter * 
-                                         exp_config.perimeter_breakdown.DRAM *
-                                         self.num_links_per_mm)
+      self.num_links                  = int(self.core_perimeter * 
+                                            exp_config.perimeter_breakdown.DRAM *
+                                            self.num_links_per_mm)
 
       #self.calcArea()
       self.calcSize()
