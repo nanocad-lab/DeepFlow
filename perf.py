@@ -5,6 +5,7 @@ import math
 import os
 import sys
 import config
+import shutil
 
 from parallelism import Parallelism
 from topology import Topology
@@ -113,106 +114,106 @@ class TimeCalculation:
         tot_param = embedding + hidden + projection + softmax
         return tot_param
 
-    def printSysConfig(self, exp_config):
+    def printSysConfig(self, exp_config, output_file):
 
       kiloByte = 1024
       megaByte = kiloByte * 1024
       gigaByte = megaByte * 1024
       teraByte = gigaByte * 1024
 
-      print("======================")
-      print("Hardware Configuration")
-      print("======================")
-      print("Throughput: {:.1f} Tflops\n"
-            "Memory Bandwidth: {:.1f} GB/s\n"
-            "Memory Size: {:.1f} GB\n"
-            "L2 Bandwidth: {:.1f} TB/s\n"
-            "L2 Size: {:.1f} MB\n"
-            "Shared Memory Bandwidth: {:.1f} TB/s\n"
-            "Shared Memory Size: {:.1f} MB\n"
-            "Register Memory Bandwidth: {:.1f} TB/s\n"
-            "Register Size: {:.1f} MB\n"
-            "Intra-node Bandwidth: {:.1f} GB/s\n"
-            "Inter-node Bandwidth: {:.1f} GB/s"
-            .format(self.core.operating_throughput/1e12, 
-                    self.mm.dynamic_throughput/(gigaByte), 
-                    self.mm.size/(gigaByte), 
-                    self.L2Mem.dynamic_throughput/(teraByte), 
-                    self.L2Mem.size/(megaByte), 
-                    self.sharedMem.dynamic_throughput/(teraByte),
-                    self.sharedMem.size/(megaByte),
-                    self.regMem.dynamic_throughput/(teraByte),
-                    self.regMem.size/(megaByte),
-                    self.network.intra_network.throughput/(gigaByte),
-                    self.network.inter_network.throughput/(gigaByte)))
+      with open(output_file, "w") as f:
+            f.write("======================")
+            f.write("Hardware Configuration")
+            f.write("======================")
+            f.write("Throughput: {:.1f} Tflops\n"
+                    "Memory Bandwidth: {:.1f} GB/s\n"
+                    "Memory Size: {:.1f} GB\n"
+                    "L2 Bandwidth: {:.1f} TB/s\n"
+                    "L2 Size: {:.1f} MB\n"
+                    "Shared Memory Bandwidth: {:.1f} TB/s\n"
+                    "Shared Memory Size: {:.1f} MB\n"
+                    "Register Memory Bandwidth: {:.1f} TB/s\n"
+                    "Register Size: {:.1f} MB\n"
+                    "Intra-node Bandwidth: {:.1f} GB/s\n"
+                    "Inter-node Bandwidth: {:.1f} GB/s"
+                    .format(self.core.operating_throughput/1e12, 
+                            self.mm.dynamic_throughput/(gigaByte), 
+                            self.mm.size/(gigaByte), 
+                            self.L2Mem.dynamic_throughput/(teraByte), 
+                            self.L2Mem.size/(megaByte), 
+                            self.sharedMem.dynamic_throughput/(teraByte),
+                            self.sharedMem.size/(megaByte),
+                            self.regMem.dynamic_throughput/(teraByte),
+                            self.regMem.size/(megaByte),
+                            self.network.intra_network.throughput/(gigaByte),
+                            self.network.inter_network.throughput/(gigaByte)))
 
-      M = self.mem_size
-      tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
-      print("\n\n===========================================")
-      print("Memory Requirement Breakdown per Data Shard")
-      print("===========================================")
-      print("Total Memory: {:.1f} GB\n"
-            "Embedding Memory: {:.1f} GB\n"
-            "Hidden Memory: {:.1f} GB\n"
-            "Softmax Memory: {:.1f} GB\n"
-            "Projection Memory: {:.1f} GB"
-            .format(tot_mem/gigaByte, 
-                    embedding_mem/gigaByte, 
-                    hidden_mem/gigaByte, 
-                    softmax_mem/gigaByte, 
-                    projection_mem/gigaByte))
-      
-      print("\nTotal Memory: {:.1f} GB\n"
-            "Weight Memory: {:.1f} GB\n"
-            "Activation Memory: {:.1f} GB\n"
-            "Pointwise Memory: {:.1f} GB\n"
-            .format(tot_mem/gigaByte, 
-                    wt_mem/gigaByte, 
-                    act_mem/gigaByte, 
-                    point_mem/gigaByte))
+            M = self.mem_size
+            tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
+            f.write("\n\n===========================================")
+            f.write("Memory Requirement Breakdown per Data Shard")
+            f.write("===========================================")
+            f.write("Total Memory: {:.1f} GB\n"
+                    "Embedding Memory: {:.1f} GB\n"
+                    "Hidden Memory: {:.1f} GB\n"
+                    "Softmax Memory: {:.1f} GB\n"
+                    "Projection Memory: {:.1f} GB"
+                    .format(tot_mem/gigaByte, 
+                            embedding_mem/gigaByte, 
+                            hidden_mem/gigaByte, 
+                            softmax_mem/gigaByte, 
+                            projection_mem/gigaByte))
+            
+            f.write("\nTotal Memory: {:.1f} GB\n"
+                    "Weight Memory: {:.1f} GB\n"
+                    "Activation Memory: {:.1f} GB\n"
+                    "Pointwise Memory: {:.1f} GB\n"
+                    .format(tot_mem/gigaByte, 
+                            wt_mem/gigaByte, 
+                            act_mem/gigaByte, 
+                            point_mem/gigaByte))
 
 
-      print("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n"
-            .format(tot_mem/M))
+            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n".format(tot_mem/M))
 
-      
-      tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
-      print("\n\n=========================================================")
-      print("Memory Requirement Breakdown per Data Shard Per Model Shard")
-      print("===========================================================")
-      print("Total Memory: {:.1f} GB\n"
-          "Embedding Memory: {:.1f} GB\n"
-          "Hidden Memory: {:.1f} GB\n"
-          "Softmax Memory: {:.1f} GB\n"
-          "Projection Memory: {:.1f} GB"
-             .format(tot_mem/gigaByte, 
-                     embedding_mem/gigaByte, 
-                     hidden_mem/gigaByte, 
-                     softmax_mem/gigaByte, 
-                     projection_mem/gigaByte))
+            
+            tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
+            f.write("\n\n=========================================================")
+            f.write("Memory Requirement Breakdown per Data Shard Per Model Shard")
+            f.write("===========================================================")
+            f.write("Total Memory: {:.1f} GB\n"
+                    "Embedding Memory: {:.1f} GB\n"
+                    "Hidden Memory: {:.1f} GB\n"
+                    "Softmax Memory: {:.1f} GB\n"
+                    "Projection Memory: {:.1f} GB"
+                       .format(tot_mem/gigaByte, 
+                               embedding_mem/gigaByte, 
+                               hidden_mem/gigaByte, 
+                               softmax_mem/gigaByte, 
+                               projection_mem/gigaByte))
 
-      print("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n"
-            .format(tot_mem/M))
+            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n"
+                  .format(tot_mem/M))
 
-      print("\nTotal Memory: {:.1f} GB\n"
-            "Weight Memory: {:.1f} GB\n"
-            "Activation Memory: {:.1f} GB\n"
-            "Pointwise Memory: {:.1f} GB\n"
-            .format(tot_mem/gigaByte, 
-                    wt_mem/gigaByte, 
-                    act_mem/gigaByte, 
-                    point_mem/gigaByte))
-      
-      print("\n\n====================")
-      print("Parallelism Strategy")
-      print("====================")
-      print("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
-             "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
-             "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
-             .format(self.dp,
-              self.lp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
-              self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
-              self.kp_projection_dim1, self.kp_projection_dim2))   
+            f.write("\nTotal Memory: {:.1f} GB\n"
+                    "Weight Memory: {:.1f} GB\n"
+                    "Activation Memory: {:.1f} GB\n"
+                    "Pointwise Memory: {:.1f} GB\n"
+                    .format(tot_mem/gigaByte, 
+                            wt_mem/gigaByte, 
+                            act_mem/gigaByte, 
+                            point_mem/gigaByte))
+            
+            f.write("\n\n====================")
+            f.write("Parallelism Strategy")
+            f.write("====================")
+            f.write("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
+                    "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
+                    "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
+                    .format(self.dp,
+                     self.lp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
+                     self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
+                     self.kp_projection_dim1, self.kp_projection_dim2))   
 
 
 
@@ -648,7 +649,7 @@ class TimeCalculation:
             data_prep = ((self.roofline(data_prep_comp, data_prep_mem) + self.O)
                           * (p - 1))
 
-            print("R1: {}, factor: {}\n".format(dt,factor))
+            #print("R1: {}, factor: {}\n".format(dt,factor))
         if self.debug:
             print("(gr) allReduce_flop: {:,}, allReduce_mem: {:,}".format(int(data_prep_comp/G), int(data_prep_mem/G)))
 
@@ -1233,28 +1234,41 @@ class TimeCalculation:
         self.tot_time = time
         
         tot_param = self.tot_param()
-        print("#Parameters: {:.2f} Billion\n".format(tot_param/1e9))
+        #print("#Parameters: {:.2f} Billion\n".format(tot_param/1e9))
     
 
-        return time
+        return time, tot_param
 
     def getTime(self):
         return self.tot_time
 
-@click.command()
-@click.option("--exp_config", help="path to experiment config", required=True)
-@click.option("--debug", help="debug", default=False)
-def main(exp_config, debug):
+@click.command("standalone")        
+@click.option("--exp_config", help="Path to experiment config", required=True)
+@click.option("--exp_dir", help="Checkpoint/log directory", required=True)
+@click.option("--debug", help="debug", default=False, type=bool)
+def main(exp_config, exp_dir, debug):
+    debug=False
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
 
+    try:
+        #print("Removing directory:" + exp_dir)
+        shutil.rmtree(exp_dir)
+    except:
+        pass
+    os.makedirs(exp_dir)
+
     TC = TimeCalculation(exp_config)
     TC.debug = debug
-    tot_time = TC.calcTime()
+    tot_time, tot_param = TC.calcTime()
 
-    TC.printSysConfig(exp_config)
+    output_file = exp_dir + "/summary.txt"
+    
+    TC.printSysConfig(exp_config, output_file)
 
-    print("Time: {0:.8f}".format(tot_time))
+    with open(output_file, "a+") as f:
+        f.write("Time: {0:.8f}\n".format(tot_time))
+        f.write("Params (Billion): {0:.8f}\n".format(tot_param/1e9))
 
    
 if __name__ == "__main__":
