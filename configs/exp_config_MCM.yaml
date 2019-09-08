@@ -72,7 +72,7 @@ tech_param:
           nominal_frequency: 3e9
           nominal_voltage: 1
           nominal_energy_per_link: 1e-12
-          nominal_area_per_link: 100e-6 #mm^2
+          nominal_area_per_link: 25e-6 #mm^2
           num_links_per_mm: 200
           threshold_voltage: 0.25
           margin_voltage: 0.45
@@ -87,7 +87,7 @@ tech_param:
           margin_voltage: 0.5
 
 area_breakdown:
-    node_area_budget: 1230 #mm2
+    node_area_budget: 1500 #mm2
     proc_chip_area_budget: 815 #mm2
     core: 0.3
     L2: 0.2
@@ -115,7 +115,7 @@ perimeter_breakdown:
   intra_node: 0.5
 
 system_hierarchy:
-    num_nodes_per_wafer: 1
+    num_nodes_per_wafer: 4
     tot_nodes: 2
     device_placement:
       w0: 

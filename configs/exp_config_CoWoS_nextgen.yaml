@@ -73,7 +73,7 @@ tech_param:
           nominal_voltage: 1
           nominal_energy_per_link: 1e-12
           nominal_area_per_link: 100e-6 #mm^2
-          num_links_per_mm: 200
+          num_links_per_mm: 400
           threshold_voltage: 0.25
           margin_voltage: 0.45
         inter_node:
@@ -115,7 +115,7 @@ perimeter_breakdown:
   intra_node: 0.5
 
 system_hierarchy:
-    num_nodes_per_wafer: 1
+    num_nodes_per_wafer: 2
     tot_nodes: 2
     device_placement:
       w0: 
