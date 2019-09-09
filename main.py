@@ -1,6 +1,7 @@
 import click
 import subprocess
 import os
+import re
 
 def run_command(exp_config, exp_dir, mode = 'standalone', debug=False, no_launch=False, index=0):
     command = create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, debug)
@@ -24,6 +25,10 @@ def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, debug):
     gpus_per_node = 1
     partition = '1080Ti,TitanXx8,M40x8'
     exp_config = exp_config
+
+
+    if not os.path.exists(exp_dir):
+        os.makedirs(exp_dir)
 
     if mode=='standalone':
         script = 'perf.py'
@@ -111,7 +116,7 @@ def standalone(exp_config, exp_dir, debug, no_launch):
 @click.option("--exp_config", help="path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
-@click.option("--no_launch", help="Don't launch job, just print command", default=False)
+@click.option("--no_launch", help="Don't launch job, just print command", default=False, type=bool)
 @click.option("--num_search", help="Number of times to search the space from different starting point", default=100)
 def arch_search(exp_config, exp_dir, debug, no_launch, num_search):
     outerloop_sweep(exp_config = exp_config,

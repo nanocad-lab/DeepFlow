@@ -199,12 +199,24 @@ class L2(Memory):
       self.latency                    = exp_config.tech_config.L2.latency
       
       self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
+
+      self.bank_area                  = self.bank_capacity * self.area_per_byte
       self.num_banks                  = self.nominal_throughput // self.bank_bw
-      
-      self.calcArea()
-      self.calcSize()
-      self.calcActiveEnergy()
-      self.calcThroughput()
+      self.throughput                 = self.nominal_throughput
+      self.dynamic_throughput         = self.nominal_throughput
+      prev_throughput                 = 0
+      prev_num_banks                  = 0
+
+      while (prev_throughput != self.throughput or self.num_banks != prev_num_banks):
+        print("L2 bw: {} TB/s".format(self.throughput/1e12))
+        prev_throughput               = self.throughput
+        prev_num_banks                = self.num_banks
+        self.calcArea()
+        self.num_banks                = min(self.cell_area // self.bank_area , self.dynamic_throughput // self.bank_bw)
+        self.calcSize()
+        self.calcActiveEnergy()
+        self.calcThroughput()
+
       self.calcTileDim()
 
   def calcArea(self):
@@ -283,7 +295,12 @@ class SharedMem(Memory):
   def calcTileDim(self):
       self.tile_dim = 0
       core                            = Core(self.exp_config)
-      self.size_per_bundle            = self.size / core.num_bundle 
+      
+      try:
+        self.size_per_bundle          = self.size / core.num_bundle 
+      except:
+        self.size_per_bundle          = 0
+      
       if (self.size > 0):
           self.tile_dim               = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
 
@@ -318,7 +335,9 @@ class RegMem(Memory):
       #SP: Usually the overhead gets a bit amortized as the bank size grows, but the sense amps etc. also scale with bitline length, so not a straight-forward model. I am assuming about 25% overhead which is reasonable based on ISSCC 2018 SRAM papers from Intel and Samsung 
       self.overhead_area              = self.tot_area * 0.25
       self.cell_area                  = self.tot_area - self.overhead_area
-      assert(self.overhead_area < self.tot_area)
+      #assert(self.overhead_area < self.tot_area)
+      if self.overhead_area > self.cell_area:
+          self.cell_area              = 0
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
@@ -334,7 +353,12 @@ class RegMem(Memory):
   def calcTileDim(self):
       self.tile_dim = 0
       core                            = Core(self.exp_config)
-      self.size_per_bundle            = self.size / core.num_bundle 
+      
+      try:
+          self.size_per_bundle        = self.size / core.num_bundle
+      except:
+          self.size_per_bundle        = 0
+
       if (self.size > 0):
           self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
 

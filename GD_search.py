@@ -67,10 +67,11 @@ class GradientDescentSearch:
                 if 'inter' in param:
                     param_abv = 'o'
                 line = line + " " + param_abv + ": " + "{0:.3f}".format(params[param_class][param])
+
         print(message + " " + line + "\n")
 
-    def collect_time(self, params):
-        exp_dir = self.create_config_dir(params)
+    def collect_time(self, params, iteration):
+        exp_dir = self.create_config_dir(params, iteration)
         self.populate_config(params, exp_dir)
         ##Performance Finder
         #print("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
@@ -114,9 +115,9 @@ class GradientDescentSearch:
                 self.search_params[param_class][param] = random_params[i]
         self.printParams(self.search_params)
 
-    def create_config_dir(self, params):
+    def create_config_dir(self, params, iteration):
         exp_dir=[]
-        exp_file=''
+        exp_file='s' + str(iteration) + "_"
         
         exp_root = self.exp_dir
         exp_config = self.exp_config
@@ -147,8 +148,10 @@ class GradientDescentSearch:
     def populate_config(self, params, exp_dir):
         exp_config  = self.exp_config #template to copy from
         config_file = exp_dir + "/exp_config.yaml" #config file to to run
+       
         
-        os.system("cp " + exp_config + " " + exp_dir + "/exp_config.yaml")
+        #print("cp " + exp_config + " " + config_file)
+        os.system("cp " + exp_config + " " + config_file)
         
         config_dict = {}
         with open(exp_config, "r") as f:
@@ -174,7 +177,7 @@ class GradientDescentSearch:
 
         with open(config_file, 'w') as yaml_file:
             _yaml.dump(config_dict, yaml_file, default_flow_style=False)
-        
+       
         if self.debug:
             for param_class in params:
                 print("{} parameters sum up to {}".format(config_dict[param_class], sum(params[param_class].values())))
@@ -202,7 +205,7 @@ class GradientDescentSearch:
             gradient_list = {}
             beta = {}
             old_params = copy.deepcopy(search_params)
-            exec_time = self.collect_time(search_params)[0]
+            exec_time = self.collect_time(search_params, iteration)[0]
             if self.debug:
                 print("Execution time %4f with TDP parameters" %(exec_time), search_params)
             temp_params = copy.deepcopy(search_params)
@@ -213,7 +216,7 @@ class GradientDescentSearch:
                     temp_params[param_class][param] = search_params[param_class][param] * alpha #increase each param by alpha
                     if self.debug:
                         print("PARAM_CLASS: {} PARAM: {}, search_param_value: {}".format((param_class),(param),(temp_params[param_class][param])))
-                    new_exec_time = self.collect_time(temp_params)[0]
+                    new_exec_time = self.collect_time(temp_params, iteration)[0]
                     gradient = (exec_time - new_exec_time) / ((alpha - 1) * search_params[param_class][param])
                     if self.debug:
                         print("Exec time improv =", gradient, exec_time, new_exec_time)
@@ -264,15 +267,16 @@ class GradientDescentSearch:
 
 
             self.printParams(search_params)
-            t = self.collect_time(search_params)
+            t = self.collect_time(search_params, iteration)
 
             new_exec_time = t[0]
+            time_limit = t[1]
             
             if new_exec_time < best_time:
                 best_time = new_exec_time
                 best_params = search_params 
 
-            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, t[1]))
+            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
 
             if iteration % 10 == 0:
                 if (prev_ckpt_time - new_exec_time < 0.0001):
@@ -280,7 +284,7 @@ class GradientDescentSearch:
                     if t[2] == True:
                         print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
                     else:
-                        print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(new_exec_time, t[1]))
+                        print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(new_exec_time, time_limit))
                 prev_ckpt_time = new_exec_time
 
 
@@ -295,7 +299,7 @@ class GradientDescentSearch:
             iteration = iteration + 1    
             prev_exec_time = new_exec_time
             
-        return best_params, best_time
+        return best_params, best_time, time_limit
     
    
 @click.command("arch_search")        
@@ -312,6 +316,12 @@ def main(exp_config, exp_dir, debug, index, batch_size, data_scale):
                                 batch_size=batch_size, 
                                 data_scale=data_scale)
 
-    GDS.do_GDSearch()
+    best_params, best_time, time_limit = GDS.do_GDSearch()
+    output_file = exp_dir + "/best.txt"
+    with open(output_file, "a+") as f:
+        GDS.printParams(best_params, f)
+        f.write("Best Time: {}".format(best_time))
+        f.write("Time Limit: {}".format(time_limit))
+
 if __name__ == "__main__":
     main()

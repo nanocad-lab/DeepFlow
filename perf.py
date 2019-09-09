@@ -287,6 +287,8 @@ class TimeCalculation:
         GEMM_smem = 0
         GEMM_rmem = 0
 
+        num_repeat = 1
+
         if self.debug:
           print("Matrix dimension at Global Memory: {:,} x {:,} x {:,}".format(A, B, C))
 
@@ -295,7 +297,7 @@ class TimeCalculation:
         X1 = self.L2_tile_dim
         X2 = self.shared_mem_tile_dim
         X3 = self.reg_tile_dim
-      
+
         if (algByte):
             GEMM_gmem = (A * B + B * C + A * C) * self.precision
             GEMM_l2mem = 0
@@ -317,7 +319,8 @@ class TimeCalculation:
                      reload_BC = math.ceil(A / X1)
                      reload_AC = 1
              
-             GEMM_gmem = (A * B * reload_AB + B * C * reload_BC + A * C * reload_AC) * self.precision
+                 GEMM_gmem = (A * B * reload_AB + B * C * reload_BC + A * C * reload_AC) * self.precision
+
              if self.debug:
                 print("gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}\n", reload_AB, reload_AC, reload_BC)
              if self.debug:
@@ -328,12 +331,17 @@ class TimeCalculation:
              reload_AB = 1
              reload_BC = 1
              reload_AC = 1
-             
-             As = X1
-             Bs = X1
-             Cs = X1
+        
+             if X1 != 0:
+                As = X1
+                Bs = X1
+                Cs = X1
+             else:
+                As = A
+                Bs = B
+                Cs = C
             
-             if X2 > X1:
+             if X2 > X1 and X1 != 0:
                  X2 = X1
 
              if X2 > 0:
@@ -368,11 +376,16 @@ class TimeCalculation:
              reload_BC = 1
              reload_AC = 1
              
-             Ar = X2
-             Br = X2 
-             Cr = X2
+             if X2 != 0:
+                Ar = X2
+                Br = X2 
+                Cr = X2
+             else:
+                Ar = As
+                Br = Bs
+                Cr = Cs
             
-             if X3 > X2:
+             if X3 > X2 and X2 != 0:
                 X3 = X2
 
              if X3 > 0:
@@ -406,6 +419,15 @@ class TimeCalculation:
              #3: multiply add
              #1: write to memory
 
+             if X3 == 0:
+               GEMM_smem  = GEMM_rmem
+               GEMM_rmem  = 0
+             if X2 == 0:
+               GEMM_l2mem = GEMM_smem
+               GEMM_smem = 0
+             if X1 == 0:
+               GEMM_gmem  = GEMM_l2mem
+               GEMM_l2mem = 0
 
              #Heuristics for other stuff besides multiply and add (like address calculation)
              try:
@@ -1251,12 +1273,12 @@ def main(exp_config, exp_dir, debug):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
 
-    try:
-        #print("Removing directory:" + exp_dir)
-        shutil.rmtree(exp_dir)
-    except:
-        pass
-    os.makedirs(exp_dir)
+    #try:
+    #    #print("Removing directory:" + exp_dir)
+    #    shutil.rmtree(exp_dir)
+    #except:
+    #    pass
+    #os.makedirs(exp_dir)
 
     TC = TimeCalculation(exp_config)
     TC.debug = debug
