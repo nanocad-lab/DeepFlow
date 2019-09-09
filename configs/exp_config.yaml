@@ -40,8 +40,8 @@ tech_param:
         margin_voltage: 0.6
         num_links_per_mm: 200
     L2:
-        dynamic_energy_per_bit: 3.5e-15
-        static_power_per_bit: 0
+        dynamic_energy_per_bit: 52e-15
+        static_power_per_bit: 8.4e-12
         area_per_bit: 6.4e-8 #mm2
         bank_bandwidth: 4000 GB/s
         bank_capacity: 32 KB
@@ -49,8 +49,8 @@ tech_param:
         controller_power_per_link: 0.04 #W
         latency: 0
     shared_mem:
-        dynamic_energy_per_bit: 2e-15
-        static_power_per_bit: 0
+        dynamic_energy_per_bit: 50e-15
+        static_power_per_bit: 8e-12
         area_per_bit: 8e-8 #mm2
         bank_bandwidth: 4 TB/s
         bank_capacity: 32 KB
@@ -58,11 +58,11 @@ tech_param:
         controller_power_per_link: 0.04 #W
         latency: 0
     reg_mem:
-        dynamic_energy_per_bit: 2e-15
-        static_power_per_bit: 0
+        dynamic_energy_per_bit: 50e-15
+        static_power_per_bit: 9e-12
         area_per_bit: 8e-8 #mm2
         bank_bandwidth: 8 TB/s
-        bank_capacity: 64 KB
+        bank_capacity: 32 KB
         controller_area_per_link: 0.004 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0 
