@@ -116,7 +116,7 @@ perimeter_breakdown:
 
 system_hierarchy:
     num_nodes_per_wafer: 4
-    tot_nodes: 2
+    tot_nodes: 4
     device_placement:
       w0: 
           n0: 0,0,0 #dp, lp, kp
