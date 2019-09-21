@@ -230,12 +230,14 @@ class TimeCalculation:
       
         time  = 0
         if comp_int < inflection_point: #mem-bound
-            time = ((gmem / self.mem_bw) + self.mem_latency + 
+            time = (float("inf") if ((self.mem_bw == 0) and (self.L2_bw == 0) and 
+                                      (self.shared_mem_bw == 0) and (self.reg_bw == 0)) 
+                    else ((gmem / self.mem_bw) + self.mem_latency + 
                     (0 if self.L2_bw == 0 else (l2mem / self.L2_bw)) + 
                     (0 if self.shared_mem_bw == 0 else (smem / self.shared_mem_bw)) +
-                    (0 if self.reg_bw == 0 else (smem / self.reg_bw)))
+                    (0 if self.reg_bw == 0 else (smem / self.reg_bw))))
         else: #compute-bound
-            time = (flop / self.th)
+            time = float("inf") if (self.th == 0) else (flop / self.th)
         
         if self.debug:
             print("inflection_point: {:.2f}".format(inflection_point))

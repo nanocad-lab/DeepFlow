@@ -50,7 +50,7 @@ class GradientDescentSearch:
         self.search_params = {}
         self.search_params = self.parameters
 
-        self.index      = int(kwargs.get('index', 0))
+        self.index      = int(kwargs.get('index', 1))
         self.exp_dir    = exp_dir
         self.exp_config = exp_config
 
@@ -76,6 +76,7 @@ class GradientDescentSearch:
         ##Performance Finder
         #print("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
         #self.printParams(params)
+        #print("Config file: {}".format(exp_dir + "/exp_config.yaml"))
         os.system("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
 
         ##Time Limit to compute a step
@@ -99,7 +100,9 @@ class GradientDescentSearch:
             found = True
 
         if self.debug:
-            print("In collect_time: {}\n".format(exec_time))
+            print("Config file: {}".format(exp_dir + "/exp_config.yaml"))
+            self.printParams(params)
+            print("Time: {}\n".format(exec_time))
 
         return exec_time, time_limit, found
  
@@ -140,8 +143,8 @@ class GradientDescentSearch:
             pass
 
         os.makedirs(exp_dir)
-        if(self.debug):
-            print("Created directory at", exp_dir)
+        #if(self.debug):
+        #    print("Created directory at", exp_dir)
         return exp_dir
 
 
@@ -178,21 +181,21 @@ class GradientDescentSearch:
         with open(config_file, 'w') as yaml_file:
             _yaml.dump(config_dict, yaml_file, default_flow_style=False)
        
-        if self.debug:
-            for param_class in params:
-                print("{} parameters sum up to {}".format(config_dict[param_class], sum(params[param_class].values())))
+        #if self.debug:
+        #    for param_class in params:
+        #        print("{} parameters sum up to {}".format(config_dict[param_class], sum(params[param_class].values())))
 
     def do_GDSearch(self):
         saturated = False
         min_value_params = 0
         alpha = 1.1 #size of perturbation(should be >1)
+        lr = 0.001
         iteration = 0
         best_time = float('inf')
         prev_exec_time = float('inf')
         prev_ckpt_time = float('inf')
         best_params = {}
         search_params = self.search_params
-        beta_factor   = 0.005
 
         while (saturated == False):
             #print("\n")
@@ -206,67 +209,37 @@ class GradientDescentSearch:
             beta = {}
             old_params = copy.deepcopy(search_params)
             exec_time = self.collect_time(search_params, iteration)[0]
-            if self.debug:
-                print("Execution time %4f with TDP parameters" %(exec_time), search_params)
+            #if self.debug:
+            #    print("Execution time %4f with TDP parameters" %(exec_time), search_params)
             temp_params = copy.deepcopy(search_params)
 
             for param_class in search_params:
                 gradient_list[param_class] = {}
                 for param in search_params[param_class]:
                     temp_params[param_class][param] = search_params[param_class][param] * alpha #increase each param by alpha
-                    if self.debug:
-                        print("PARAM_CLASS: {} PARAM: {}, search_param_value: {}".format((param_class),(param),(temp_params[param_class][param])))
+                    #if self.debug:
+                    #    print("PARAM_CLASS: {} PARAM: {}, search_param_value: {}".format((param_class),(param),(temp_params[param_class][param])))
                     new_exec_time = self.collect_time(temp_params, iteration)[0]
                     gradient = (exec_time - new_exec_time) / ((alpha - 1) * search_params[param_class][param])
-                    if self.debug:
-                        print("Exec time improv =", gradient, exec_time, new_exec_time)
+                    #if self.debug:
+                    #    print("Exec time improv =", gradient, exec_time, new_exec_time)
                     gradient_list[param_class][param] = gradient
                     temp_params = copy.deepcopy(search_params)
 
             if self.debug:
-                print("gradient_list: {}".format(gradient_list))
+                print("Raw gradient_list: {}".format(gradient_list))
 
-
-            grad_sum = sum(x for i in gradient_list.values() for x in i.values())
             for param_class in search_params:
-                if grad_sum != 0:
-                    beta[param_class] = beta_factor * sum(gradient_list[param_class].values()) / grad_sum
-                else:
-                    beta[param_class] = 0
-            #sorted_improv = sorted(gradient_list.items(), key=lambda kv: kv[1], reverse=True)
-            #gradient_list = collections.OrderedDict(sorted_improv)
+              random_noise = np.random.normal(0, 1e-6, len(search_params[param_class])) 
+              for i, param in enumerate(search_params[param_class]):
+                  search_params[param_class][param] += gradient_list[param_class][param] * lr + random_noise[i]
+              param_class_l2 = np.linalg.norm(list(search_params[param_class].values()), ord=1)
+              for param in search_params[param_class]:
+                  search_params[param_class][param] = search_params[param_class][param] if (param_class_l2 == 0) else search_params[param_class][param]/param_class_l2
 
-                if self.debug:
-                    print(gradient_list[param_class])
-
-            frac_to_increase = {}
-            for param_class in search_params:
-                amount_to_increase = 0
-                tot_gradient = sum(gradient_list[param_class].values())
-            
-                for param in search_params[param_class]:
-                    if temp_params[param_class][param] > 0.01:
-                        temp_params[param_class][param] = search_params[param_class][param] - beta[param_class]
-                        amount_to_increase += beta[param_class]
-                    if tot_gradient != 0:
-                        frac_to_increase[param] = gradient_list[param_class][param]/tot_gradient
-                    else:
-                        frac_to_increase[param] = 0
-                
-                if self.debug:
-                    print("Amount Increased: ", amount_to_increase)
-                    print("search_params: {}\n,  temp_params: {}\n, frac_to_increase: {}\n".format(search_params, temp_params, frac_to_increase))
-                
-                #Generare Gaussian noise, mean=0, std=1e-6
-                random_noise = np.random.normal(0, 1e-6, len(search_params[param_class])) 
-           
-                for i, param in enumerate(search_params[param_class]):
-                    search_params[param_class][param] = (temp_params[param_class][param] + 
-                                                         frac_to_increase[param] * amount_to_increase +
-                                                         random_noise[i])
-
-
-            self.printParams(search_params)
+              
+            self.printParams(old_params, "old_params")
+            self.printParams(search_params, "new_params")
             t = self.collect_time(search_params, iteration)
 
             new_exec_time = t[0]
@@ -308,18 +281,19 @@ class GradientDescentSearch:
 @click.option("--debug", help="Debug", default=False, type=bool)
 @click.option("--batch_size", help="Batch size", default=32)
 @click.option("--data_scale", help="Data scale", default=1)
-@click.option("--index", help="Search index", default=0, required=True)
+@click.option("--index", help="Search index", required=True)
 def main(exp_config, exp_dir, debug, index, batch_size, data_scale):
     GDS = GradientDescentSearch(exp_dir=exp_dir, 
                                 exp_config=exp_config, 
                                 debug=debug, 
                                 batch_size=batch_size, 
-                                data_scale=data_scale)
+                                data_scale=data_scale,
+                                index=index)
 
     best_params, best_time, time_limit = GDS.do_GDSearch()
     output_file = exp_dir + "/best.txt"
     with open(output_file, "a+") as f:
-        GDS.printParams(best_params, f)
+        GDS.printParams(best_params, output_file)
         f.write("Best Time: {}".format(best_time))
         f.write("Time Limit: {}".format(time_limit))
 
