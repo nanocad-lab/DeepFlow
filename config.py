@@ -171,9 +171,10 @@ class SystemHierarchyConfig:
     #This is redundant but makes my life easier.
     self.tot_nodes            = config_dict['tot_nodes']
     self.num_wafers           = int(math.ceil(self.tot_nodes / self.num_nodes_per_wafer))
-    self.device_placement     = ParallelMap(config_dict['device_placement'], 
-                                            self.num_wafers, 
-                                            self.num_nodes_per_wafer)
+    #TODO: THIS IS A HACK, device_placement need to be turned on
+    #self.device_placement     = ParallelMap(config_dict['device_placement'], 
+    #                                        self.num_wafers, 
+    #                                        self.num_nodes_per_wafer)
 
 class ParallelMap:
   def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):

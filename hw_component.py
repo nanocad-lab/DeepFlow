@@ -1,7 +1,7 @@
 import math
 import numpy as np
 import util
-from topology import Topology
+from topology_hack import Topology
 
 class System:
   def __init__(self, exp_config):
@@ -16,7 +16,7 @@ class Base:
       self.topology                 = Topology(exp_config)
       self.throughput               = -1
       node_width                    = math.sqrt(self.proc_chip_area_budget)
-      self.core_perimeter                = node_width * 4
+      self.core_perimeter           = node_width * 4
 
   def calcThroughput(self):
       print("Each class should have its own calcThroughput")
@@ -127,7 +127,8 @@ class DRAM(Memory):
       self.dynamic_energy_per_bit     = exp_config.tech_config.DRAM.dynamic_energy_per_bit
       self.static_power_per_byte      = exp_config.tech_config.DRAM.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.DRAM.area_per_bit * 8
-      self.stack_bw                   = exp_config.tech_config.DRAM.stack_bw
+      #TODO
+      #self.stack_bw                   = exp_config.tech_config.DRAM.stack_bw
       self.stack_capacity             = exp_config.tech_config.DRAM.stack_capacity
       self.area_per_stack             = exp_config.tech_config.DRAM.area_per_stack
       self.latency                    = exp_config.tech_config.DRAM.latency
@@ -139,6 +140,7 @@ class DRAM(Memory):
       self.num_channels               = min(self.tot_area // self.area_per_stack, 
                                             self.tot_mem_ctrl_area // self.mem_ctrl_area)
       self.num_links_per_mm           = exp_config.tech_config.DRAM.num_links_per_mm
+
       self.num_links                  = int(self.core_perimeter * 
                                             exp_config.perimeter_breakdown.DRAM *
                                             self.num_links_per_mm)
@@ -170,7 +172,8 @@ class DRAM(Memory):
       self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size
 
   def calcThroughput(self):
-      self.dynamic_throughput         = min(self.num_links * self.operating_freq, self.num_channels * self.stack_bw)
+      self.dynamic_throughput         = self.num_links * self.operating_freq
+      self.stack_bw                   = self.dynamic_throughput  / self.num_channels
       self.throughput                 = self.dynamic_throughput * util.DRAM
   
   def calcSize(self):
@@ -193,42 +196,58 @@ class L2(Memory):
       self.dynamic_energy_per_byte    = exp_config.tech_config.L2.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = exp_config.tech_config.L2.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.L2.area_per_bit * 8
-      self.bank_bw                    = exp_config.tech_config.L2.bank_bw
+      #self.bank_bw                    = exp_config.tech_config.L2.bank_bw
       self.bank_capacity              = exp_config.tech_config.L2.bank_capacity
       self.controller_area_per_link   = exp_config.tech_config.L2.controller_area_per_link
       self.latency                    = exp_config.tech_config.L2.latency
       
-      self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.num_banks                  = self.nominal_throughput // self.bank_bw
+      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
+      self.bank_area                  = self.bank_capacity * self.area_per_byte
       
+      #self.throughput                 = self.nominal_throughput
+      #self.dynamic_throughput         = self.nominal_throughput
+
+      self.core                       = Core(self.exp_config)
+      
+      self.num_banks                  =( 0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
+      #print("L2 num_banks: {}".format(self.num_banks))
       self.calcArea()
       self.calcSize()
       self.calcActiveEnergy()
       self.calcThroughput()
+      self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
+      
+      if self.dynamic_throughput <= 0:
+        assert(self.dynamic_throughput == 0)
+        self.num_banks=0
+      
+      self.calcSize()
       self.calcTileDim()
 
   def calcArea(self):
       #I/O, inter-bank, intra-bank overhead
       #TODO: @Saptadeep, do you know how to capture the DRAM circutry overhead
       #in over_head area calculation, should it be num_SMS or num_cores?
-      core                            = Core(self.exp_config)
-      self.overhead_area              = self.num_banks * core.num_bundle * self.controller_area_per_link
+      self.overhead_area              = self.num_banks * self.core.num_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
       #assert(self.overhead_area < self.tot_area)
-      if self.overhead_area > self.cell_area:
+      if self.overhead_area > self.tot_area:
           self.cell_area              = 0
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
-      self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size
+      self.static_power             = self.static_power_per_byte * self.size
+      self.dynamic_power            = 0 if (self.tot_power < self.static_power) else (self.tot_power - self.static_power)
 
   def calcThroughput(self):
-      self.dynamic_throughput         = self.dynamic_power / self.dynamic_energy_per_byte
+      self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
+      #self.dynamic_throughput2        = self.num_banks * self.bank_bw
       self.throughput                 = self.dynamic_throughput * util.L2
 
   def calcSize(self):
-      self.size                       = min(self.num_banks * self.bank_capacity,
-                                            self.cell_area / self.area_per_byte)
+      self.size                       = self.num_banks * self.bank_capacity
+      #self.size2                      = self.cell_area / self.area_per_byte
+  
   def calcTileDim(self):
       #TODO: Does it make sense to keep the tile dim power of 2 or can we allow non-power of 2 tile-dim
       #check http://web.cse.ohio-state.edu/~pouchet.2/doc/hipc-article.11.pdf
@@ -248,43 +267,56 @@ class SharedMem(Memory):
       self.bank_capacity              = exp_config.tech_config.shared_mem.bank_capacity
       self.controller_area_per_link   = exp_config.tech_config.shared_mem.controller_area_per_link
       self.latency                    = exp_config.tech_config.shared_mem.latency
+      self.core                            = Core(self.exp_config)
       
-      self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.num_banks                  = self.nominal_throughput // self.bank_bw
-      
+      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
+      self.bank_area                  = self.bank_capacity * self.area_per_byte
+      #self.throughput                 = self.nominal_throughput
+      #self.dynamic_throughput         = self.nominal_throughput
+
+      self.num_banks                  = (0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
       self.calcArea()
       self.calcSize()
       self.calcActiveEnergy()
       self.calcThroughput()
+      self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
+      
+      if self.dynamic_throughput <= 0:
+        assert(self.dynamic_throughput == 0)
+        self.num_banks=0
+      
+      self.calcSize()
       self.calcTileDim()
 
 
   def calcArea(self):
       #I/O, inter-bank, intra-bank overhead
       #TODO: @Saptadeep, do you know how to capture the shared mem circutry overhead
-      core                            = Core(self.exp_config)
-      self.overhead_area              = self.num_banks * core.num_mcu_per_bundle * self.controller_area_per_link
+      self.overhead_area              = self.num_banks * self.core.num_mcu_per_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
       #assert(self.overhead_area < self.tot_area)
-      if self.overhead_area > self.cell_area:
+      if self.overhead_area > self.tot_area:
           self.cell_area              = 0
 
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
-      self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size
+      self.static_power             = self.static_power_per_byte * self.size
+      self.dynamic_power            = 0 if (self.tot_power < self.static_power) else (self.tot_power - self.static_power)
 
   def calcThroughput(self):
-      self.dynamic_throughput         = self.dynamic_power / self.dynamic_energy_per_byte
-      self.throughput                 = self.nominal_throughput * util.shared_mem
+      self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
+      self.throughput                 = self.dynamic_throughput * util.shared_mem
 
   def calcSize(self):
-      self.size                       = min(self.num_banks * self.bank_capacity,
-                                            self.cell_area / self.area_per_byte)
+      self.size                       = self.num_banks * self.bank_capacity
+
   def calcTileDim(self):
       self.tile_dim = 0
       core                            = Core(self.exp_config)
-      self.size_per_bundle            = self.size / core.num_bundle 
-      if (self.size > 0):
+      
+      self.size_per_bundle          = 0 if (core.num_bundle == 0) else self.size / core.num_bundle 
+      
+      if (self.size_per_bundle > 0):
           self.tile_dim               = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
 
 class RegMem(Memory):
@@ -301,7 +333,8 @@ class RegMem(Memory):
       self.latency                    = exp_config.tech_config.reg_mem.latency
       
       self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.num_banks                  = self.nominal_throughput // self.bank_bw
+      self.tot_capacity               = self.tot_area / self.area_per_byte
+      self.num_banks                  = self.tot_capacity // self.bank_capacity
       
       self.calcArea()
       self.calcSize()
@@ -318,24 +351,29 @@ class RegMem(Memory):
       #SP: Usually the overhead gets a bit amortized as the bank size grows, but the sense amps etc. also scale with bitline length, so not a straight-forward model. I am assuming about 25% overhead which is reasonable based on ISSCC 2018 SRAM papers from Intel and Samsung 
       self.overhead_area              = self.tot_area * 0.25
       self.cell_area                  = self.tot_area - self.overhead_area
-      assert(self.overhead_area < self.tot_area)
+      #assert(self.overhead_area < self.tot_area)
+      if self.overhead_area > self.tot_area:
+          self.cell_area              = 0
   
   def calcActiveEnergy(self):
       #TODO: @Saptaddeep: Can you verify if this is correct?
-      self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size
+      self.static_power             = self.static_power_per_byte * self.size
+      self.dynamic_power            = 0 if (self.tot_power < self.static_power) else (self.tot_power - self.static_power)
 
   def calcThroughput(self):
-      self.dynamic_throughput         = self.dynamic_power / self.dynamic_energy_per_byte
+      self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
       self.throughput                 = self.nominal_throughput * util.reg_mem
 
   def calcSize(self):
-      self.size                       = min(self.num_banks * self.bank_capacity,
-                                            self.cell_area / self.area_per_byte)
+      self.size                       = self.num_banks * self.bank_capacity
+
   def calcTileDim(self):
       self.tile_dim = 0
       core                            = Core(self.exp_config)
-      self.size_per_bundle            = self.size / core.num_bundle 
-      if (self.size > 0):
+      
+      self.size_per_bundle            = 0 if (core.num_bundle == 0) else self.size / core.num_bundle
+
+      if (self.size_per_bundle > 0):
           self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
 
 
@@ -426,12 +464,14 @@ class SubNetwork(Base):
                                                 perimeter_fraction * 
                                                 self.core_perimeter * 
                                                 self.num_links_per_mm))
+     
+      self.throughput                 = 0
+      if self.num_links > 0:
+          self.calcOperatingVoltageFrequency()
+          self.throughput                 = self.calcThroughput()
+      
+      #self.energy_per_bit             = self.calcEnergyPerBit()
 
-      self.calcOperatingVoltageFrequency()
-
-      self.energy_per_bit             = self.calcEnergyPerBit()
-
-      self.throughput                 = self.calcThroughput()
 
   def calcOperatingVoltageFrequency(self):
       if self.inter and self.topology.interNodeDegree == 0:
@@ -450,7 +490,7 @@ class SubNetwork(Base):
           #operating frequency at minimum voltage
           self.operating_freq             = self.nominal_freq * (((self.operating_voltage - self.threshold_voltage)**2 / (self.operating_voltage)) /
                                                                   ((self.nominal_voltage - self.threshold_voltage)**2 / self.nominal_voltage)) 
-          self.frequency_scaling_factor = 1 
+          self.frequency_scaling_factor     = 1 
           if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
               self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
               self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
@@ -468,5 +508,5 @@ class SubNetwork(Base):
       degree                            = self.topology.intraNodeDegree if self.intra else self.topology.interNodeDegree
       throughput                        = 0
       if degree > 0 :
-        throughput                        = (self.num_links * self.operating_freq)/(8 * degree) 
+        throughput                      = (self.num_links * self.operating_freq)/(8 * degree) 
       return throughput

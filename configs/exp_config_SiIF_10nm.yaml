@@ -133,7 +133,7 @@ system_hierarchy:
 
 scheduling_param:
     auto: False 
-    dp: 2
+    dp: 1
     lp: 1
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1

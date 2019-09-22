@@ -116,7 +116,7 @@ perimeter_breakdown:
 
 system_hierarchy:
     num_nodes_per_wafer: 1
-    tot_nodes: 2
+    tot_nodes: 1
     device_placement:
       w0: 
           n0: 0,0,0 #dp, lp, kp
@@ -133,7 +133,7 @@ system_hierarchy:
 
 scheduling_param:
     auto: False 
-    dp: 2
+    dp: 1
     lp: 1
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1
