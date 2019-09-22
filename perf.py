@@ -122,9 +122,9 @@ class TimeCalculation:
       teraByte = gigaByte * 1024
 
       with open(output_file, "w") as f:
-            f.write("======================")
-            f.write("Hardware Configuration")
-            f.write("======================")
+            f.write("======================\n")
+            f.write("Hardware Configuration\n")
+            f.write("======================\n")
             f.write("Throughput: {:.1f} Tflops\n"
                     "Memory Bandwidth: {:.1f} GB/s\n"
                     "Memory Size: {:.1f} GB\n"
@@ -135,7 +135,7 @@ class TimeCalculation:
                     "Register Memory Bandwidth: {:.1f} TB/s\n"
                     "Register Size: {:.1f} MB\n"
                     "Intra-node Bandwidth: {:.1f} GB/s\n"
-                    "Inter-node Bandwidth: {:.1f} GB/s"
+                    "Inter-node Bandwidth: {:.1f} GB/s\n"
                     .format(self.core.operating_throughput/1e12, 
                             self.mm.dynamic_throughput/(gigaByte), 
                             self.mm.size/(gigaByte), 
@@ -150,14 +150,14 @@ class TimeCalculation:
 
             M = self.mem_size
             tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
-            f.write("\n\n===========================================")
-            f.write("Memory Requirement Breakdown per Data Shard")
-            f.write("===========================================")
+            f.write("\n\n===========================================\n")
+            f.write("Memory Requirement Breakdown per Data Shard\n")
+            f.write("===========================================\n")
             f.write("Total Memory: {:.1f} GB\n"
                     "Embedding Memory: {:.1f} GB\n"
                     "Hidden Memory: {:.1f} GB\n"
                     "Softmax Memory: {:.1f} GB\n"
-                    "Projection Memory: {:.1f} GB"
+                    "Projection Memory: {:.1f} GB\n"
                     .format(tot_mem/gigaByte, 
                             embedding_mem/gigaByte, 
                             hidden_mem/gigaByte, 
@@ -178,9 +178,9 @@ class TimeCalculation:
 
             
             tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
-            f.write("\n\n=========================================================")
-            f.write("Memory Requirement Breakdown per Data Shard Per Model Shard")
-            f.write("===========================================================")
+            f.write("\n\n=========================================================\n")
+            f.write("Memory Requirement Breakdown per Data Shard Per Model Shard\n")
+            f.write("===========================================================\n")
             f.write("Total Memory: {:.1f} GB\n"
                     "Embedding Memory: {:.1f} GB\n"
                     "Hidden Memory: {:.1f} GB\n"
@@ -204,9 +204,9 @@ class TimeCalculation:
                             act_mem/gigaByte, 
                             point_mem/gigaByte))
             
-            f.write("\n\n====================")
-            f.write("Parallelism Strategy")
-            f.write("====================")
+            f.write("\n\n====================\n")
+            f.write("Parallelism Strategy\n")
+            f.write("====================\n")
             f.write("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
                     "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
                     "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
@@ -223,7 +223,10 @@ class TimeCalculation:
         self.tot_mem  += gmem
 
         inflection_point = self.th / self.mem_bw
-        comp_int = flop / gmem
+
+        mem = (gmem if gmem>0 else (l2mem if l2mem>0 else (smem if smem>0 else (rmem if rmem>0 else 0))))
+        assert(mem > 0)
+        comp_int = flop / mem
         #L2_tile_dim, sm_tile_dim = self.getTileDim()
         #single_block_comp_time = (2 * L2_tile_dim * L2_tile_dim * L2_tile_dim) / self.th
         #single_block_mem_time  = (3 * L2_tile_dim * L2_tile_dim * self.precision) / self.mem_bw
@@ -232,10 +235,12 @@ class TimeCalculation:
         if comp_int < inflection_point: #mem-bound
             time = (float("inf") if ((self.mem_bw == 0) and (self.L2_bw == 0) and 
                                       (self.shared_mem_bw == 0) and (self.reg_bw == 0)) 
-                    else ((gmem / self.mem_bw) + self.mem_latency + 
+                    else 
+                    (0 if self.mem_bw == 0 else (gmem / self.mem_bw)) + 
+                    self.mem_latency + 
                     (0 if self.L2_bw == 0 else (l2mem / self.L2_bw)) + 
                     (0 if self.shared_mem_bw == 0 else (smem / self.shared_mem_bw)) +
-                    (0 if self.reg_bw == 0 else (smem / self.reg_bw))))
+                    (0 if self.reg_bw == 0 else (smem / self.reg_bw)))
         else: #compute-bound
             time = float("inf") if (self.th == 0) else (flop / self.th)
         

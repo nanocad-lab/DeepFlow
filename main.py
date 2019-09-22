@@ -3,8 +3,8 @@ import subprocess
 import os
 import re
 
-def run_command(exp_config, exp_dir, mode = 'standalone', debug=False, no_launch=False, index=0):
-    command = create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, debug)
+def run_command(exp_config, exp_dir, mode = 'standalone', debug=False, no_launch=False, index=0, dp=1, lp=1, kp=1, batch_size=32, data_scale=1):
+    command = create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, batch_size=batch_size, data_scale=data_scale, dp=dp, lp=lp, kp=kp, debug=debug)
     if no_launch:
         print('WARN: Not running... printing command\n    {}'
               .format(command), flush=True)
@@ -12,7 +12,7 @@ def run_command(exp_config, exp_dir, mode = 'standalone', debug=False, no_launch
         run_slurm_command(command)
  
 
-def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, debug):
+def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, batch_size=32, data_scale=1, dp=1, lp=1, kp=1, debug=False):
     """Create a job SLURM enqueue command
     Args:
         exp_dir (str): Path to model directory
@@ -36,7 +36,7 @@ def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, debug):
         exp_name = 'perf'
     else:
         script='GD_search.py'
-        script_args = '--exp_config {exp_config} --exp_dir {exp_dir} --debug {debug} --index {index}'.format(exp_config=exp_config, exp_dir=exp_dir, debug=debug, index=index)
+        script_args = '--exp_config {exp_config} --exp_dir {exp_dir} --debug {debug} --index {index} --batch_size {batch_size} --data_scale {data_scale} --dp {dp} --lp {lp} --kp {kp}'.format(exp_config=exp_config, exp_dir=exp_dir, debug=debug, index=index, batch_size=batch_size, data_scale=data_scale, dp=dp, lp=lp, kp=kp)
         exp_name = 'GD_search'
 
     command = (
@@ -78,23 +78,32 @@ def run_slurm_command(command):
     return job_id
 
 def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
+    #TODO: datascale can be optimized out of the GD search code
+    data_scale = 1
+    lp = 1
+    kp = 1
+    dp_list = [1, 32]
     batch_sizes = [32, 512]
-    data_scales = [1, 100]
     exp_root = exp_dir
 
-    for data_scale in data_scales:
+    for dp in dp_list:
         for batch_size in batch_sizes:
-            exp_dir='{exp_root}/d{data_scale}/b{batch_size}'.format(exp_root=exp_root, data_scale=data_scale, batch_size=batch_size)
-            GD_search(exp_config, exp_dir, debug, num_search, batch_size, data_scale, no_launch)
+            exp_dir='{exp_root}/dp{dp}/b{batch_size}'.format(exp_root=exp_root, data_scale=data_scale, batch_size=batch_size,dp=dp)
+            GD_search(exp_config, exp_dir, debug, num_search, batch_size, data_scale, dp, lp, kp, no_launch)
 
-def GD_search(exp_config, exp_dir, debug, num_search, batch_size, data_scale, no_launch):
+def GD_search(exp_config, exp_dir, debug, num_search, batch_size, data_scale, dp, lp, kp, no_launch):
     for i in range(num_search):
         run_command(exp_config = exp_config, 
                     exp_dir=exp_dir + "/r" + str(i),
                     mode='GD_search', 
                     debug=debug,
                     no_launch=no_launch,
-                    index=i)
+                    index=i,
+                    batch_size=batch_size,
+                    data_scale=data_scale,
+                    dp=dp,
+                    lp=lp,
+                    kp=kp)
 
 @click.group()
 def main():

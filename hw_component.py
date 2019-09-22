@@ -201,27 +201,21 @@ class L2(Memory):
       self.controller_area_per_link   = exp_config.tech_config.L2.controller_area_per_link
       self.latency                    = exp_config.tech_config.L2.latency
       
-      self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.tot_capacity               = self.tot_area / self.area_per_byte
-      self.num_banks                  = self.tot_capacity // self.bank_capacity
+      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       self.bank_area                  = self.bank_capacity * self.area_per_byte
       
-      self.throughput                 = self.nominal_throughput
-      self.dynamic_throughput         = self.nominal_throughput
-      prev_throughput                 = 0
-      prev_num_banks                  = 0
-      self.cell_area                  = 0
+      #self.throughput                 = self.nominal_throughput
+      #self.dynamic_throughput         = self.nominal_throughput
 
-      while ((self.num_banks != prev_num_banks and self.num_banks != (prev_num_banks - 1))):
-        #print("L2 num_banks: {}".format(self.num_banks))
-        prev_throughput               = self.throughput
-        prev_num_banks                = self.num_banks
-        self.bank_bw                  = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
-        self.calcArea()
-        self.num_banks                = (self.cell_area // self.bank_area + self.num_banks) // 2
-        self.calcSize()
-        self.calcActiveEnergy()
-        self.calcThroughput()
+      self.core                       = Core(self.exp_config)
+      
+      self.num_banks                  =( 0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
+      #print("L2 num_banks: {}".format(self.num_banks))
+      self.calcArea()
+      self.calcSize()
+      self.calcActiveEnergy()
+      self.calcThroughput()
+      self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
       
       if self.dynamic_throughput <= 0:
         assert(self.dynamic_throughput == 0)
@@ -234,8 +228,7 @@ class L2(Memory):
       #I/O, inter-bank, intra-bank overhead
       #TODO: @Saptadeep, do you know how to capture the DRAM circutry overhead
       #in over_head area calculation, should it be num_SMS or num_cores?
-      core                            = Core(self.exp_config)
-      self.overhead_area              = self.num_banks * core.num_bundle * self.controller_area_per_link
+      self.overhead_area              = self.num_banks * self.core.num_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
       #assert(self.overhead_area < self.tot_area)
       if self.overhead_area > self.tot_area:
@@ -274,29 +267,19 @@ class SharedMem(Memory):
       self.bank_capacity              = exp_config.tech_config.shared_mem.bank_capacity
       self.controller_area_per_link   = exp_config.tech_config.shared_mem.controller_area_per_link
       self.latency                    = exp_config.tech_config.shared_mem.latency
+      self.core                            = Core(self.exp_config)
       
-      self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.tot_capacity               = self.tot_area / self.area_per_byte
-      self.num_banks                  = self.tot_capacity // self.bank_capacity
+      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       self.bank_area                  = self.bank_capacity * self.area_per_byte
-      
-      self.throughput                 = self.nominal_throughput
-      self.dynamic_throughput         = self.nominal_throughput
-      prev_throughput                 = 0
-      prev_num_banks                  = 0
-      self.cell_area                  = 0
+      #self.throughput                 = self.nominal_throughput
+      #self.dynamic_throughput         = self.nominal_throughput
 
-      while ((self.num_banks != prev_num_banks and self.num_banks != (prev_num_banks - 1))):
-        #print("SM num_banks: {}".format(self.num_banks))
-        #print("prev_throughput: {}, self.throughput: {}".format(prev_throughput, self.throughput))
-        prev_throughput               = self.throughput
-        prev_num_banks                = self.num_banks
-        self.bank_bw                  = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
-        self.calcArea()
-        self.num_banks                = (self.cell_area // self.bank_area + self.num_banks) // 2
-        self.calcSize()
-        self.calcActiveEnergy()
-        self.calcThroughput()
+      self.num_banks                  = (0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
+      self.calcArea()
+      self.calcSize()
+      self.calcActiveEnergy()
+      self.calcThroughput()
+      self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
       
       if self.dynamic_throughput <= 0:
         assert(self.dynamic_throughput == 0)
@@ -309,8 +292,7 @@ class SharedMem(Memory):
   def calcArea(self):
       #I/O, inter-bank, intra-bank overhead
       #TODO: @Saptadeep, do you know how to capture the shared mem circutry overhead
-      core                            = Core(self.exp_config)
-      self.overhead_area              = self.num_banks * core.num_mcu_per_bundle * self.controller_area_per_link
+      self.overhead_area              = self.num_banks * self.core.num_mcu_per_bundle * self.controller_area_per_link
       self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
       #assert(self.overhead_area < self.tot_area)
       if self.overhead_area > self.tot_area:

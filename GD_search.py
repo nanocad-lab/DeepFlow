@@ -43,9 +43,14 @@ class GradientDescentSearch:
         self.parameters['perimeter_breakdown']['inter_node'] = 0.3
         self.parameters['perimeter_breakdown']['intra_node'] = 0.2
         
-        self.top_level_params = {}
-        self.top_level_params['data_scale'] = int(kwargs.get('data_scale', 1))
-        self.top_level_params['batch_size'] = int(kwargs.get('batch_size', 32))
+        self.model_level_params = {}
+        self.model_level_params['data_scale'] = int(kwargs.get('data_scale', 1))
+        self.model_level_params['batch_size'] = int(kwargs.get('batch_size', 32))
+        
+        self.sch_level_params = {}
+        self.sch_level_params['dp'] = int(kwargs.get('dp', 1))
+        self.sch_level_params['lp'] = int(kwargs.get('lp', 1))
+        self.sch_level_params['kp'] = int(kwargs.get('kp', 1))
 
         self.search_params = {}
         self.search_params = self.parameters
@@ -58,7 +63,7 @@ class GradientDescentSearch:
         
         self.initialize()
     
-    def printParams(self, params, message=''):
+    def printParams(self, params, message='', f=None):
         line=''
         for param_class in params:
             line = line + " " + param_class
@@ -67,8 +72,10 @@ class GradientDescentSearch:
                 if 'inter' in param:
                     param_abv = 'o'
                 line = line + " " + param_abv + ": " + "{0:.3f}".format(params[param_class][param])
-
-        print(message + " " + line + "\n")
+        if f is None:
+            print(message + " " + line + "\n")
+        else:
+            f.write(message + " " + line + "\n")
 
     def collect_time(self, params, iteration):
         exp_dir = self.create_config_dir(params, iteration)
@@ -80,7 +87,7 @@ class GradientDescentSearch:
         os.system("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
 
         ##Time Limit to compute a step
-        os.system("bash search_scripts/time_limit.sh " + str(self.top_level_params['data_scale']) + " " + str(self.top_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
+        os.system("bash search_scripts/time_limit.sh " + str(self.model_level_params['data_scale']) + " " + str(self.model_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
 
         exec_time = 100000000
         time_limit = 1e15
@@ -171,13 +178,24 @@ class GradientDescentSearch:
                 else:
                     config_dict[param_class][param] = params[param_class][param]
        
-        for param in self.top_level_params:
+        for param in self.model_level_params:
             try:
-                config_dict['model_param'][param] = self.top_level_params[param]
+                config_dict['model_param'][param] = self.model_level_params[param]
             except:
                 config_dict['model_param'] = {}
-                config_dict['model_param'][param] = self.top_level_params[param]
+                config_dict['model_param'][param] = self.model_level_params[param]
 
+        tot_nodes = 1
+        for param in self.sch_level_params:
+            #TODO: This needs to change when fixing kp, for now assuming kp is fixed
+            tot_nodes *= self.sch_level_params[param]
+            if "kp" not in param:
+                config_dict['scheduling_param'][param] = self.sch_level_params[param]
+            #else:
+                #TODO: figure out which type of kp and how different layers are divided
+
+        config_dict['system_hierarchy']['tot_nodes'] = tot_nodes
+        
         with open(config_file, 'w') as yaml_file:
             _yaml.dump(config_dict, yaml_file, default_flow_style=False)
        
@@ -233,6 +251,7 @@ class GradientDescentSearch:
               random_noise = np.random.normal(0, 1e-6, len(search_params[param_class])) 
               for i, param in enumerate(search_params[param_class]):
                   search_params[param_class][param] += gradient_list[param_class][param] * lr + random_noise[i]
+                  search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 0
               param_class_l2 = np.linalg.norm(list(search_params[param_class].values()), ord=1)
               for param in search_params[param_class]:
                   search_params[param_class][param] = search_params[param_class][param] if (param_class_l2 == 0) else search_params[param_class][param]/param_class_l2
@@ -247,7 +266,7 @@ class GradientDescentSearch:
             
             if new_exec_time < best_time:
                 best_time = new_exec_time
-                best_params = search_params 
+                best_params = copy.deepcopy(search_params)
 
             print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
 
@@ -282,20 +301,26 @@ class GradientDescentSearch:
 @click.option("--batch_size", help="Batch size", default=32)
 @click.option("--data_scale", help="Data scale", default=1)
 @click.option("--index", help="Search index", required=True)
-def main(exp_config, exp_dir, debug, index, batch_size, data_scale):
+@click.option("--dp", help="Number of data parallel workers", required=True)
+@click.option("--lp", help="Number of layer parallel workers", required=True)
+@click.option("--kp", help="Number of kernel parallel workers", required=True)
+def main(exp_config, exp_dir, debug, index, batch_size, data_scale, dp, lp, kp):
     GDS = GradientDescentSearch(exp_dir=exp_dir, 
                                 exp_config=exp_config, 
                                 debug=debug, 
                                 batch_size=batch_size, 
                                 data_scale=data_scale,
+                                dp=dp,
+                                lp=lp,
+                                kp=kp,
                                 index=index)
 
     best_params, best_time, time_limit = GDS.do_GDSearch()
     output_file = exp_dir + "/best.txt"
     with open(output_file, "a+") as f:
-        GDS.printParams(best_params, output_file)
-        f.write("Best Time: {}".format(best_time))
-        f.write("Time Limit: {}".format(time_limit))
+        f.write("Best Time: {}\n".format(best_time))
+        f.write("Time Limit: {}\n".format(time_limit))
+        GDS.printParams(best_params, f=f)
 
 if __name__ == "__main__":
     main()

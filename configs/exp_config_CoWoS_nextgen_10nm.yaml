@@ -16,11 +16,11 @@ sw_param:
 
 tech_param:
     core:
-        nominal_power_per_mcu: 1e-1 #W
+        nominal_power_per_mcu: 0.7e-1 #W
         nominal_flop_rate_per_mcu: 64
-        nominal_area_per_mcu: 0.11 #mm^2
+        nominal_area_per_mcu: 0.6 #mm^2
         nominal_frequency: 1.33e9 #Hz
-        nominal_voltage: 0.8 
+        nominal_voltage: 0.7 
         threshold_voltage: 0.2 
         margin_voltage: 0.35
         operating_area_per_mcu: 1
@@ -40,37 +40,37 @@ tech_param:
         margin_voltage: 0.6
         num_links_per_mm: 200
     L2:
-        dynamic_energy_per_bit: 3.5e-15
+        dynamic_energy_per_bit: 2.25e-15
         static_power_per_bit: 0
-        area_per_bit: 6.4e-8 #mm2
+        area_per_bit: 3.84e-8 #mm2
         bank_bandwidth: 4000 GB/s
         bank_capacity: 32 KB
-        controller_area_per_link: 0.004 #mm2 
-        controller_power_per_link: 0.04 #W
+        controller_area_per_link: 0.0025 #mm2 
+        controller_power_per_link: 0.03 #W
         latency: 0
     shared_mem:
-        dynamic_energy_per_bit: 2e-15
+        dynamic_energy_per_bit: 1.4e-15
         static_power_per_bit: 0
-        area_per_bit: 8e-8 #mm2
+        area_per_bit: 5e-8 #mm2
         bank_bandwidth: 4 TB/s
         bank_capacity: 32 KB
-        controller_area_per_link: 0.004 #mm2 
-        controller_power_per_link: 0.04 #W
+        controller_area_per_link: 0.0025 #mm2 
+        controller_power_per_link: 0.025 #W
         latency: 0
     reg_mem:
-        dynamic_energy_per_bit: 2e-15
+        dynamic_energy_per_bit: 1.4e-15
         static_power_per_bit: 0
-        area_per_bit: 8e-8 #mm2
+        area_per_bit: 5e-8 #mm2
         bank_bandwidth: 8 TB/s
         bank_capacity: 64 KB
-        controller_area_per_link: 0.004 #mm2 
-        controller_power_per_link: 0.04 #W
+        controller_area_per_link: 0.0025 #mm2 
+        controller_power_per_link: 0.025 #W
         latency: 0 
     network:
         intra_node:
           latency: 16e-9 
           nominal_frequency: 3e9
-          nominal_voltage: 1
+          nominal_voltage: 0.9
           nominal_energy_per_link: 1e-12
           nominal_area_per_link: 25e-6 #mm^2
           num_links_per_mm: 400
@@ -115,8 +115,8 @@ perimeter_breakdown:
   intra_node: 0.5
 
 system_hierarchy:
-    num_nodes_per_wafer: 40
-    tot_nodes: 40
+    num_nodes_per_wafer: 2
+    tot_nodes: 2
     device_placement:
       w0: 
           n0: 0,0,0 #dp, lp, kp
