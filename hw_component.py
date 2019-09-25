@@ -137,14 +137,15 @@ class DRAM(Memory):
       self.threshold_voltage          = exp_config.tech_config.DRAM.threshold_voltage
       self.margin_voltage             = exp_config.tech_config.DRAM.margin_voltage
 
-      self.num_stacks               = min(self.tot_area // self.area_per_stack, 
+      self.num_stacks                 = min(self.tot_area // self.area_per_stack, 
                                             self.tot_mem_ctrl_area // self.mem_ctrl_area)
-      self.num_links_per_mm         = exp_config.tech_config.DRAM.num_links_per_mm
+      self.num_links_per_mm           = exp_config.tech_config.DRAM.num_links_per_mm
+      self.num_links_per_stack        = exp_config.tech_config.DRAM.num_links_per_stack
 
-      self.num_links                = int(self.core_perimeter * 
-                                            exp_config.perimeter_breakdown.DRAM *
-                                            self.num_links_per_mm)
-      self.num_links_per_stack      = 0 if (self.num_stacks == 0)  else self.num_links // self.num_stacks
+      self.num_links                = min(int(self.core_perimeter * 
+                                          exp_config.perimeter_breakdown.DRAM *
+                                          self.num_links_per_mm),
+                                          self.num_links_per_stack * self.num_stacks)
 
       #self.calcArea()
       self.calcSize()
@@ -275,7 +276,7 @@ class SharedMem(Memory):
       self.dynamic_energy_per_byte    = exp_config.tech_config.shared_mem.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = exp_config.tech_config.shared_mem.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.shared_mem.area_per_bit * 8
-      self.bank_bw                    = exp_config.tech_config.shared_mem.bank_bw
+      #self.bank_bw                    = exp_config.tech_config.shared_mem.bank_bw
       self.bank_capacity              = exp_config.tech_config.shared_mem.bank_capacity
       self.controller_area_per_link   = exp_config.tech_config.shared_mem.controller_area_per_link
       self.latency                    = exp_config.tech_config.shared_mem.latency
