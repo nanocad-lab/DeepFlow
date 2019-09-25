@@ -6,6 +6,7 @@ import collections
 import random
 import numpy as np
 import copy
+import sys
 
 import config
 
@@ -89,7 +90,7 @@ class GradientDescentSearch:
         ##Time Limit to compute a step
         os.system("bash search_scripts/time_limit.sh " + str(self.model_level_params['data_scale']) + " " + str(self.model_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
 
-        exec_time = 100000000
+        exec_time = float("inf")
         time_limit = 1e15
 
         for line in open(exp_dir+'/summary.txt', 'r'):
@@ -111,7 +112,7 @@ class GradientDescentSearch:
             self.printParams(params)
             print("Time: {}\n".format(exec_time))
 
-        return exec_time, time_limit, found
+        return exec_time, time_limit, found, exp_dir
  
     def initialize(self):
         random_seed = self.index
@@ -247,11 +248,14 @@ class GradientDescentSearch:
             if self.debug:
                 print("Raw gradient_list: {}".format(gradient_list))
 
+            clip_max = 2
             for param_class in search_params:
-              random_noise = np.random.normal(0, 1e-6, len(search_params[param_class])) 
+              random_noise = np.random.normal(0, 1e-4, len(search_params[param_class])) 
               for i, param in enumerate(search_params[param_class]):
-                  search_params[param_class][param] += gradient_list[param_class][param] * lr + random_noise[i]
-                  search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 0
+                  gradient_update = gradient_list[param_class][param] * lr
+                  gradient_clipped = (clip_max if gradient_update > clip_max else gradient_update)
+                  search_params[param_class][param] += gradient_clipped + random_noise[i]
+                  search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-4
               param_class_l2 = np.linalg.norm(list(search_params[param_class].values()), ord=1)
               for param in search_params[param_class]:
                   search_params[param_class][param] = search_params[param_class][param] if (param_class_l2 == 0) else search_params[param_class][param]/param_class_l2
@@ -267,11 +271,12 @@ class GradientDescentSearch:
             if new_exec_time < best_time:
                 best_time = new_exec_time
                 best_params = copy.deepcopy(search_params)
+                best_dir = t[3]
 
             print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
 
             if iteration % 10 == 0:
-                if (prev_ckpt_time - new_exec_time < 0.0001):
+                if (prev_ckpt_time - new_exec_time < 0.001):
                     saturated = True
                     if t[2] == True:
                         print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
@@ -291,7 +296,7 @@ class GradientDescentSearch:
             iteration = iteration + 1    
             prev_exec_time = new_exec_time
             
-        return best_params, best_time, time_limit
+        return best_params, best_time, time_limit, best_dir
     
    
 @click.command("arch_search")        
@@ -315,11 +320,12 @@ def main(exp_config, exp_dir, debug, index, batch_size, data_scale, dp, lp, kp):
                                 kp=kp,
                                 index=index)
 
-    best_params, best_time, time_limit = GDS.do_GDSearch()
+    best_params, best_time, time_limit, best_dir = GDS.do_GDSearch()
     output_file = exp_dir + "/best.txt"
     with open(output_file, "a+") as f:
         f.write("Best Time: {}\n".format(best_time))
         f.write("Time Limit: {}\n".format(time_limit))
+        f.write("Best Dir: {}\n".format(best_dir))
         GDS.printParams(best_params, f=f)
 
 if __name__ == "__main__":
