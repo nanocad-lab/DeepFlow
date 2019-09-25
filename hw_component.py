@@ -76,16 +76,16 @@ class Core(Base):
       self.area_scaling                 = self.operating_area_per_mcu / self.nominal_area_per_mcu
       #Assumption: performance scales linearly with area
       self.operating_flop_rate_per_mcu  = self.nominal_flop_rate_per_mcu * self.area_scaling
+      self.nominal_power                = self.nominal_power_per_mcu * self.num_mcu
       
-      try:
+      if self.tot_power > 0 and self.nominal_power > 0:
         self.calcOperatingVoltageFrequency()
-      except:
-        self.self.operating_freq = 0
+      else:
+        self.operating_freq = 0
       
       self.calcThroughput()
 
   def calcOperatingVoltageFrequency(self):
-      self.nominal_power                = self.nominal_power_per_mcu * self.num_mcu
       #minimum voltage that meets power constraints
 
       self.operating_voltage            = self.solve_poly(p0 = 1, 
@@ -137,23 +137,35 @@ class DRAM(Memory):
       self.threshold_voltage          = exp_config.tech_config.DRAM.threshold_voltage
       self.margin_voltage             = exp_config.tech_config.DRAM.margin_voltage
 
-      self.num_channels               = min(self.tot_area // self.area_per_stack, 
+      self.num_stacks               = min(self.tot_area // self.area_per_stack, 
                                             self.tot_mem_ctrl_area // self.mem_ctrl_area)
-      self.num_links_per_mm           = exp_config.tech_config.DRAM.num_links_per_mm
+      self.num_links_per_mm         = exp_config.tech_config.DRAM.num_links_per_mm
 
-      self.num_links                  = int(self.core_perimeter * 
+      self.num_links                = int(self.core_perimeter * 
                                             exp_config.perimeter_breakdown.DRAM *
                                             self.num_links_per_mm)
+      self.num_links_per_stack      = 0 if (self.num_stacks == 0)  else self.num_links // self.num_stacks
 
       #self.calcArea()
       self.calcSize()
       self.calcActiveEnergy()
-      self.calcOperatingVoltageFrequency()
+      
+      self.nominal_power            = self.dynamic_energy_per_bit * self.num_links * self.nominal_freq
+      if (self.dynamic_power > 0 and self.nominal_power > 0):
+          self.calcOperatingVoltageFrequency()
+      else:
+          self.operating_freq = 0
+
       self.calcThroughput()
+
+      if self.dynamic_throughput <= 0:
+        assert(self.dynamic_throughput == 0)
+        self.num_stacks=0
+
+      self.calcSize()
 
   def calcOperatingVoltageFrequency(self):
       self.frequency_scaling_factor     = 1 
-      self.nominal_power                = self.dynamic_energy_per_bit * self.num_links * self.nominal_freq
       self.operating_voltage            = self.solve_poly(p0 = 1, 
                                                           p1 = -2 * self.threshold_voltage, 
                                                           p2 = self.threshold_voltage**2, 
@@ -169,18 +181,18 @@ class DRAM(Memory):
       self.operating_freq               = self.frequency_scaling_factor * self.nominal_freq
 
   def calcActiveEnergy(self):
-      self.dynamic_power             = self.tot_power - self.static_power_per_byte * self.size
+      self.dynamic_power             = 0 if (self.tot_power < self.static_power_per_byte * self.size) else (self.tot_power - self.static_power_per_byte * self.size)
 
   def calcThroughput(self):
-      self.dynamic_throughput         = self.num_links * self.operating_freq
-      self.stack_bw                   = self.dynamic_throughput  / self.num_channels
+      self.dynamic_throughput         = 0 if (self.size == 0) else self.num_links * self.operating_freq / 8
+      self.stack_bw                   = 0 if self.num_stacks == 0 else self.dynamic_throughput  / self.num_stacks
       self.throughput                 = self.dynamic_throughput * util.DRAM
   
   def calcSize(self):
       #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       #self.size                       = min((self.nominal_throughput / self.stack_bw) * self.stack_capacity,
       #                                         self.cell_area / self.area_per_byte)
-      self.size                       = self.num_channels * self.stack_capacity
+      self.size                       = self.num_stacks * self.stack_capacity
 
   def calcTileDim(self):
       self.tile_dim = 0
@@ -209,7 +221,7 @@ class L2(Memory):
 
       self.core                       = Core(self.exp_config)
       
-      self.num_banks                  =( 0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
+      self.num_banks                  = (0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
       #print("L2 num_banks: {}".format(self.num_banks))
       self.calcArea()
       self.calcSize()
@@ -327,21 +339,27 @@ class RegMem(Memory):
       self.dynamic_energy_per_byte    = exp_config.tech_config.reg_mem.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = exp_config.tech_config.reg_mem.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.reg_mem.area_per_bit * 8
-      self.bank_bw                    = exp_config.tech_config.reg_mem.bank_bw
+      #self.bank_bw                    = exp_config.tech_config.reg_mem.bank_bw
       self.bank_capacity              = exp_config.tech_config.reg_mem.bank_capacity
       self.controller_area_per_link   = exp_config.tech_config.reg_mem.controller_area_per_link
       self.latency                    = exp_config.tech_config.reg_mem.latency
       
-      self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.tot_capacity               = self.tot_area / self.area_per_byte
-      self.num_banks                  = self.tot_capacity // self.bank_capacity
+      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
+      #self.tot_capacity               = self.tot_area / self.area_per_byte
+      #self.num_banks                  = self.tot_capacity // self.bank_capacity
+      self.bank_area                  = self.bank_capacity * self.area_per_byte
+      self.num_banks                  = (0.75 * self.tot_area) // self.bank_area
       
       self.calcArea()
       self.calcSize()
       self.calcActiveEnergy()
       self.calcThroughput()
+      
+      if self.dynamic_throughput <= 0:
+        assert(self.dynamic_throughput == 0)
+        self.num_banks=0
+      self.calcSize()
       self.calcTileDim()
-
 
   def calcArea(self):
       #I/O, inter-bank, intra-bank overhead
@@ -362,7 +380,7 @@ class RegMem(Memory):
 
   def calcThroughput(self):
       self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
-      self.throughput                 = self.nominal_throughput * util.reg_mem
+      self.throughput                 = self.dynamic_throughput * util.reg_mem
 
   def calcSize(self):
       self.size                       = self.num_banks * self.bank_capacity
