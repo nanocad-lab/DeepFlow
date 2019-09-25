@@ -167,9 +167,9 @@ def power2RoundUp(x):
   #Ideally we want to round up to a value which is a multiply of factor of 2 and a number
   #y = math.floor(math.pow(2,(math.ceil(math.log(x,2)))))
   log_power = math.ceil(math.log(x,2))
-  power_2   = [2**p for p in range(1, log_power)]
+  power_2   = [2**p for p in range(0, log_power)]
   min_dist  = x
-  min_val   = 0
+  min_val   = 1
   for i in power_2[::-1]: 
     a = math.ceil(x/i)
     dist = a * i - x
