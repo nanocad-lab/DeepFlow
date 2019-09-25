@@ -23,7 +23,7 @@ def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, batch_size=3
     num_tasks = 1
     cpus_per_task = 1
     gpus_per_node = 1
-    partition = '1080Ti,TitanXx8,M40x8'
+    partition = '1080Ti,TitanXx8,M40x8,2080Ti,P100'
     exp_config = exp_config
 
 

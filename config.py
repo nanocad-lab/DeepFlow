@@ -22,7 +22,7 @@ class DRAMConfig:
     self.static_power_per_bit     = mem_config_dict['static_power_per_bit']
     self.area_per_bit             = mem_config_dict['area_per_bit']
     self.stack_capacity           = mem_config_dict['stack_capacity']
-    self.stack_bw                 = mem_config_dict['stack_bandwidth']
+    #self.stack_bw                 = mem_config_dict['stack_bandwidth']
     self.area_per_stack           = mem_config_dict['area_per_stack']
     self.latency                  = mem_config_dict['latency']
     self.mem_ctrl_area            = mem_config_dict['mem_ctrl_area']
@@ -31,6 +31,7 @@ class DRAMConfig:
     self.threshold_voltage        = mem_config_dict['threshold_voltage']
     self.margin_voltage           = mem_config_dict['margin_voltage']
     self.num_links_per_mm         = mem_config_dict['num_links_per_mm']
+    self.num_links_per_stack      = mem_config_dict['num_links_per_stack']
 
 class L2Config:
   def __init__(self, l2_config_dict):
@@ -38,7 +39,7 @@ class L2Config:
     self.static_power_per_bit     = l2_config_dict['static_power_per_bit']
     self.area_per_bit             = l2_config_dict['area_per_bit']
     self.bank_capacity            = l2_config_dict['bank_capacity']
-    self.bank_bw                  = l2_config_dict['bank_bandwidth']
+    #self.bank_bw                  = l2_config_dict['bank_bandwidth']
     self.controller_area_per_link = l2_config_dict['controller_area_per_link']
     self.latency                  = l2_config_dict['latency']
 
@@ -48,7 +49,7 @@ class SMConfig:
     self.static_power_per_bit     = sm_config_dict['static_power_per_bit']
     self.area_per_bit             = sm_config_dict['area_per_bit']
     self.bank_capacity            = sm_config_dict['bank_capacity']
-    self.bank_bw                  = sm_config_dict['bank_bandwidth']
+    #self.bank_bw                  = sm_config_dict['bank_bandwidth']
     self.controller_area_per_link = sm_config_dict['controller_area_per_link']
     self.latency                  = sm_config_dict['latency']
 
@@ -58,7 +59,7 @@ class RegConfig:
     self.static_power_per_bit     = reg_config_dict['static_power_per_bit']
     self.area_per_bit             = reg_config_dict['area_per_bit']
     self.bank_capacity            = reg_config_dict['bank_capacity']
-    self.bank_bw                  = reg_config_dict['bank_bandwidth']
+    #self.bank_bw                  = reg_config_dict['bank_bandwidth']
     self.controller_area_per_link = reg_config_dict['controller_area_per_link']
     self.latency                  = reg_config_dict['latency']
 

@@ -49,7 +49,15 @@ class TimeCalculation:
         self.mem_bw             = self.mm.getThroughput()
         self.mem_size           = self.mm.getSize()
         self.mem_latency        = self.mm.getLatency()
-        
+
+        #try:
+        #    assert(self.mem_bw > 0), "mem_bw = 0"
+        #except Exception as e:
+        #    print("The LLM bandwidth cannot be zero\n"
+        #    "{}".format(e), flush=True)
+        #    sys.exit(0)
+
+
         self.L2Mem              = L2(exp_config) 
         self.L2_bw              = self.L2Mem.getThroughput()
         self.L2_size            = self.L2Mem.getSize()
@@ -174,7 +182,7 @@ class TimeCalculation:
                             point_mem/gigaByte))
 
 
-            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n".format(tot_mem/M))
+            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n".format(float("inf") if M==0 else tot_mem/M))
 
             
             tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
@@ -193,7 +201,7 @@ class TimeCalculation:
                                projection_mem/gigaByte))
 
             f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n"
-                  .format(tot_mem/M))
+                  .format(float("inf") if M == 0 else tot_mem/M))
 
             f.write("\nTotal Memory: {:.1f} GB\n"
                     "Weight Memory: {:.1f} GB\n"
@@ -219,30 +227,51 @@ class TimeCalculation:
 
     def roofline(self, flop, gmem, l2mem=0, smem=0, rmem=0):
 
+        try:
+            assert(gmem > 0) , "gmem = 0"
+        except Exception as e:
+            print("Number of accesses to the last level of memory hierarchy cannot be zero:\n"
+            "{}".format(e), flush=True)
+            sys.exit(0)
+
         self.tot_flop += flop
         self.tot_mem  += gmem
 
-        inflection_point = self.th / self.mem_bw
+        inflection_point_gmem   = float("inf") if self.mem_bw == 0 else self.th / self.mem_bw
+        inflection_point_l2mem  = float("inf") if self.L2_bw == 0 else self.th / self.L2_bw
+        inflection_point_smem   = float("inf") if self.shared_mem_bw == 0 else self.th / self.shared_mem_bw
+        inflection_point_rmem   = float("inf") if self.reg_bw == 0 else self.th / self.reg_bw
 
-        mem = (gmem if gmem>0 else (l2mem if l2mem>0 else (smem if smem>0 else (rmem if rmem>0 else 0))))
-        assert(mem > 0)
-        comp_int = flop / mem
-        #L2_tile_dim, sm_tile_dim = self.getTileDim()
-        #single_block_comp_time = (2 * L2_tile_dim * L2_tile_dim * L2_tile_dim) / self.th
-        #single_block_mem_time  = (3 * L2_tile_dim * L2_tile_dim * self.precision) / self.mem_bw
+        comp_int_gmem  = 0 if gmem == 0 else flop / gmem
+        comp_int_l2mem = 0 if l2mem == 0 else flop / l2mem
+        comp_int_smem  = 0 if smem == 0 else flop / smem
+        comp_int_rmem  = 0 if rmem == 0 else flop / rmem
       
-        time  = 0
-        if comp_int < inflection_point: #mem-bound
-            time = (float("inf") if ((self.mem_bw == 0) and (self.L2_bw == 0) and 
-                                      (self.shared_mem_bw == 0) and (self.reg_bw == 0)) 
-                    else 
-                    (0 if self.mem_bw == 0 else (gmem / self.mem_bw)) + 
-                    self.mem_latency + 
-                    (0 if self.L2_bw == 0 else (l2mem / self.L2_bw)) + 
-                    (0 if self.shared_mem_bw == 0 else (smem / self.shared_mem_bw)) +
-                    (0 if self.reg_bw == 0 else (smem / self.reg_bw)))
+        time_gmem  = 0
+        if comp_int_gmem < inflection_point_gmem: #mem-bound
+            time_gmem = (float("inf") if (self.mem_bw == 0 or gmem == 0) else (gmem / self.mem_bw)) + self.mem_latency
         else: #compute-bound
-            time = float("inf") if (self.th == 0) else (flop / self.th)
+            time_gmem = float("inf") if (self.th == 0) else (flop / self.th)
+        
+        time_l2mem  = 0
+        if comp_int_l2mem < inflection_point_l2mem: #mem-bound
+            time_l2mem = (float("inf") if (self.L2_bw == 0 or l2mem == 0) else (l2mem / self.L2_bw))
+        else: #compute-bound
+            time_l2mem = float("inf") if (self.th == 0) else (flop / self.th)
+        
+        time_smem  = 0
+        if comp_int_smem < inflection_point_smem: #mem-bound
+            time_smem = (float("inf") if (self.shared_mem_bw == 0 or smem == 0) else (smem / self.shared_mem_bw))
+        else: #compute-bound
+            time_smem = float("inf") if (self.th == 0) else (flop / self.th)
+        
+        time_rmem  = 0
+        if comp_int_rmem < inflection_point_rmem: #mem-bound
+            time_rmem = (float("inf") if (self.reg_bw == 0 or rmem == 0) else (rmem / self.reg_bw))
+        else: #compute-bound
+            time_rmem = float("inf") if (self.th == 0) else (flop / self.th)
+        
+        time = min(time_gmem, time_l2mem, time_smem, time_rmem)
         
         if self.debug:
             print("inflection_point: {:.2f}".format(inflection_point))
@@ -670,8 +699,8 @@ class TimeCalculation:
             #data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) * 
             #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
             factor = (1 if partial or not allReduce else 2)
-            data_transfer  = ((((self.precision * Dim0 * Dim1) / p) / ib) + ll) * factor * (p - 1)
-            dt=((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
+            data_transfer  = float("inf") if (ib == 0) else ((((self.precision * Dim0 * Dim1) / p) / ib) + ll) * factor * (p - 1)
+            dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
             
             data_prep_comp = (Dim0 * Dim1) / p
             data_prep_mem  = (3 * self.precision * Dim0 * Dim1 / p) 
@@ -1088,7 +1117,8 @@ class TimeCalculation:
 
     def getEmbedding_f(self):
         embedding_mem = 2 * (self.miniB * self.D * self.S * self.precision)
-        embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
+        #embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
+        embedding_time = self.roofline(0, embedding_mem) + self.O
         if self.debug:
             print("Embedding_mem: {:,}".format(int(embedding_mem/G)))
         return embedding_time
@@ -1096,11 +1126,11 @@ class TimeCalculation:
 
     def getEmbedding_b(self):
         p2p_data_transfer = (self.precision * self.miniB * self.D * self.S)
-        data_transfer_time  = 0 if (self.dp == 1) else (((p2p_data_transfer) / self.IBD + self.LLD) * 2 * (self.dp -1 )) 
+        data_transfer_time  = 0 if (self.dp == 1) else (float("inf") if (self.IBD == 0) else (((p2p_data_transfer) / self.IBD + self.LLD) * 2 * (self.dp -1 ))) 
         
         embedding_mem = 2 * self.miniB * self.D * self.S * self.precision
-        embedding_mem_time = (embedding_mem / self.mem_bw) + self.mem_latency + self.O
-
+        #embedding_mem_time = (embedding_mem / self.mem_bw) + self.mem_latency + self.O
+        embedding_mem_time = self.roofline(0, embedding_mem) + self.O
 
         if self.debug:
             print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/G)))
