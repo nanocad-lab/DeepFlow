@@ -9,6 +9,7 @@ import copy
 import sys
 
 import config
+import util
 
 import ruamel as _ruamel
 import ruamel.yaml as _yaml
@@ -51,7 +52,19 @@ class GradientDescentSearch:
         self.sch_level_params = {}
         self.sch_level_params['dp'] = int(kwargs.get('dp', 1))
         self.sch_level_params['lp'] = int(kwargs.get('lp', 1))
-        self.sch_level_params['kp'] = int(kwargs.get('kp', 1))
+        
+        self.kp_level_params = {}
+        self.kp_level_params['kp_type'] = int(kwargs.get('kp_type', -1))
+        self.kp_level_params['kp1'] = int(kwargs.get('kp1', 1))
+        self.kp_level_params['kp2'] = int(kwargs.get('kp2', 1))
+
+        self.sch_level_params['kp'] = (1 if self.kp_level_params['kp_type'] == -1 
+                                         else (self.kp_level_params['kp1'] if 
+                                           self.kp_level_params['kp_type'] == 1 
+                                           else self.kp_level_params['kp1'] * self.kp_level_params['kp2']))
+        
+        self.chip_area_budget = int(kwargs.get('chip_area_budget', -1))   
+
 
         self.search_params = {}
         self.search_params = self.parameters
@@ -168,6 +181,7 @@ class GradientDescentSearch:
         with open(exp_config, "r") as f:
             config_dict = _yaml.load(f, Loader=_ruamel.yaml.Loader)
         
+        config_dict['area_breakdown']['proc_chip_area_budget'] = self.chip_area_budget if self.chip_area_budget != -1 else config_dict['area_breakdown']['proc_chip_area_budget']#in mm^2
         for param_class in params:
             for param in params[param_class]:
                 if param_class != 'perimeter_breakdown' and ('node' in param):
@@ -188,12 +202,23 @@ class GradientDescentSearch:
 
         tot_nodes = 1
         for param in self.sch_level_params:
-            #TODO: This needs to change when fixing kp, for now assuming kp is fixed
             tot_nodes *= self.sch_level_params[param]
             if "kp" not in param:
                 config_dict['scheduling_param'][param] = self.sch_level_params[param]
-            #else:
-                #TODO: figure out which type of kp and how different layers are divided
+
+        kp_type = self.kp_level_params['kp_type']
+        for param in config_dict['scheduling_param']:
+            if 'kp' in param  and 'dim1' in param:
+                config_dict[param] = (1 if kp_type == -1 
+                                        else self.kp_level_params['kp1'])
+            elif 'kp' in param  and 'dim2' in param:
+                config_dict[param] = (1 if kp_type == -1 else 
+                                    (self.kp_level_params['kp1'] 
+                                     if kp_type == 1 else self.kp_level_params['kp2']))
+            elif 'type' in param:
+                config_dict[param] = kp_type
+
+
 
         config_dict['system_hierarchy']['tot_nodes'] = tot_nodes
         
@@ -215,6 +240,12 @@ class GradientDescentSearch:
         prev_ckpt_time = float('inf')
         best_params = {}
         search_params = self.search_params
+        #acc_grad = {}
+
+        #for param_class in search_params:
+        #    acc_grad[param_class] = {}
+        #    for param in search_params[param_class]:
+        #        acc_grad[param_class][param] = 0
 
         while (saturated == False):
             #print("\n")
@@ -243,19 +274,28 @@ class GradientDescentSearch:
                     #if self.debug:
                     #    print("Exec time improv =", gradient, exec_time, new_exec_time)
                     gradient_list[param_class][param] = gradient
+                    #acc_grad[param_class][param] += abs(gradient)
                     temp_params = copy.deepcopy(search_params)
 
             if self.debug:
-                print("Raw gradient_list: {}".format(gradient_list))
+                print("***grad_list: {}".format(gradient_list))
+                #print("***acc_grad: {}".format(acc_grad))
 
             clip_max = 2
             for param_class in search_params:
               random_noise = np.random.normal(0, 1e-4, len(search_params[param_class])) 
               for i, param in enumerate(search_params[param_class]):
+                  
                   gradient_update = gradient_list[param_class][param] * lr
                   gradient_clipped = (clip_max if gradient_update > clip_max else gradient_update)
+
                   search_params[param_class][param] += gradient_clipped + random_noise[i]
                   search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-4
+                  
+                  #if iteration > 0 and iteration % 10 == 0:
+                  #    search_params[param_class][param] = random_noise[i] if acc_grad[param_class][param] < 1e-3 else search_params[param_class][param]
+                  #    acc_grad[param_class][param] = 0
+              
               param_class_l2 = np.linalg.norm(list(search_params[param_class].values()), ord=1)
               for param in search_params[param_class]:
                   search_params[param_class][param] = search_params[param_class][param] if (param_class_l2 == 0) else search_params[param_class][param]/param_class_l2
@@ -307,9 +347,18 @@ class GradientDescentSearch:
 @click.option("--data_scale", help="Data scale", default=1)
 @click.option("--index", help="Search index", required=True)
 @click.option("--dp", help="Number of data parallel workers", required=True)
-@click.option("--lp", help="Number of layer parallel workers", required=True)
-@click.option("--kp", help="Number of kernel parallel workers", required=True)
-def main(exp_config, exp_dir, debug, index, batch_size, data_scale, dp, lp, kp):
+@click.option("--lp", help="Number of layer parallel workers", default=1)
+@click.option("--kp_type", help="Number of kernel parallel workers", default=-1)
+@click.option("--kp1", help="Number of kernel parallel workers", default=1)
+@click.option("--kp2", help="Number of kernel parallel workers", default=1)
+def main(exp_config, exp_dir, debug, index, batch_size, data_scale, dp, lp, kp_type, kp1, kp2):
+    output_file = exp_dir + "/best.txt"
+    chip_area_budget = util.getChipArea(exp_config, batch_size=batch_size, dp=dp, lp=lp, kp_type=kp_type, kp1=kp1, kp2=kp2)
+    
+    if chip_area_budget < 0:
+        print("Node area budget is not large enough to accormedate memory footprint, either increase node area budget or stack capacity") 
+        return
+
     GDS = GradientDescentSearch(exp_dir=exp_dir, 
                                 exp_config=exp_config, 
                                 debug=debug, 
@@ -317,11 +366,13 @@ def main(exp_config, exp_dir, debug, index, batch_size, data_scale, dp, lp, kp):
                                 data_scale=data_scale,
                                 dp=dp,
                                 lp=lp,
-                                kp=kp,
+                                kp_type=kp_type,
+                                kp1=kp1,
+                                kp2=kp2,
+                                chip_area_budget=chip_area_budget,
                                 index=index)
 
     best_params, best_time, time_limit, best_dir = GDS.do_GDSearch()
-    output_file = exp_dir + "/best.txt"
     with open(output_file, "a+") as f:
         f.write("Best Time: {}\n".format(best_time))
         f.write("Time Limit: {}\n".format(time_limit))
