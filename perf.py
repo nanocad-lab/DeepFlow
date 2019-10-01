@@ -225,7 +225,7 @@ class TimeCalculation:
 
 
 
-    def roofline(self, flop, gmem, l2mem=0, smem=0, rmem=0):
+    def roofline(self, flop, gmem, l2mem=0, smem=0, rmem=0, name=''):
 
         try:
             assert(gmem > 0) , "gmem = 0"
@@ -246,7 +246,10 @@ class TimeCalculation:
         comp_int_l2mem = 0 if l2mem == 0 else flop / l2mem
         comp_int_smem  = 0 if smem == 0 else flop / smem
         comp_int_rmem  = 0 if rmem == 0 else flop / rmem
-      
+     
+        #All memory levels except for the last level are optional
+        #That's why if they do not exist their time contribution is zero
+        #for the last level (gmem), if it does not exist the time should be infinit
         time_gmem  = 0
         if comp_int_gmem < inflection_point_gmem: #mem-bound
             time_gmem = (float("inf") if (self.mem_bw == 0 or gmem == 0) else (gmem / self.mem_bw)) + self.mem_latency
@@ -255,39 +258,43 @@ class TimeCalculation:
         
         time_l2mem  = 0
         if comp_int_l2mem < inflection_point_l2mem: #mem-bound
-            time_l2mem = (float("inf") if (self.L2_bw == 0 or l2mem == 0) else (l2mem / self.L2_bw))
+            time_l2mem = (0 if (self.L2_bw == 0 or l2mem == 0) else (l2mem / self.L2_bw))
+            #print("mem_bound")
         else: #compute-bound
+            #print("compute")
             time_l2mem = float("inf") if (self.th == 0) else (flop / self.th)
         
         time_smem  = 0
         if comp_int_smem < inflection_point_smem: #mem-bound
-            time_smem = (float("inf") if (self.shared_mem_bw == 0 or smem == 0) else (smem / self.shared_mem_bw))
+            time_smem = (0 if (self.shared_mem_bw == 0 or smem == 0) else (smem / self.shared_mem_bw))
         else: #compute-bound
             time_smem = float("inf") if (self.th == 0) else (flop / self.th)
         
         time_rmem  = 0
         if comp_int_rmem < inflection_point_rmem: #mem-bound
-            time_rmem = (float("inf") if (self.reg_bw == 0 or rmem == 0) else (rmem / self.reg_bw))
+            time_rmem = (0 if (self.reg_bw == 0 or rmem == 0) else (rmem / self.reg_bw))
         else: #compute-bound
             time_rmem = float("inf") if (self.th == 0) else (flop / self.th)
         
-        time = min(time_gmem, time_l2mem, time_smem, time_rmem)
+        time = max(time_gmem, time_l2mem, time_smem, time_rmem)
         
+        
+        #print("Name: {}, Time: {}, gmem: {}, l2mem: {}, smem: {}, rmem: {}, MemBW: {}".format(name, time, time_gmem, time_l2mem, time_smem, time_rmem, self.mem_bw/1e12))
         if self.debug:
-            print("inflection_point: {:.2f}".format(inflection_point))
-            print("comp_int: {:.2f}".format(comp_int))
-        #    print("flop: {}".format(flop))
-        #    print("l2mem: {}".format(l2mem))
-        #    print("time: {}".format(time))
+            print("inflection_point_gmem: {:.2f}".format(inflection_point_gmem))
+            print("comp_int_gmem: {:.2f}".format(comp_int_gmem))
+            print("inflection_point_L2mem: {:.2f}".format(inflection_point_l2mem))
+            print("comp_int_L2mem: {:.2f}".format(comp_int_l2mem))
         
         return time
 
+    
     def getGEMMTime(self, A, B, C, name):
         GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem = self.GEMM(A, B, C)
         GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t = self.GEMM(C, B, A)
         
-        GEMM_time = self.roofline(GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem) + self.O
-        GEMM_time_t = self.roofline(GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t) + self.O
+        GEMM_time = self.roofline(GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem, name) + self.O
+        GEMM_time_t = self.roofline(GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t, name) + self.O
         
         transpose = False
         time = GEMM_time
@@ -440,6 +447,7 @@ class TimeCalculation:
                     num_repeat  *= 1
 
                 GEMM_smem    = (num_repeat *
+                                self.core.num_bundle *
                                 (Ar * Br * reload_AB + 
                                  Br * Cr * reload_BC + 
                                  Ar * Cr * reload_AC) * 
@@ -450,10 +458,8 @@ class TimeCalculation:
 
              #number of accesses to register file
              #TODO: Verify this is true...
-             GEMM_rmem    = GEMM_flop * (1 + 3 + 1)
-             #1: memory from read
-             #3: multiply add
-             #1: write to memory
+             GEMM_rmem    = GEMM_flop * 2
+          
 
              if X3 == 0:
                GEMM_smem  = GEMM_rmem
@@ -466,10 +472,10 @@ class TimeCalculation:
                GEMM_l2mem = 0
 
              #Heuristics for other stuff besides multiply and add (like address calculation)
-             try:
-                GEMM_flop = GEMM_flop + As * Cs * (15 + 5 * math.ceil(Bs / X2))
-             except:
-                GEMM_flop = GEMM_flop + As * Cs * 15
+             #try:
+             #   GEMM_flop = GEMM_flop + As * Cs * (15 + 5 * math.ceil(Bs / X2))
+             #except:
+             #   GEMM_flop = GEMM_flop + As * Cs * 15
 
 
              if self.debug:
@@ -502,7 +508,7 @@ class TimeCalculation:
         # critical path whose inputs are located across different GPUs
         #NOTE:Assuming all communications can happpen in parallel
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_cf_kp1') + self.O + point_comm
 
 
         return GEMM_time + reduction_time + point_time
@@ -527,7 +533,7 @@ class TimeCalculation:
         #NOTE:Assuming all communications can happpen in parallel
 
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp1') + self.O + point_comm
 
 
         GEMM_time, reduction_time = self.getDistGEMM_b_kp1(self. miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1, "Cb_kp1") 
@@ -564,7 +570,7 @@ class TimeCalculation:
         #3 refers to the number of pointwise ops (mul + add + mul) whose inputs
         #across different GPU
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cf_kp2') + self.O + point_comm
 
         
         return GEMM_time + reduction_time + point_time
@@ -590,7 +596,7 @@ class TimeCalculation:
         #3 refers to the number of hops to gather i,f, o and c in each GPU
         #in order to perform (B,4D)x(4D,2D)
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp2') + self.O + point_comm
 
 
          
@@ -621,7 +627,7 @@ class TimeCalculation:
         #2: 2 memory accesses for operands with one input and one output
         #1: 5/4 non-linearities per gate
 
-        point_time = self.roofline(point_flop, point_mem) + 15 * self.O
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cf') + 15 * self.O
 
   
         if self.debug:
@@ -645,7 +651,7 @@ class TimeCalculation:
         point_mem  = ((self.precision * self.miniB * self.D * (3 * 2 + 2 * 5/4)) + 
                      (2 * self.D * self.G * self.D) * 3) #local accumulation of wts
         #TODO: does the local accumulation needs a factor of two for wts and acc????
-        point_time = self.roofline(point_flop, point_mem) + 15 * self.O
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb') + 15 * self.O
    
         if self.debug:
             print("(gr) Hidden point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
@@ -689,7 +695,7 @@ class TimeCalculation:
             data_transfer = (self.precision * Dim0 * Dim1 * factor if p > 1 else 0)
             data_prep_comp = Dim0 * Dim1 * (p-1) * factor
             data_prep_mem = (3 * self.precision * Dim0 * Dim1) * (p - 1) * factor
-            data_prep = self.roofline(data_prep_comp, data_prep_mem)
+            data_prep = self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime')
         else:
             #Assuming point-2-point link between consecutive data partitions
             #In other words, the network topology assumed is Ring, 
@@ -704,7 +710,7 @@ class TimeCalculation:
             
             data_prep_comp = (Dim0 * Dim1) / p
             data_prep_mem  = (3 * self.precision * Dim0 * Dim1 / p) 
-            data_prep = ((self.roofline(data_prep_comp, data_prep_mem) + self.O)
+            data_prep = ((self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime') + self.O)
                           * (p - 1))
 
             #print("R1: {}, factor: {}\n".format(dt,factor))
@@ -743,7 +749,7 @@ class TimeCalculation:
         gradclip_mem = norm_mem + clip_mem
         gradclip_comp = norm_comp + clip_comp
 
-        gradclip_time = self.roofline(gradclip_comp, gradclip_mem)
+        gradclip_time = self.roofline(gradclip_comp, gradclip_mem, name='pointwise-grad-clipping')
 
         if self.debug:
             print("({}) gradclip_flop: {:,}, gradclip_mem: {:,}".format(name, gradclip_comp, gradclip_mem))
@@ -770,7 +776,7 @@ class TimeCalculation:
         #2:read and write for pointiwse div
         #3: 2 reads and one write for pointwise add
         #2: 1 reads and one write for multiplication by lr
-        applyGrad_time = self.roofline(applyGrad_comp, applyGrad_mem)
+        applyGrad_time = self.roofline(applyGrad_comp, applyGrad_mem, name='pointwise-applyGrad')
        
         clip_time = self.gradClipping(Dim0, Dim1, name)
         
@@ -953,7 +959,7 @@ class TimeCalculation:
         #1: one write for extension
         #2: for pointwise division
 
-        point_time = self.roofline(point_flop, point_mem) + 4 * self.O 
+        point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-f') + 4 * self.O 
    
         if self.debug:
             print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
@@ -980,7 +986,7 @@ class TimeCalculation:
         #3: addition in copy backprop
         #2: sigmoid
 
-        point_time = self.roofline(point_flop, point_mem) + 4 * self.O 
+        point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-b') + 4 * self.O 
     
         if self.debug:
             print("(gr) Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
@@ -1015,7 +1021,7 @@ class TimeCalculation:
         point_comm = self.precision * (self.miniB * self.S) * (self.kp_softmax_dim1) / self.IBK
         #communicating partail sum per row from one GPU to all others to perform sum reduce
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-f-kp1') + self.O + point_comm
    
         if self.debug:
             print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
@@ -1039,7 +1045,7 @@ class TimeCalculation:
 
         point_comm = 0
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-b-kp1') + self.O + point_comm
    
 
         
@@ -1078,7 +1084,7 @@ class TimeCalculation:
         point_comm = self.precision * (self.miniB * self.S / self.kp_softmax_dim1) * (self.kp_softmax_dim2) / self.IBK
         #communicating partail sum per row from one GPU to all others to perform sum reduce
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise-Softmax_f_kp2') + self.O + point_comm
   
 
         if self.debug:
@@ -1103,7 +1109,7 @@ class TimeCalculation:
 
         point_comm = 0
 
-        point_time = self.roofline(point_flop, point_mem) + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise-Softmax_b_kp2') + self.O + point_comm
    
 
         GEMM_time, reduction_time = self.getDistGEMM_b_kp2(self.miniB * self.S, (self.projection if proj else self.D), self.V, self.kp_softmax_dim1, self.kp_softmax_dim2, "softmax_b_kp2")
@@ -1118,7 +1124,7 @@ class TimeCalculation:
     def getEmbedding_f(self):
         embedding_mem = 2 * (self.miniB * self.D * self.S * self.precision)
         #embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
-        embedding_time = self.roofline(0, embedding_mem) + self.O
+        embedding_time = self.roofline(0, embedding_mem, name='embedding_f') + self.O
         if self.debug:
             print("Embedding_mem: {:,}".format(int(embedding_mem/G)))
         return embedding_time
@@ -1130,7 +1136,7 @@ class TimeCalculation:
         
         embedding_mem = 2 * self.miniB * self.D * self.S * self.precision
         #embedding_mem_time = (embedding_mem / self.mem_bw) + self.mem_latency + self.O
-        embedding_mem_time = self.roofline(0, embedding_mem) + self.O
+        embedding_mem_time = self.roofline(0, embedding_mem, name='embedding_b') + self.O
 
         if self.debug:
             print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/G)))
