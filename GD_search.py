@@ -58,13 +58,22 @@ class GradientDescentSearch:
         self.kp_level_params['kp1'] = int(kwargs.get('kp1', 1))
         self.kp_level_params['kp2'] = int(kwargs.get('kp2', 1))
 
-        self.sch_level_params['kp'] = (1 if self.kp_level_params['kp_type'] == -1 
-                                         else (self.kp_level_params['kp1'] if 
-                                           self.kp_level_params['kp_type'] == 1 
-                                           else self.kp_level_params['kp1'] * self.kp_level_params['kp2']))
+        self.sch_level_params['kp'] = (1 if self.kp_level_params['kp_type'] == -1 else 
+                                       (self.kp_level_params['kp1'] if self.kp_level_params['kp_type'] == 1 else 
+                                        self.kp_level_params['kp1'] * self.kp_level_params['kp2']))
         
         self.chip_area_budget = int(kwargs.get('chip_area_budget', -1))   
 
+        self.system_hierarchy_params = {}
+        self.system_hierarchy_params['tot_nodes'] = (self.sch_level_params['kp'] * 
+                                                     self.sch_level_params['dp'] * 
+                                                     self.sch_level_params['lp'])
+        self.system_hierarchy_params['inter_derate'] = int(kwargs.get('inter_derate', 1))
+        self.system_hierarchy_params['intra_derate'] = int(kwargs.get('intra_derate', 1))
+        self.system_hierarchy_params['kp1_inter'] = bool(kwargs.get('kp1_inter', False))
+        self.system_hierarchy_params['kp2_inter'] = bool(kwargs.get('kp2_inter', False))
+        self.system_hierarchy_params['dp_inter'] = bool(kwargs.get('dp_inter', False))
+        self.system_hierarchy_params['lp_inter'] = bool(kwargs.get('lp_inter', False))
 
         self.search_params = {}
         self.search_params = self.parameters
@@ -192,17 +201,17 @@ class GradientDescentSearch:
                         config_dict[param_class]['network'][param] = params[param_class][param]
                 else:
                     config_dict[param_class][param] = params[param_class][param]
-       
+      
+        #model_param
         for param in self.model_level_params:
             try:
                 config_dict['model_param'][param] = self.model_level_params[param]
             except:
                 config_dict['model_param'] = {}
                 config_dict['model_param'][param] = self.model_level_params[param]
-
-        tot_nodes = 1
+        
+        #scheduling_param
         for param in self.sch_level_params:
-            tot_nodes *= self.sch_level_params[param]
             if "kp" not in param:
                 config_dict['scheduling_param'][param] = self.sch_level_params[param]
 
@@ -218,9 +227,9 @@ class GradientDescentSearch:
             elif 'type' in param:
                 config_dict[param] = kp_type
 
-
-
-        config_dict['system_hierarchy']['tot_nodes'] = tot_nodes
+        #system_hierarchy_param
+        for param in system_hierarchy_params:
+            config_dict['system_hierarchy'][param] = self.system_hierarchy_params[param]
         
         with open(config_file, 'w') as yaml_file:
             _yaml.dump(config_dict, yaml_file, default_flow_style=False)
@@ -349,14 +358,42 @@ class GradientDescentSearch:
 @click.option("--dp", help="Number of data parallel workers", required=True)
 @click.option("--lp", help="Number of layer parallel workers", default=1)
 @click.option("--kp_type", help="Number of kernel parallel workers", default=-1)
-@click.option("--kp1", help="Number of kernel parallel workers", default=1)
-@click.option("--kp2", help="Number of kernel parallel workers", default=1)
-def main(exp_config, exp_dir, debug, index, batch_size, data_scale, dp, lp, kp_type, kp1, kp2):
+@click.option("--kp1", help="Number of kernel parallel workers along input dimension in RC or inner dimesnion in CR", default=1)
+@click.option("--kp2", help="Number of kernel parallel workers along output dimension in RC or should be 1 for CR", default=1)
+@click.option("--inter_derate", help="derate factor for inter(cross)-wafer communication", default=1)
+@click.option("--intra_derate", help="derate factor for intra(within)-wafer communication", default=1)
+@click.option("--kp1_inter", help="Does parallelism along kp1 dimension cross the wafers?", default=False)
+@click.option("--kp2_inter", help="Does parallelism along kp2 dimension cross the wafers?", default=False)
+@click.option("--dp_inter", help="Does parallelism along dp dimension cross the wafers?", default=False)
+@click.option("--lp_inter", help="Does parallelism along lp dimension cross the wafers?", default=False)
+def main(exp_config, 
+         exp_dir, 
+         debug, 
+         index, 
+         batch_size, 
+         data_scale, 
+         dp, 
+         lp, 
+         kp_type, 
+         kp1, 
+         kp2, 
+         inter_derate,
+         intra_derate,
+         kp1_inter,
+         kp2_inter,
+         dp_inter,
+         lp_inter):
     output_file = exp_dir + "/best.txt"
-    chip_area_budget = util.getChipArea(exp_config, batch_size=batch_size, dp=dp, lp=lp, kp_type=kp_type, kp1=kp1, kp2=kp2)
+    chip_area_budget = util.getChipArea(exp_config, 
+                                        batch_size=batch_size, 
+                                        dp=dp, 
+                                        lp=lp, 
+                                        kp_type=kp_type, 
+                                        kp1=kp1, 
+                                        kp2=kp2)
     
     if chip_area_budget < 0:
-        print("Node area budget is not large enough to accormedate memory footprint, either increase node area budget or stack capacity") 
+        print("Node area budget is not large enough to accomedate memory footprint, either increase node area budget or stack capacity") 
         return
 
     GDS = GradientDescentSearch(exp_dir=exp_dir, 
@@ -369,6 +406,12 @@ def main(exp_config, exp_dir, debug, index, batch_size, data_scale, dp, lp, kp_t
                                 kp_type=kp_type,
                                 kp1=kp1,
                                 kp2=kp2,
+                                inter_derate=inter_derate,
+                                intra_derate=intra_derate,
+                                kp1_inter=kp1_inter,
+                                kp2_inter=kp2_inter,
+                                dp_inter=dp_inter,
+                                lp_inter=lp_inter,
                                 chip_area_budget=chip_area_budget,
                                 index=index)
 

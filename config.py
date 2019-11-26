@@ -172,30 +172,34 @@ class SystemHierarchyConfig:
     #This is redundant but makes my life easier.
     self.tot_nodes            = config_dict['tot_nodes']
     self.num_wafers           = int(math.ceil(self.tot_nodes / self.num_nodes_per_wafer))
-    #TODO: THIS IS A HACK, device_placement need to be turned on
-    #self.device_placement     = ParallelMap(config_dict['device_placement'], 
-    #                                        self.num_wafers, 
-    #                                        self.num_nodes_per_wafer)
+    self.inter_derate         = config_dict['inter_derate']
+    self.intra_derate         = config_dict['intra_derate']
+    self.kp1_inter            = config_dict['kp1_inter']
+    self.kp2_inter            = config_dict['kp2_inter']
+    self.dp_inter             = config_dict['dp_inter']
+    self.lp_inter             = config_dict['lp_inter']
+    self.par2cross = {'kp1': self.kp1_inter, 'kp2': self.kp2_inter, 'dp': self.dp_inter, 'lp': self.lp_inter}
 
-class ParallelMap:
-  def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
-    self.par2Dev = {}
-    for i in range(0, num_wafers):
-        for j in range(0, num_nodes_per_wafer):
-            parMapStr   = config_dict['w' + str(i)]['n' + str(j)]
-            parMapList  = [int(x) for x in parMapStr.split(',')]
-            parMapId    = tuple(i for i in parMapList)
-            hwId = (i,j)
-            if parMapId not in self.par2Dev:
-                self.par2Dev[parMapId] = hwId
-            else:
-                print("Duplicate mapping:")
-                print("parallelMapping: {} has been mapped to {} and {}".
-                      format(parMapId, hwId, self.par2Dev[parMapId]))
-                exit(0)
-  def getPar2Dev():
-      return self.par2Dev
-      
+
+#class ParallelMap:
+#  def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
+#    self.par2Dev = {}
+#    for i in range(0, num_wafers):
+#        for j in range(0, num_nodes_per_wafer):
+#            parMapStr   = config_dict['w' + str(i)]['n' + str(j)]
+#            parMapList  = [int(x) for x in parMapStr.split(',')]
+#            parMapId    = tuple(i for i in parMapList)
+#            hwId = (i,j)
+#            if parMapId not in self.par2Dev:
+#                self.par2Dev[parMapId] = hwId
+#            else:
+#                print("Duplicate mapping:")
+#                print("parallelMapping: {} has been mapped to {} and {}".
+#                      format(parMapId, hwId, self.par2Dev[parMapId]))
+#                exit(0)
+#  def getPar2Dev():
+#      return self.par2Dev
+#      
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
                           "num_layers", "layer_size", "seq_len", "projection", 

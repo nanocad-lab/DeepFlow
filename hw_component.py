@@ -13,7 +13,6 @@ class Base:
       self.precision                = exp_config.sw_config.precision
       self.proc_chip_area_budget    = exp_config.area_breakdown.proc_chip_area_budget
       self.TDP                      = exp_config.power_breakdown.TDP
-      self.topology                 = Topology(exp_config)
       self.throughput               = -1
       node_width                    = math.sqrt(self.proc_chip_area_budget)
       self.core_perimeter           = node_width * 4
@@ -415,53 +414,17 @@ class Network(Base):
                                                    'inter')
 
 
-      #intra_data                      = exp_config.tech_config.network.intra_node.parallelMap.data
-      #inter_data                      = exp_config.tech_config.network.inter_node.parallelMap.data
-      #data_dim                        = exp_config.sch_config.dp
-      #self.data_throughput, self.data_latency = self.calcThroughput(intra_data, inter_data, data_dim)
-      self.data_throughput, self.data_latency = self.calcThroughput('data')
+  def calcThroughput(self):
+      inter_throughput = self.inter_network.calcThroughput() 
+      intra_throughput = self.intra_network.calcThroughput()
 
-      #intra_layer                     = exp_config.tech_config.network.intra_node.parallelMap.layer
-      #inter_layer                     = exp_config.tech_config.network.inter_node.parallelMap.layer
-      #lp_dim                          = exp_config.sch_config.lp
-      #self.layer_throughput, self.layer_latency = self.calcThroughput(intra_layer, inter_layer, lp_dim)
-      self.layer_throughput, self.layer_latency = self.calcThroughput('layer')
+      return intra_throughput, inter_throughput
 
-      #intra_kernel                    = exp_config.tech_config.network.intra_node.parallelMap.kernel
-      #inter_kernel                    = exp_config.tech_config.network.inter_node.parallelMap.kernel
-      h1                              = exp_config.sch_config.kp_hidden_dim1
-      s1                              = exp_config.sch_config.kp_softmax_dim1
-      e1                              = exp_config.sch_config.kp_embedding_dim1
-      p1                              = exp_config.sch_config.kp_projection_dim1
-      h2                              = exp_config.sch_config.kp_hidden_dim2
-      s2                              = exp_config.sch_config.kp_softmax_dim2
-      e2                              = exp_config.sch_config.kp_embedding_dim2
-      p2                              = exp_config.sch_config.kp_projection_dim2
-      #kp_dim                          = max(h1 * h2, s1 *s2, p1 * p2, e1 * e2)
-      #self.kernel_throughput, self.kernel_latency = self.calcThroughput(intra_kernel, inter_kernel, kp_dim)
-      self.kernel_throughput, self.kernel_latency = self.calcThroughput('kernel')
+  def calcLatency(self):
+      inter_latency = self.inter_network.latency
+      intra_latency = self.intra_network.latency
 
-  def calcThroughput(self, sch_parallelism):
-      if 'data' in sch_parallelism:
-          throughput, latency = self.topology.getDataThroughput(self.intra_network.throughput,
-                                                                self.inter_network.throughput,
-                                                                self.intra_network.latency,
-                                                                self.inter_network.latency)
-      elif 'kernel' in sch_parallelism:
-          throughput, latency = self.topology.getKernelThroughput(self.intra_network.throughput,
-                                                                  self.inter_network.throughput,
-                                                                  self.intra_network.latency,
-                                                                  self.inter_network.latency)
-      elif 'layer' in sch_parallelism:
-          throughput, latency = self.topology.getLayerThroughput(self.intra_network.throughput,
-                                                                 self.inter_network.throughput,
-                                                                 self.intra_network.latency,
-                                                                 self.inter_network.latency)
-      else:
-          throughput        = 0
-          latency           = 0
-
-      return throughput, latency 
+      return intra_latency, inter_latency
 
 class SubNetwork(Base):
   def __init__(self, exp_config, net_config, power_breakdown, area_breakdown, netLevel):
@@ -478,10 +441,10 @@ class SubNetwork(Base):
       self.num_links_per_mm           = net_config.num_links_per_mm
       self.inter                      = True if netLevel == 'inter' else False
       self.intra                      = True if netLevel == 'intra' else False
-      
-      #Calculate num_links dedicated to inter or intra network
-      inter_fraction, intra_fraction  = self.topology.get_fractions()
-      perimeter_fraction              = inter_fraction if self.inter else intra_fraction
+
+      inter_frac                      = exp_config.perimeter_breakdown.inter_node
+      intra_frac                      = exp_config.perimeter_breakdown.intra_node
+      perimeter_fraction              = inter_frac if self.inter else intra_frac
       self.num_links                  = int(min(self.tot_area / 
                                                 self.nominal_area_per_link, 
                                                 perimeter_fraction * 
@@ -489,36 +452,30 @@ class SubNetwork(Base):
                                                 self.num_links_per_mm))
      
       self.throughput                 = 0
+      self.operating_freq             = 0
       if self.num_links > 0:
           self.calcOperatingVoltageFrequency()
           self.throughput                 = self.calcThroughput()
-      
+       
       #self.energy_per_bit             = self.calcEnergyPerBit()
 
 
   def calcOperatingVoltageFrequency(self):
-      if self.inter and self.topology.interNodeDegree == 0:
-          self.operating_freq             = 0
-          self.operating_voltage          = 0
-      elif self.intra and self.topology.intraNodeDegree == 0:
-          self.operating_freq             = 0
-          self.operating_voltage          = 0
-      else:
-          self.nominal_power              = self.nominal_energy_per_link * self.num_links * self.nominal_freq
-          #minimum voltage to meet the power constraint
-          self.operating_voltage          = self.solve_poly(p0 = 1, 
-                                                            p1 = -2 * self.threshold_voltage, 
-                                                            p2 = self.threshold_voltage**2, 
-                                                            p3 = -1 * self.tot_power / self.nominal_power * self.nominal_voltage * (self.nominal_voltage - self.threshold_voltage)**2)
-          #operating frequency at minimum voltage
-          self.operating_freq             = self.nominal_freq * (((self.operating_voltage - self.threshold_voltage)**2 / (self.operating_voltage)) /
-                                                                  ((self.nominal_voltage - self.threshold_voltage)**2 / self.nominal_voltage)) 
-          self.frequency_scaling_factor     = 1 
-          if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
-              self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
-              self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
+      self.nominal_power              = self.nominal_energy_per_link * self.num_links * self.nominal_freq
+      #minimum voltage to meet the power constraint
+      self.operating_voltage          = self.solve_poly(p0 = 1, 
+                                                        p1 = -2 * self.threshold_voltage, 
+                                                        p2 = self.threshold_voltage**2, 
+                                                        p3 = -1 * self.tot_power / self.nominal_power * self.nominal_voltage * (self.nominal_voltage - self.threshold_voltage)**2)
+      #operating frequency at minimum voltage
+      self.operating_freq             = self.nominal_freq * (((self.operating_voltage - self.threshold_voltage)**2 / (self.operating_voltage)) /
+                                                              ((self.nominal_voltage - self.threshold_voltage)**2 / self.nominal_voltage)) 
+      self.frequency_scaling_factor     = 1 
+      if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
+          self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
+          self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
 
-          self.operating_freq               = self.frequency_scaling_factor * self.operating_freq
+      self.operating_freq               = self.frequency_scaling_factor * self.operating_freq
 
   def calcEnergyPerBit(self):
       self.operating_energy_per_link    = (self.nominal_energy_per_link * 
@@ -528,8 +485,8 @@ class SubNetwork(Base):
 
   #Return P2P bw
   def calcThroughput(self):
-      degree                            = self.topology.intraNodeDegree if self.intra else self.topology.interNodeDegree
-      throughput                        = 0
-      if degree > 0 :
-        throughput                      = (self.num_links * self.operating_freq)/(8 * degree) 
+      #4 edges comes out of each node on wafer since we assume a mesh topology
+      #1 edges for cross-wafer as each node is connected to only one node on the other wafer (mesh extension)
+      degree = 4 if self.intra else 1
+      throughput                      = (self.num_links * self.operating_freq)/(8 * degree) 
       return throughput
