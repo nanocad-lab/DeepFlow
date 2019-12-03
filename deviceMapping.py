@@ -1,5 +1,32 @@
 from itertools import permutations 
 import math
+import functools 
+import operator 
+
+
+class Point():
+    def __init__(self, x, y, wid):
+        self.x = x
+        self.y = y
+        self.wid = wid
+
+class Block():
+    def __init__(self, dim_x, dim_y):
+        self.dim_x = dim_x
+        self.dim_y = dim_y
+class Size():
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+class Coverage():
+    def __init__(self, start, size):
+        self.start = start
+        self.size = size
+        end_x = start.x + size.x
+        end_y = start.y + size.y
+
+        self.end = Point(end_x, end_y, -1)
 
 class Projection():
     def __init__(self, dp, kp1, kp2, lp, wafer_dim, num_wafer):
@@ -24,155 +51,200 @@ class Projection():
             self.y_edges.append([0] * (wafer_dim * wafer_dim))
             self.cross_edges.append([0] * (wafer_dim))
         
-        #Per parallelism type check the communication type
-        #if it crosses across wafers or not
-        self.par2cross = {"kp1": False, 
-                          "kp2": False, 
-                          "dp": False, 
-                          "lp": False}
 
-    #Project 4D hypercube to 2D mesh
-    def project(self):
+        non_one_list = [i for i, value in enumerate(self.ps) if value != 1] 
+        one_list = [i for i, value in enumerate(self.ps) if value == 1] 
+
+        self.order = [list(l) + one_list for l in list(permutations(non_one_list))]
+        self.dim = []
+        for l in self.order:
+            self.dim.append([self.ps[i] for i in l])
+
+        self.par2Dev = [None] * len(self.order)
+        self.dev2Par = [None] * len(self.order)
+
+    #Project 4D hypercube to 2D mesh for a given layout order
+    def project(self, layout_id):
         ps = self.ps
-        order = []
-        dim = []
+        order = self.order[layout_id]
+        dim = self.dim[layout_id]
+        L = self.wafer_dim
+        nw = self.num_wafer
+
+        par2Dev = {}
+        dev2Par = {}
+      
+        print("order: {}".format(order))
+
+        for wid in range(0, self.num_wafer):
+            for xid in range(0, self.wafer_dim):
+                for yid in range(0, self.wafer_dim):
+                    dev2Par[(xid,yid, wid)]={0:-1, 1:-1, 2:-1, 3:-1}
+
+        coverage = Coverage(start=Point(x=0, y=0, wid=0), size=Size(x=L, y=L))
+        self.place(order, coverage, dev2Par)
+        self.populatePar2Dev(dev2Par, par2Dev)
         
-        non_one_list = [i for i, value in enumerate(ps) if value != 1] 
-        one_list = [i for i, value in enumerate(ps) if value == 1] 
+        self.par2Dev[layout_id] = par2Dev
+        self.dev2Par[layout_id] = dev2Par
+    
+    def populatePar2Dev(self, dev2Par, par2Dev):
+        for wid in range(0, self.num_wafer):
+            for xid in range(0, self.wafer_dim):
+                for yid in range(0, self.wafer_dim):
+                    par_dic = dev2Par[(xid,yid, wid)]
+                    par_tuple = (par_dic[0], par_dic[1], par_dic[2], par_dic[3])
+                    par2Dev[par_tuple] = (xid, yid, wid)
+                    print("({}) mapped to ({},{},{})".format(par_tuple, xid,yid, wid))
 
-        order = [list(l) + one_list for l in list(permutations(non_one_list))]
-        for l in order:
-            dim.append([ps[i] for i in l])
+    def place(self, order, coverage, dev2Par):
+        L = self.wafer_dim
+        nw = self.num_wafer
+        ps = self.ps
+        
+        if len(order) == 0:
+            return
+        elif len(order) == 1:
+            dim_y = ps[order[0]]
+            if dim_y < coverage.size.y:
+               block = Block(dim_x=1, dim_y=1)
+               parallel_dim = order[0]
+               new_order = []
+               self.vertical_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+            else:
+               dim_x = 1
+               block = Block(dim_x=dim_x, dim_y = 1)
+               parallel_dim = order[0]
+               new_order = []
+               self.alternate_vertical_placement(block, coverage, parallel_dim, new_order, dev2Par)
+        elif len(order) == 2:
+            dim_y = ps[order[0]]
+            dim_x = ps[order[1]]
 
-        #for l in order:
-        #    print l
+            if dim_y < coverage.size.y:
+               block = Block(dim_x=1, dim_y = dim_y)
+               parallel_dim = order[1]
+               new_order = [order[0]]
+               self.alternate_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+            else:
+               dim_x = (dim_y // coverage.size.y) 
+               dim_y = coverage.size.y
+               block = Block(dim_x=dim_x, dim_y = dim_y)
+               parallel_dim = order[1]
+               new_order = [order[0]]
+               self.horizontal_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+        elif (len(order) >= 3):
+            dim_y = ps[order[0]]
+            dim_x = functools.reduce(operator.mul,[ps[i] for i in order[1:-1]])
+            if dim_y < coverage.size.y:
+               if dim_x < coverage.size.x:
+                   block = Block(dim_x=dim_x, dim_y = dim_y)
+                   parallel_dim = order[-1]
+                   new_order = order[0:-1]
+                   self.alternate_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+               else:
+                   dim_y = ps[order[0]] * (dim_x // coverage.size.x) 
+                   dim_x = coverage.size.x
+                   block = Block(dim_x=dim_x, dim_y = dim_y)
+                   parallel_dim = order[-1]
+                   new_order = order[0:-1]
+                   self.vertical_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+            else:
+                dim_x = (dim_y // coverage.size.y) * dim_x 
+                dim_y = coverage.size.y
+                block = Block(dim_x=dim_x, dim_y = dim_y)
+                parallel_dim = order[-1]
+                new_order = order[0:-1]
+                self.horizontal_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
 
-        self.index_order = order
-        self.dim_order = dim
+        else:
+            NotImplemented
+        
+    def alternate_traversal_placement(self, block, coverage, parallel_dim, order, dev2Par):
+        index = 0
+        wid = coverage.start.wid
+        while (index < self.ps[parallel_dim]):
+            moveRight = True
+            for j in range(coverage.start.y, coverage.end.y, block.dim_y):
+                if moveRight:
+                    for i in range(coverage.start.x, coverage.end.x, block.dim_x):
+                        for ii in range(i, i + block.dim_x, 1):
+                            for jj in range(j, j + block.dim_y, 1):
+                                dev2Par[(ii,jj,wid)][parallel_dim] = index
+                        index = index + 1
+                        new_coverage = Coverage(start=Point(x=i, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                        self.place(order[:], new_coverage, dev2Par)
+                else:
+                    for i in range(coverage.end.x-1, coverage.start.x-1, -1 * block.dim_x):
+                        for ii in range(i - block.dim_x + 1, i + 1, 1):
+                            for jj in range(j, j + block.dim_y, 1):
+                                dev2Par[(ii,jj,wid)][parallel_dim] = index
+                        index = index + 1
+                        new_coverage = Coverage(start=Point(x=i-block.dim_x+1, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                        self.place(order[:], new_coverage, dev2Par)
+                moveRight = not moveRight
+            wid = wid + 1
 
-        par2Dev = []
-        dev2Par = []
-        #Walk over all the orders one by one and create a mapping
-        for mid in range(0, len(order)):
-            par2Dev.append({})
-            dev2Par.append({})
-            x = 0
-            y = 0
-            wid = 0
-            y0 = 0
-            x0 = 0
-            movingLeft =  False
-            movingSouth = True
-            scrambled = [-1,-1,-1,-1]
-            #for each given order, itearte over the elements in the hypercube in the specified order
-            for i in range(0, ps[order[mid][3]]):         
-                for j in range(0, ps[order[mid][2]]):         
-                    for k in range(0, ps[order[mid][1]]):        
-                        m = 0
-                        for m in range(0, ps[order[mid][0]]):
-                            
-                            scrambled[order[mid][3]]=i
-                            scrambled[order[mid][2]]=j
-                            scrambled[order[mid][1]]=k
-                            scrambled[order[mid][0]]=m
-                            sc_tuple = tuple(scrambled)
-                            
-                            par2Dev[mid][sc_tuple] = (wid, x, y)
-                            
-                            if (wid, x, y) not in dev2Par[mid]:
-                                dev2Par[mid][(wid, x, y)] = sc_tuple
-                            else:
-                                print("mid: {} Assigning ({},{},{},{}) to ({},{},{}) which already has been assigned to".format(mid, sc_tuple[0], sc_tuple[1], sc_tuple[2], sc_tuple[3], wid, x, y))
-                                #exit(0)
+    
+    def alternate_vertical_placement(self, block, coverage, parallel_dim, new_order, dev2Par):
+        index = 0
+        wid = coverage.start.wid
+        while (index < self.ps[parallel_dim]):
+            moveSouth = True
+            for i in range(coverage.start.x, coverage.end.x, block.dim_x):
+                if moveSouth:
+                    for j in range(coverage.start.y, coverage.end.y, block.dim_y):
+                        for ii in range(i, i + block.dim_x, 1):
+                            for jj in range(j, j + block.dim_y, 1):
+                                dev2Par[(ii,jj,wid)][parallel_dim] = index
+                        index = index + 1
+                else:
+                    for j in range(coverage.end.y-1, coverage.start.y-1, -1*block.dim_y):
+                        for ii in range(i, i + block.dim_x, 1):
+                            for jj in range(j - block.dim_y + 1, j + 1, 1):
+                                dev2Par[(ii,jj,wid)][parallel_dim] = index
+                        index = index + 1
+                moveSouth = not moveSouth
+            wid = wid + 1
 
-                            if mid==3 and x==7 and y==1:
-                                print("mid: {} Assigned ({},{},{},{}) to ({},{},{})".format(mid, sc_tuple[0], sc_tuple[1], sc_tuple[2], sc_tuple[3], wid, x, y))
-                            #    print("movingLeft: {}".format(movingLeft))
-                            y = (y+1) if movingSouth else (y-1)
-                            
-                            inc_x = False
-                            if y == self.wafer_dim and m < ps[order[mid][0]]-1:
-                                movingSouth = False
-                                y = self.wafer_dim - 1
-                                x = x + 1
-                                inc_x = True
-                            elif y == -1:
-                                movingSouth = True
-                                y = 0
-                                x = x + 1
-                                inc_x = True
-                            else:
-                                inc_x = False
-                        
-                        y = y0
-                        if (movingLeft and k < ps[order[mid][1]] and ps[order[mid][1]] > self.wafer_dim):
-                            x = x - 1
-                        else:
-                            if not inc_x:
-                                x = x + 1
-                        if x == -1:
-                            movingLeft = False
-                            y0 = y0 + ps[order[mid][0]]
-                            x0 = 0
-                            x = x0
-                            y = y0
-                        elif x == self.wafer_dim and m < ps[order[mid][0]]-1:
-                            movingLeft = True
-                            y0 = y0 + ps[order[mid][0]]
-
-                        #y = y0
-                        if  (ps[order[mid][1]] <= self.wafer_dim):
-                            if movingLeft:
-                                if (x % ps[order[mid][1]] == 0):
-                                    step = (ps[order[mid][0]]//self.wafer_dim) if (ps[order[mid][0]] > self.wafer_dim) else ps[order[mid][1]]
-                                    x0 = x0 - step
-                                    x = x0
-                            else:
-                                if (x % ps[order[mid][1]] == 0):
-                                    step = (ps[order[mid][0]]//self.wafer_dim) if (ps[order[mid][0]] > self.wafer_dim) else ps[order[mid][1]]
-                                    x0 = x0 + step
-                                    x = x0
-
-                        if (x > self.wafer_dim-1):
-                            y0 = y0 + ps[order[mid][0]]
-                            #x0 = (x0 - ps[order[mid][1]])
-                            x0 = self.wafer_dim-1 if (x == self.wafer_dim and k < ps[order[mid][1]]) else (x0 - ps[order[mid][1]])
-                            movingLeft = True
-                            y = y0
-                            x = x0
-                        if x0 < 0:
-                            movingLeft = False
-                            x0 = 0
-                            y0 = y0 + ps[order[mid][0]]
-                            x = x0
-                            y = y0
-                        if y0 >= self.wafer_dim:
-                            wid = wid + 1
-                            x = 0
-                            y = 0
-                            y0 = 0
-                            x0 = 0
-                            movingSouth = True
-                            movingLeft = False
-                        #if mid == 6:
-                        #    print(x)
-
-        #if mid == 4:
-        #    for wid in range(0, self.num_wafer):
-        #        for x in range(0, self.wafer_dim):
-        #            for y in range(0, self.wafer_dim):
-        #                print("({},{},{}): {}".format(wid, x, y, dev2Par[0][(wid, x, y)]))
-        #
-
-        self.par2Dev = par2Dev
-        self.dev2Par = dev2Par
+    def vertical_traversal_placement(self, block, coverage, parallel_dim, order, dev2Par):
+        index = 0
+        wid = coverage.start.wid
+        while index < self.ps[parallel_dim]:
+            for j in range(coverage.start.y, coverage.end.y, block.dim_y):
+                for jj in range(j, j+block.dim_y, 1):
+                    for ii in range(coverage.start.x, coverage.end.x, 1):
+                        dev2Par[(ii,jj,wid)][parallel_dim] = index
+                index = index + 1
+                new_coverage = Coverage(start=Point(x=coverage.start.x, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                self.place(order[:], new_coverage, dev2Par)
+            wid = wid + 1         
+    
+    def horizontal_traversal_placement(self, block, coverage, parallel_dim, order, dev2Par):
+        index = 0
+        wid = coverage.start.wid
+        while index < self.ps[parallel_dim]:
+            for i in range(coverage.start.x, coverage.end.x, block.dim_x):
+                for ii in range(i, i + block.dim_x, 1):
+                    for jj in range(coverage.start.y, coverage.end.y, 1):
+                        dev2Par[(ii,jj,wid)][parallel_dim] = index
+                index = index + 1
+                new_coverage = Coverage(start=Point(x=i, y=coverage.start.y, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                self.place(order[:], new_coverage, dev2Par)
+            wid = wid + 1         
+    
 
     def all_connect(self, par2Dev):
         dp = self.dp
         lp = self.lp
         kp1 = self.kp1
         kp2 = self.kp2
-    
+
+        par2cross = {"kp1": False, 
+                     "kp2": False, 
+                     "dp": False,
+                     "lp": False} 
+        
         for i in range(0, lp):
           for j in range(0, dp):
             for k2 in range(0, kp2):
@@ -180,7 +252,7 @@ class Projection():
                 start_point = par2Dev[(k1, k2, j, i)]
                 end_point = par2Dev[((k1+1) % kp1, k2, j, i)]
                 self.route(start_point, end_point)
-                self.updateConnectionType(start_point, end_point, "kp1")
+                self.updateConnectionType(start_point, end_point, "kp1", par2cross)
        
         for i in range(0, lp):
           for j in range(0, dp):
@@ -189,7 +261,7 @@ class Projection():
                 start_point = par2Dev[(k1, k2, j, i)]
                 end_point = par2Dev[(k1, (k2+1) % kp2, j, i)]
                 self.route(start_point, end_point)
-                self.updateConnectionType(start_point, end_point, "kp2")
+                self.updateConnectionType(start_point, end_point, "kp2", par2cross)
        
         for k1 in range(0, kp1):
           for j in range(0, dp):
@@ -198,7 +270,7 @@ class Projection():
                 start_point = par2Dev[(k1, k2, j, i)]
                 end_point = par2Dev[(k1, k2, j, i+1)]
                 self.route(start_point, end_point)
-                self.updateConnectionType(start_point, end_point, "lp")
+                self.updateConnectionType(start_point, end_point, "lp", par2cross)
        
         for i in range(0, lp):
           for k1 in range(0, kp1):
@@ -207,34 +279,36 @@ class Projection():
                 start_point = par2Dev[(k1, k2, j, i)]
                 end_point = par2Dev[(k1, k2, (j+1)%dp, i)]
                 self.route(start_point, end_point)
-                self.updateConnectionType(start_point, end_point, "dp")
-    
+                self.updateConnectionType(start_point, end_point, "dp", par2cross)
+        
+        return par2cross
+
     def pidx(self, x, y):
         return y * self.wafer_dim + x
 
     def pidy(self, x, y):
         return x * self.wafer_dim + y
 
-    def updateConnectionType(self, start, end, pid):
-        wid_start = start[0]
-        wid_end = end[0]
+    def updateConnectionType(self, start, end, pid, par2cross):
+        wid_start = start[2]
+        wid_end = end[2]
 
         if wid_start != wid_end:
-            self.par2cross[pid] |= True
-
+            par2cross[pid] |= True
+        
 
     def route(self, start, end):
         x_edges = self.x_edges
         y_edges = self.y_edges
         cross_edges = self.cross_edges
 
-        wid_start = start[0]
-        x_start = start[1]
-        y_start = start[2]
+        x_start = start[0]
+        y_start = start[1]
+        wid_start = start[2]
     
-        wid_end = end[0]
-        x_end = end[1]
-        y_end = end[2]
+        x_end = end[0]
+        y_end = end[1]
+        wid_end = end[2]
 
         assert(wid_start < self.num_wafer)
         assert(wid_end < self.num_wafer)
@@ -356,44 +430,41 @@ class Projection():
 
         return max_cross, max_x, max_y
 
-    def get_derate_factors(self):
+    def get_derate_factors(self, layout_id):
         par = ["kp1","kp2","dp","lp"]
         derate_factor_inter = []
         derate_factor_intra = []
-        par2cross_list = []
+        #par2cross_list = []
 
         ps = self.ps
-        for layout_id in range(0, len(self.par2Dev)):
-            print(layout_id)
-            order = self.index_order[layout_id]
-            print("Parallelism order: {}({})-----{}({})-----{}({})-----{}({})".format(par[order[0]], ps[order[0]], par[order[1]], ps[order[1]], par[order[2]], ps[order[2]],par[order[3]], ps[order[3]]))
-            self.par2cross = {"kp1": False, 
-                              "kp2": False, 
-                              "dp": False,
-                              "lp": False} 
-            #[wafer-2-wafer, x_edge, x_edge]
-            for wid in range(0, self.num_wafer):
-                for eid in range(0, self.wafer_dim * self.wafer_dim):
-                    self.x_edges[wid][eid] = 0
-                    self.y_edges[wid][eid] = 0
-                for eid in range(0, self.wafer_dim):
-                    self.cross_edges[wid][eid] = 0
+        
+        print(layout_id)
+        order = self.order[layout_id]
+        print("Parallelism order: {}({})-----{}({})-----{}({})-----{}({})".format(par[order[0]], ps[order[0]], par[order[1]], ps[order[1]], par[order[2]], ps[order[2]],par[order[3]], ps[order[3]]))
+        
+        #[wafer-2-wafer, x_edge, x_edge]
+        for wid in range(0, self.num_wafer):
+            for eid in range(0, self.wafer_dim * self.wafer_dim):
+                self.x_edges[wid][eid] = 0
+                self.y_edges[wid][eid] = 0
+            for eid in range(0, self.wafer_dim):
+                self.cross_edges[wid][eid] = 0
 
-            self.all_connect(self.par2Dev[layout_id])
-            par2cross_list.append(self.par2cross)
-            #for key, val in self.par2cross.items():
-            #    print("{}, {}".format(key, "inter" if val else "intra"))
-            w_factor, x_factor, y_factor = self.checkMaxDegree()
-            derate_factor_inter.append(w_factor)
-            derate_factor_intra.append(max(x_factor, y_factor))
-            #print("w_factor: {}, x_factor: {}, y_factor: {}".format(w_factor, x_factor, y_factor))
-            #print
+        par2cross = self.all_connect(self.par2Dev[layout_id])
+        #par2cross_list.append(self.par2cross)
+        #for key, val in self.par2cross.items():
+        #    print("{}, {}".format(key, "inter" if val else "intra"))
+        w_factor, x_factor, y_factor = self.checkMaxDegree()
+        derate_factor_inter = w_factor
+        derate_factor_intra = max(x_factor, y_factor)
+        #print("w_factor: {}, x_factor: {}, y_factor: {}".format(w_factor, x_factor, y_factor))
+        #print
 
-        return derate_factor_inter, derate_factor_intra, par2cross_list
+        return derate_factor_inter, derate_factor_intra, par2cross
 
    
 def main():
-    for kp1 in [1]: #[1, 16, 32]:
+    for kp1 in [16]: #[1, 16, 32]:
         for kp2 in [16]: #[1, 16, 32]:
             for dp in [2]: #[1, 2, 4, 8]:
                 for lp in [2]:
@@ -402,10 +473,10 @@ def main():
                     print("==========")
                     nw = int(math.ceil(dp * kp1 * kp2 * lp / 64.0))
                     p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = 8, num_wafer = nw)
-                    p.project()
-                    derate_factor_inter, derate_factor_intra, par2cross = p.get_derate_factors()
-                    for i, (x,y,z) in enumerate(zip(derate_factor_intra, derate_factor_inter, par2cross)):
-                        print("layout: {}, derate_factor_intra: {}, derate_factor_inter: {}, cross_wafer: {}".format(i,x,y,z))
+                    for layout_id in range(0, len(p.order)):
+                        p.project(layout_id)
+                        derate_factor_inter, derate_factor_intra, par2cross = p.get_derate_factors(layout_id)
+                        print("layout: {}, derate_factor_intra: {}, derate_factor_inter: {}, cross_wafer: {}".format(layout_id,derate_factor_intra,derate_factor_inter,par2cross))
                         print
 if __name__ == "__main__":
     main()
