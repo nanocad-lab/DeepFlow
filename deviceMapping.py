@@ -20,13 +20,22 @@ class Size():
         self.y = y
 
 class Coverage():
-    def __init__(self, start, size):
+    wafer_dim = 0
+    def __init__(self, start, size, wafers):
         self.start = start
         self.size = size
-        end_x = start.x + size.x
-        end_y = start.y + size.y
+        self.wafers = wafers
 
-        self.end = Point(end_x, end_y, -1)
+        if len(wafers) == 1:
+            end_x = start.x + size.x
+            end_y = start.y + size.y
+            wid = -1
+        else:
+            end_x = self.wafer_dim
+            end_y = self.wafer_dim
+            wid = wafers[-1]
+
+        self.end = Point(end_x, end_y, wid)
 
 class Projection():
     def __init__(self, dp, kp1, kp2, lp, wafer_dim, num_wafer):
@@ -43,6 +52,9 @@ class Projection():
         self.cross_edges = []
         self.index_order = []
         self.dim_order = []
+
+        nw = int(math.ceil(dp * kp1 * kp2 * lp / float(wafer_dim * wafer_dim)))
+        assert(num_wafer == nw)
         #Parallelism strategies
         self.ps = [self.kp1, self.kp2, self.dp, self.lp]
 
@@ -81,7 +93,17 @@ class Projection():
                 for yid in range(0, self.wafer_dim):
                     dev2Par[(xid,yid, wid)]={0:-1, 1:-1, 2:-1, 3:-1}
 
-        coverage = Coverage(start=Point(x=0, y=0, wid=0), size=Size(x=L, y=L))
+        Coverage.wafer_dim = self.wafer_dim
+        num_parallel_workers = self.dp * self.lp * self.kp1 * self.kp2
+        
+        dim_x = int(math.ceil(num_parallel_workers / float(self.wafer_dim)))
+        dim_y = num_parallel_workers % self.wafer_dim if num_parallel_workers % self.wafer_dim != 0 else (self.wafer_dim if num_parallel_workers != 0 else 0)
+        if num_parallel_workers > 1:
+            dim_x = L
+            dim_y = L
+
+        coverage = Coverage(start=Point(x=0, y=0, wid=0), size=Size(x=dim_x, y=dim_y), wafers=range(0,nw))
+
         self.place(order, coverage, dev2Par)
         self.populatePar2Dev(dev2Par, par2Dev)
         
@@ -101,19 +123,18 @@ class Projection():
         L = self.wafer_dim
         nw = self.num_wafer
         ps = self.ps
-        
+
         if len(order) == 0:
             return
         elif len(order) == 1:
             dim_y = ps[order[0]]
-            if dim_y < coverage.size.y:
+            if dim_y <= coverage.size.y:
                block = Block(dim_x=1, dim_y=1)
                parallel_dim = order[0]
                new_order = []
                self.vertical_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
             else:
-               dim_x = 1
-               block = Block(dim_x=dim_x, dim_y = 1)
+               block = Block(dim_x=1, dim_y = 1)
                parallel_dim = order[0]
                new_order = []
                self.alternate_vertical_placement(block, coverage, parallel_dim, new_order, dev2Par)
@@ -121,7 +142,7 @@ class Projection():
             dim_y = ps[order[0]]
             dim_x = ps[order[1]]
 
-            if dim_y < coverage.size.y:
+            if dim_y <= coverage.size.y:
                block = Block(dim_x=1, dim_y = dim_y)
                parallel_dim = order[1]
                new_order = [order[0]]
@@ -129,15 +150,19 @@ class Projection():
             else:
                dim_x = (dim_y // coverage.size.y) 
                dim_y = coverage.size.y
-               block = Block(dim_x=dim_x, dim_y = dim_y)
-               parallel_dim = order[1]
-               new_order = [order[0]]
-               self.horizontal_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+               if dim_x <= coverage.size.x:
+                    block = Block(dim_x=dim_x, dim_y = dim_y)
+                    parallel_dim = order[-1]
+                    new_order = order[0:-1]
+                    self.horizontal_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+               else:
+                   #NotImplementedError("Should Implement This (order = 2)")
+                   self.wafer_placement(order, coverage, dev2Par)
         elif (len(order) >= 3):
             dim_y = ps[order[0]]
             dim_x = functools.reduce(operator.mul,[ps[i] for i in order[1:-1]])
-            if dim_y < coverage.size.y:
-               if dim_x < coverage.size.x:
+            if dim_y <= coverage.size.y:
+               if dim_x <= coverage.size.x:
                    block = Block(dim_x=dim_x, dim_y = dim_y)
                    parallel_dim = order[-1]
                    new_order = order[0:-1]
@@ -145,25 +170,55 @@ class Projection():
                else:
                    dim_y = ps[order[0]] * (dim_x // coverage.size.x) 
                    dim_x = coverage.size.x
-                   block = Block(dim_x=dim_x, dim_y = dim_y)
-                   parallel_dim = order[-1]
-                   new_order = order[0:-1]
-                   self.vertical_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+                   if dim_y <= coverage.size.y:
+                       block = Block(dim_x=dim_x, dim_y = dim_y)
+                       parallel_dim = order[-1]
+                       new_order = order[0:-1]
+                       self.vertical_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+                   else:
+                       #NotImplementedError("Should Implement This (order = 3)")
+                        self.wafer_placement(order, coverage, dev2Par)
             else:
                 dim_x = (dim_y // coverage.size.y) * dim_x 
                 dim_y = coverage.size.y
-                block = Block(dim_x=dim_x, dim_y = dim_y)
-                parallel_dim = order[-1]
-                new_order = order[0:-1]
-                self.horizontal_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
-
+                if dim_x <= coverage.size.x:
+                    block = Block(dim_x=dim_x, dim_y = dim_y)
+                    parallel_dim = order[-1]
+                    new_order = order[0:-1]
+                    self.horizontal_traversal_placement(block, coverage, parallel_dim, new_order, dev2Par)
+                else:
+                    #NotImplemented
+                    self.wafer_placement(order, coverage, dev2Par)
+                    
         else:
             NotImplemented
-        
+
+    def wafer_placement(self, order, coverage, dev2Par):
+        parallel_dim = order[-1]
+        new_order = order[0:-1]
+        nw = len(coverage.wafers)
+        assert(nw > 1)
+        if nw >= self.ps[parallel_dim]:
+            step = nw // self.ps[parallel_dim] 
+            index = 0
+            for ss in range(0, nw, step):
+                wafer_slice = coverage.wafers[ss:ss+step]
+                new_coverage = Coverage(start=Point(x=coverage.start.x, y=coverage.start.y, wid=coverage.start.wid), size=Size(x=coverage.size.x, y=coverage.size.y), wafers=wafer_slice)
+                for wid in wafer_slice:
+                    for ii in range(0, self.wafer_dim, 1):
+                        for jj in range(0, self.wafer_dim, 1):
+                            dev2Par[(ii,jj,wid)][parallel_dim] = index
+                index = index + 1
+                self.place(new_order, new_coverage, dev2Par)
+        else:
+            NotImplemented
+
     def alternate_traversal_placement(self, block, coverage, parallel_dim, order, dev2Par):
+        #assert(len(coverage.wafers) == 1)
         index = 0
-        wid = coverage.start.wid
-        while (index < self.ps[parallel_dim]):
+        wid = coverage.wafers[0]
+        
+        while index < self.ps[parallel_dim]:
             moveRight = True
             for j in range(coverage.start.y, coverage.end.y, block.dim_y):
                 if moveRight:
@@ -172,7 +227,7 @@ class Projection():
                             for jj in range(j, j + block.dim_y, 1):
                                 dev2Par[(ii,jj,wid)][parallel_dim] = index
                         index = index + 1
-                        new_coverage = Coverage(start=Point(x=i, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                        new_coverage = Coverage(start=Point(x=i, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y), wafers=[wid])
                         self.place(order[:], new_coverage, dev2Par)
                 else:
                     for i in range(coverage.end.x-1, coverage.start.x-1, -1 * block.dim_x):
@@ -180,16 +235,18 @@ class Projection():
                             for jj in range(j, j + block.dim_y, 1):
                                 dev2Par[(ii,jj,wid)][parallel_dim] = index
                         index = index + 1
-                        new_coverage = Coverage(start=Point(x=i-block.dim_x+1, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                        new_coverage = Coverage(start=Point(x=i-block.dim_x+1, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y), wafers=[wid])
                         self.place(order[:], new_coverage, dev2Par)
                 moveRight = not moveRight
             wid = wid + 1
 
     
     def alternate_vertical_placement(self, block, coverage, parallel_dim, new_order, dev2Par):
+        #assert(len(coverage.wafers) == 1)
         index = 0
-        wid = coverage.start.wid
-        while (index < self.ps[parallel_dim]):
+        wid = coverage.wafers[0]
+        
+        while index < self.ps[parallel_dim]:
             moveSouth = True
             for i in range(coverage.start.x, coverage.end.x, block.dim_x):
                 if moveSouth:
@@ -206,32 +263,35 @@ class Projection():
                         index = index + 1
                 moveSouth = not moveSouth
             wid = wid + 1
-
+    
     def vertical_traversal_placement(self, block, coverage, parallel_dim, order, dev2Par):
+        #assert(len(coverage.wafers) == 1)
         index = 0
-        wid = coverage.start.wid
+        wid = coverage.wafers[0]
+       
         while index < self.ps[parallel_dim]:
             for j in range(coverage.start.y, coverage.end.y, block.dim_y):
                 for jj in range(j, j+block.dim_y, 1):
                     for ii in range(coverage.start.x, coverage.end.x, 1):
                         dev2Par[(ii,jj,wid)][parallel_dim] = index
                 index = index + 1
-                new_coverage = Coverage(start=Point(x=coverage.start.x, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                new_coverage = Coverage(start=Point(x=coverage.start.x, y=j, wid=wid), size=Size(x=block.dim_x, y=block.dim_y), wafers=[wid])
                 self.place(order[:], new_coverage, dev2Par)
-            wid = wid + 1         
+            wid = wid + 1
     
     def horizontal_traversal_placement(self, block, coverage, parallel_dim, order, dev2Par):
+        #assert(len(coverage.wafers) == 1)
         index = 0
-        wid = coverage.start.wid
-        while index < self.ps[parallel_dim]:
+        wid = coverage.wafers[0]
+        while index < self.ps[parallel_dim]: 
             for i in range(coverage.start.x, coverage.end.x, block.dim_x):
                 for ii in range(i, i + block.dim_x, 1):
                     for jj in range(coverage.start.y, coverage.end.y, 1):
                         dev2Par[(ii,jj,wid)][parallel_dim] = index
                 index = index + 1
-                new_coverage = Coverage(start=Point(x=i, y=coverage.start.y, wid=wid), size=Size(x=block.dim_x, y=block.dim_y))
+                new_coverage = Coverage(start=Point(x=i, y=coverage.start.y, wid=wid), size=Size(x=block.dim_x, y=block.dim_y), wafers=[wid])
                 self.place(order[:], new_coverage, dev2Par)
-            wid = wid + 1         
+            wid = wid + 1
     
 
     def all_connect(self, par2Dev):
@@ -464,15 +524,15 @@ class Projection():
 
    
 def main():
-    for kp1 in [16]: #[1, 16, 32]:
-        for kp2 in [16]: #[1, 16, 32]:
+    for kp1 in [2]: #[1, 16, 32]:
+        for kp2 in [2]: #[1, 16, 32]:
             for dp in [2]: #[1, 2, 4, 8]:
-                for lp in [2]:
+                for lp in [2]: #[2]:
                     print("==========")
                     print("({},{},{},{})".format(kp1, kp2, dp, lp))
                     print("==========")
-                    nw = int(math.ceil(dp * kp1 * kp2 * lp / 64.0))
-                    p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = 8, num_wafer = nw)
+                    nw = int(math.ceil(dp * kp1 * kp2 * lp / 16.0))
+                    p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = 4, num_wafer = nw)
                     for layout_id in range(0, len(p.order)):
                         p.project(layout_id)
                         derate_factor_inter, derate_factor_intra, par2cross = p.get_derate_factors(layout_id)
