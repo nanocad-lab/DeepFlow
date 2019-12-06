@@ -55,6 +55,7 @@ class Projection():
 
         nw = int(math.ceil(dp * kp1 * kp2 * lp / float(wafer_dim * wafer_dim)))
         assert(num_wafer == nw)
+        #print(kp1, kp2, dp, lp, num_wafer, nw)
         #Parallelism strategies
         self.ps = [self.kp1, self.kp2, self.dp, self.lp]
 
@@ -67,11 +68,20 @@ class Projection():
         non_one_list = [i for i, value in enumerate(self.ps) if value != 1] 
         one_list = [i for i, value in enumerate(self.ps) if value == 1] 
 
-        self.order = [list(l) + one_list for l in list(permutations(non_one_list))]
-        self.dim = []
-        for l in self.order:
-            self.dim.append([self.ps[i] for i in l])
+        order = [list(l) + one_list for l in list(permutations(non_one_list))]
+        dim = []
+        for l in order:
+            dim.append([self.ps[i] for i in l])
 
+
+        unique_dim = [list(x) for x in set(tuple(x) for x in dim)]
+        unique_index = [dim.index(x) for x in unique_dim]
+        unique_order = [order[i] for i in unique_index]
+
+        self.order = unique_order
+        self.dim = unique_dim
+
+        
         self.par2Dev = [None] * len(self.order)
         self.dev2Par = [None] * len(self.order)
 
@@ -117,7 +127,7 @@ class Projection():
                     par_dic = dev2Par[(xid,yid, wid)]
                     par_tuple = (par_dic[0], par_dic[1], par_dic[2], par_dic[3])
                     par2Dev[par_tuple] = (xid, yid, wid)
-                    print("({}) mapped to ({},{},{})".format(par_tuple, xid,yid, wid))
+                    #print("({}) mapped to ({},{},{})".format(par_tuple, xid,yid, wid))
 
     def place(self, order, coverage, dev2Par):
         L = self.wafer_dim
@@ -478,8 +488,8 @@ class Projection():
         cross_edges = self.cross_edges
 
         #for wid in range(0, nw):
-        #    for eid in range(0, dim * dim):
-        #        print("w{} e{}: {}".format(wid, eid, x_edges[wid][eid]))
+        #    for eid in range(0, dim):
+        #        print("w{} e{}: {}".format(wid, eid, cross_edges[wid][eid]))
 
         for wid in range(0, self.num_wafer):
             for eid in range(0, dim * dim):
@@ -524,15 +534,15 @@ class Projection():
 
    
 def main():
-    for kp1 in [2]: #[1, 16, 32]:
-        for kp2 in [2]: #[1, 16, 32]:
-            for dp in [2]: #[1, 2, 4, 8]:
-                for lp in [2]: #[2]:
+    for kp1 in [1]: #[1, 16, 32]:
+        for kp2 in [1]: #[1, 16, 32]:
+            for dp in [64]: #[1, 2, 4, 8]:
+                for lp in [1]: #[2]:
                     print("==========")
                     print("({},{},{},{})".format(kp1, kp2, dp, lp))
                     print("==========")
-                    nw = int(math.ceil(dp * kp1 * kp2 * lp / 16.0))
-                    p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = 4, num_wafer = nw)
+                    nw = int(math.ceil(dp * kp1 * kp2 * lp / 1.0))
+                    p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = 1, num_wafer = nw)
                     for layout_id in range(0, len(p.order)):
                         p.project(layout_id)
                         derate_factor_inter, derate_factor_intra, par2cross = p.get_derate_factors(layout_id)

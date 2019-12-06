@@ -95,36 +95,51 @@ def run_slurm_command(command):
     print("JOB {} Submitted!".format(job_id), flush=True)
     return job_id
 
+def findMultipliers(n, depth, results, result):
+    if depth == 3:
+        result.append(n)
+        results.append(result)
+        return
+    i = 1
+    while i <= n:
+        r = result[:]
+        r.append(i)
+        findMultipliers(n//i, depth+1, results, r)
+        i = i * 2
+
+
 def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
     #TODO: datascale can be optimized out of the GD search code
     data_scale = 1
     kp_type=1 #CR
     #kp_type=2 #RC
-    kp1_list=[2,4,8,16,32,64]
-    kp2 = 1 #kp2=1 means that we only need one row of gpu for RC
-    hlp = 2 #hidden layer parallelism
-    lp = hlp + 2 #layer parallelism
     wafer_dim = 8
-    dp_list=[1, 32]
-    batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 258, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    num_wafer = 1
+    num_gpus  = num_wafer * wafer_dim * wafer_dim
+    #batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 258, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    batch_sizes = [256]
     exp_root = exp_dir
-    print("in outerloop_sweep")
     for batch_size in batch_sizes:
-        for dp in dp_list:
-            for kp1 in kp1_list:
-                num_gpus = lp * kp1 * dp
-                num_wafer = int(math.ceil(num_gpus / float(wafer_dim * wafer_dim)))
-                layouts = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = wafer_dim, num_wafer = num_wafer)
-                layouts.project()
-                derate_factor_inter, derate_factor_intra, par2cross = layouts.get_derate_factors()
-                for layout_id, (inter_derate,intra_derate, p2x) in enumerate(zip(derate_factor_inter, derate_factor_intra, par2cross)):
-                    print(layout_id, batch_size, dp, kp1)
+        for lp in [1, 4]:
+            parallelism_strategies = []
+            result = []
+            findMultipliers(num_gpus // lp, 1, parallelism_strategies, result)
+            for ps in parallelism_strategies:
+                kp1 = ps[0]
+                kp2 = ps[1]
+                dp = ps[2]
+                print("kp1: {}, kp2: {}, dp : {}, lp: {}".format(kp1, kp2, dp, lp))
+                p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = wafer_dim, num_wafer = num_wafer)
+                for layout_id in range(0, len(p.order)):
+                    p.project(layout_id)
+                    inter_derate, intra_derate, par2cross = p.get_derate_factors(layout_id)
+                    #print(layout_id, batch_size, dp, kp1)
                     par2cross_encoded = ''
-                    for val in p2x.values():
+                    for val in par2cross.values():
                         par2cross_encoded += ('T' if val else 'F') 
                     
-                    parallel_strategy = "{}-k{}-k{}-d{}-l{}".format("CR" if kp_type == 1 else "RC" if kp_type == 2 else "None", dp,kp1,kp2,lp)
-                    layout = "r{}-x{}-i{}-{}".format(layout_id, inter_derate, intra_derate, par2cross_encoded)
+                    parallel_strategy = "{}-k{}-k{}-d{}-l{}".format("CR" if kp_type == 1 else "RC" if kp_type == 2 else "None", kp1,kp2,dp,lp)
+                    layout = "layout{}-x{}-i{}-{}".format(layout_id, inter_derate, intra_derate, par2cross_encoded)
                     exp_dir='{exp_root}/{parallel_strategy}/{layout}/b{batch_size}'.format(exp_root=exp_root, 
                                                                                            data_scale=data_scale, 
                                                                                            batch_size=batch_size,
@@ -144,7 +159,7 @@ def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
                               kp2 = kp2, 
                               inter_derate = inter_derate, 
                               intra_derate = intra_derate, 
-                              par2cross = p2x, 
+                              par2cross = par2cross, 
                               no_launch = no_launch)
 
 def GD_search(exp_config, exp_dir, debug, num_search, batch_size, data_scale, dp, lp, kp_type, kp1, kp2, inter_derate, intra_derate, par2cross, no_launch):
