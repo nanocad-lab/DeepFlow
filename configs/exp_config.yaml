@@ -115,6 +115,7 @@ perimeter_breakdown:
   intra_node: 0.5
 
 system_hierarchy:
+    area_per_wafer: 1250 #mm^2
     num_nodes_per_wafer: 1
     tot_nodes: 2
     device_placement:
