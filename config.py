@@ -170,8 +170,8 @@ class SystemHierarchyConfig:
     #It is the number of accelerators per wafer.
     self.num_nodes_per_wafer  = config_dict['num_nodes_per_wafer'] 
     #This is redundant but makes my life easier.
-    self.tot_nodes            = config_dict['tot_nodes']
-    self.num_wafers           = int(math.ceil(self.tot_nodes / self.num_nodes_per_wafer))
+    self.num_workers          = config_dict['num_workers']
+    self.num_wafers           = int(math.ceil(self.num_workers / self.num_nodes_per_wafer))
     self.inter_derate         = config_dict['inter_derate']
     self.intra_derate         = config_dict['intra_derate']
     self.kp1_inter            = config_dict['kp1_inter']
