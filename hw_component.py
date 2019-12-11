@@ -145,11 +145,10 @@ class DRAM(Memory):
                                           exp_config.perimeter_breakdown.DRAM *
                                           self.num_links_per_mm),
                                           self.num_links_per_stack * self.num_stacks)
-
-      if self.num_links == self.num_links_per_stack * self.num_stacks :
-        print("DRAM area_bound, num_stacks: {}".format(self.num_stacks))
-      else:
-          print("DRAM perimeter_bound")
+      #if self.num_links == self.num_links_per_stack * self.num_stacks :
+      #  print("DRAM throughput area_bound, num_stacks: {}".format(self.num_stacks))
+      #else:
+      #    print("DRAM throughput perimeter_bound")
       #self.calcArea()
       self.calcSize()
       self.calcActiveEnergy()

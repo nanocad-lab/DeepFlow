@@ -197,7 +197,7 @@ def getChipArea(exp_config_path, **kwargs):
     node_area_budget = exp_config.area_breakdown.node_area_budget 
 
     mem_area = math.ceil(tot_mem / stack_capacity) * area_per_stack
-    print("Node_Area: {}, Mem_area: {}".format(node_area_budget, mem_area))
+    #print("Node_Area: {}, Mem_area: {}".format(node_area_budget, mem_area))
     chip_area_budget = node_area_budget - mem_area
 
     return chip_area_budget

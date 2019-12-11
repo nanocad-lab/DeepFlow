@@ -109,13 +109,13 @@ power_breakdown:
       inter_node: 0.0
 
 perimeter_breakdown:
-  DRAM: 0.5
-  inter_node: 0.0
-  intra_node: 0.5
+    DRAM: 0.5
+    inter_node: 0.0
+    intra_node: 0.5
 
 system_hierarchy:
     num_nodes_per_wafer: 1
-    tot_nodes: 1
+    num_workers: 1
     inter_derate: 1
     intra_derate: 1
     kp1_inter: False

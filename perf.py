@@ -76,6 +76,10 @@ class TimeCalculation:
         self.reg_size           = self.regMem.getSize()
         self.reg_tile_dim       = self.regMem.getTileDim()
         self.reg_latency        = self.regMem.getLatency()
+        
+        #System Parameters
+        self.num_wafer          = exp_config.system_config.num_wafers
+        self.num_workers        = exp_config.system_config.num_workers
 
         self.network            = Network(exp_config)
 
@@ -87,9 +91,16 @@ class TimeCalculation:
         par2cross               = exp_config.system_config.par2cross
 
         #cross communication will pass through intra links too
-        derated_inter_throughput = min(intra_throughput/intra_derate, 
-                                       inter_throughput/inter_derate) 
-        derated_intra_throughput = intra_throughput/intra_derate
+        if self.num_wafer > 1 and self.num_workers > 1:
+            derated_inter_throughput = min(intra_throughput/intra_derate, 
+                                         inter_throughput/inter_derate)
+        else:
+            derated_inter_throughput = 0
+
+        if self.num_workers > 1:
+            derated_intra_throughput = intra_throughput/intra_derate
+        else:
+            derated_intra_throughput = 0
 
         self.IBK1, self.LLK1    = ((derated_inter_throughput, inter_latency) if par2cross["kp1"] else 
                                    (derated_intra_throughput, intra_latency)) 
@@ -216,7 +227,7 @@ class TimeCalculation:
                                softmax_mem/gigaByte, 
                                projection_mem/gigaByte))
 
-            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n"
+            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard Per Model Shard/ Memory capacity per node): {:.1f}\n"
                   .format(float("inf") if M == 0 else tot_mem/M))
 
             f.write("\nTotal Memory: {:.1f} GB\n"
@@ -1225,7 +1236,7 @@ class TimeCalculation:
 
     def getEmbedding_b_kp1(self):
         #Activations from previous row arrive in column fasion, they need to be gathered
-        #before applying them to the local portion of the weights
+        #before applying them to the local portion of the embeddings
         reduction_time_act= self.getR(Dim0 = self.miniB, 
                                       Dim1 = self.D,
                                       p = self.kp_embedding_dim1,
@@ -1249,14 +1260,14 @@ class TimeCalculation:
         return embedding_time
 
 
-    def getEmbedding_b_kp1(self):
-        #Every GPU will update a little tile of the weight
+    def getEmbedding_b_kp2(self):
+        #Every GPU will update a little tile of the embedding
         #need to be gathered after the update across the rows of each column
         reduction_time_act= self.getR(Dim0 = self.miniB, 
                                       Dim1 = self.D / self.kp_embedding_dim2,
                                       p = self.kp_embedding_dim1,
-                                      ib = self.IBK,
-                                      ll = self.LLK,
+                                      ib = self.IBK1,
+                                      ll = self.LLK1,
                                       partial = False,
                                       allReduce = False)
         
@@ -1268,7 +1279,9 @@ class TimeCalculation:
         return embedding_mem_time + reduction_time_act
 
     def getInterLayerCommLatency(self, dim1, dim2):
-        w = self.precision * dim1 * dim2 / self.IBL + self.LLL
+        w = 0
+        if self.lp > 1:
+          w = self.precision * dim1 * dim2 / self.IBL + self.LLL
         return w
 
 
@@ -1276,6 +1289,16 @@ class TimeCalculation:
         if self.debug:
             print(string)
     
+    def readjust_type(self):
+      if self.kp_hidden_dim1 == 1 and self.kp_hidden_dim2 == 1:
+        self.kp_hidden_type = -1
+      
+      if self.kp_softmax_dim1 == 1 and self.kp_softmax_dim2 == 1:
+        self.kp_softmax_type = -1
+
+      if self.kp_embedding_dim1 == 1 and self.kp_embedding_dim2 == 1:
+        self.kp_embedding_type = -1
+
     def calcTime(self):
         B = self.miniB
         D = self.D
@@ -1290,6 +1313,8 @@ class TimeCalculation:
         applyGrad_softmax = self.applyGrad(Dim0 = (self.projection if proj else self.D), Dim1 = V, name = "Softmax")
         
 
+        self.readjust_type()
+
         if self.kp_hidden_type == -1:
             Cf = self.getCf()
             Cb = self.getCb()
@@ -1298,7 +1323,7 @@ class TimeCalculation:
             Cf = self.getCf_kp1()
             Cb = self.getCb_kp1()
             Tf = self.getInterLayerCommLatency(B, D / self.kp_hidden_dim1) 
-        elif self.kp_hidden_type== 2: #RC
+        elif self.kp_hidden_type == 2: #RC
             Cf = self.getCf_kp2()
             Cb = self.getCb_kp2()
             Tf = self.getInterLayerCommLatency(B / self.kp_hidden_dim1, D / self.kp_hidden_dim2) 
@@ -1359,14 +1384,14 @@ class TimeCalculation:
 
           
             print("Cf: {}, Cb:; {}, softmax_f: {}, softmax_b:{}, embedding_f: {}, embedding_b: {}," 
-                   "Rs: {}, Rh:{}, Re: {}\n".format(Cf, 
+                   "Rs: {}, Rc:{}, Re: {}\n".format(Cf, 
                                                    Cb,
                                                    Sf, 
                                                    Sb, 
                                                    Ef, 
                                                    Eb,
                                                    Rs,
-                                                   Rh,
+                                                   Rc,
                                                    Re))
 
 
