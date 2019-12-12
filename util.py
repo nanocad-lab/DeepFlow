@@ -1,5 +1,8 @@
 import math
 import sys
+import os
+
+import config
 
 core=0.7
 DRAM=0.7
@@ -98,9 +101,10 @@ def getTotMemReq(exp_config):
 
     return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem
 
-def getMemUsagePerCore(exp_config):
+
+def getMemUsagePerCore(exp_config, **kwargs):
     #Model params
-    B                   = exp_config.model_config.batch_size
+    B                   = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
     V                   = exp_config.model_config.vocab_size
     L                   = exp_config.model_config.num_layers
     D                   = exp_config.model_config.layer_size
@@ -110,48 +114,54 @@ def getMemUsagePerCore(exp_config):
     precision           = exp_config.sw_config.precision
 
     #Parallelism Params
-    lp                  = exp_config.sch_config.lp
-    kp_hidden_dim1      = exp_config.sch_config.kp_hidden_dim1
-    kp_softmax_dim1     = exp_config.sch_config.kp_softmax_dim1
-    kp_embedding_dim1   = exp_config.sch_config.kp_embedding_dim1
-    kp_projection_dim1  = exp_config.sch_config.kp_projection_dim1
-    kp_hidden_dim2      = exp_config.sch_config.kp_hidden_dim2
-    kp_softmax_dim2     = exp_config.sch_config.kp_softmax_dim2
-    kp_embedding_dim2   = exp_config.sch_config.kp_embedding_dim2
-    kp_projection_dim2  = exp_config.sch_config.kp_projection_dim2
-    dp                  = exp_config.sch_config.dp
-    kp_hidden_type      = exp_config.sch_config.kp_hidden_type #1: CR, 2: RC
-    kp_softmax_type     = exp_config.sch_config.kp_softmax_type #1: CR, 2: RC
-    kp_embedding_type   = exp_config.sch_config.kp_embedding_type #1: CR, 2: RC
-    kp_projection_type  = exp_config.sch_config.kp_projection_type #1: CR, 2: RC
+    dp                  = int(kwargs.get('dp', exp_config.sch_config.dp))
+    lp                  = int(kwargs.get('lp', exp_config.sch_config.lp))
+    
+    kp_hidden_dim1      = int(kwargs.get('kp1', exp_config.sch_config.kp_hidden_dim1))
+    kp_softmax_dim1     = int(kwargs.get('kp1', exp_config.sch_config.kp_softmax_dim1))
+    kp_embedding_dim1   = int(kwargs.get('kp1', exp_config.sch_config.kp_embedding_dim1))
+    kp_projection_dim1  = int(kwargs.get('kp1', exp_config.sch_config.kp_projection_dim1))
+
+    kp_hidden_dim2      = int(kwargs.get('kp2', exp_config.sch_config.kp_hidden_dim2))
+    kp_softmax_dim2     = int(kwargs.get('kp2', exp_config.sch_config.kp_softmax_dim2))
+    kp_embedding_dim2   = int(kwargs.get('kp2', exp_config.sch_config.kp_embedding_dim2))
+    kp_projection_dim2  = int(kwargs.get('kp2', exp_config.sch_config.kp_projection_dim2))
+    
+    kp_hidden_type      = int(kwargs.get('kp_type', exp_config.sch_config.kp_hidden_type)) #1: CR, 2: RC
+    kp_softmax_type     = int(kwargs.get('kp_type', exp_config.sch_config.kp_softmax_type)) #1: CR, 2: RC
+    kp_embedding_type   = int(kwargs.get('kp_type', exp_config.sch_config.kp_embedding_type)) #1: CR, 2: RC
+    kp_projection_type  = int(kwargs.get('kp_type', exp_config.sch_config.kp_projection_type)) #1: CR, 2: RC
     
     #miniBatch
     miniB               = math.ceil(B / dp)
 
 
     hidden_mem, hidden_act, hidden_wt, point_act =  getHiddenMem(L=L/lp, 
-        Dim1 = miniB / (kp_hidden_dim1 if kp_hidden_type == 2 else  1), 
-        Dim2 = 2 * D / (1 if kp_hidden_type == 2 else kp_hidden_dim1),  
-        Dim3 = D * G / (kp_hidden_dim2 if kp_hidden_type == 2 else 1), 
+        Dim1 = math.ceil(miniB / (kp_hidden_dim1 if kp_hidden_type == 2 else  1)), 
+        Dim2 = math.ceil(2 * D / (1 if kp_hidden_type == 2 else kp_hidden_dim1)),  
+        Dim3 = math.ceil(D * G / (kp_hidden_dim2 if kp_hidden_type == 2 else 1)), 
         S = S, 
         precision = precision)
 
     #activation output from each layer, assuming input ativation are taken 
     #into account in the previous layer
-    softmax_mem, softmax_act, softmax_wt, softmax_point =  getSoftmaxMem(B=miniB / (kp_softmax_dim1 if kp_softmax_type == 2 else  1), 
+    softmax_mem, softmax_act, softmax_wt, softmax_point =  getSoftmaxMem(
+        B=math.ceil(miniB / (kp_softmax_dim1 if kp_softmax_type == 2 else  1)), 
         S=S, 
-        P=projection/ (1 if kp_softmax_type == 2 else kp_softmax_dim1 ), 
-        V=V/(kp_softmax_dim2 if kp_softmax_type == 2 else 1), 
+        P=math.ceil(projection/ (1 if kp_softmax_type == 2 else kp_softmax_dim1)), 
+        V=math.ceil(V/(kp_softmax_dim2 if kp_softmax_type == 2 else 1)), 
         precision = precision)
 
-    projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(B=miniB/(kp_projection_dim1 if kp_projection_type == 2 else  1), 
+    projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(
+        B=math.ceil(miniB/(kp_projection_dim1 if kp_projection_type == 2 else  1)), 
         S=S, 
-        D=D/(1 if kp_projection_type == 2 else kp_projection_dim1), 
-        P=projection/(kp_projection_dim2 if kp_projection_type == 2 else 1), 
+        D=math.ceil(D/(1 if kp_projection_type == 2 else kp_projection_dim1)), 
+        P=math.ceil(projection/(kp_projection_dim2 if kp_projection_type == 2 else 1)), 
         precision = precision)
     
     #embedding_mem = miniB * S * D * precision + V * D / kp_embedding_dim1
-    embedding_mem, embedding_act, embedding_wt, embedding_point =  getEmbeddingMem(B=miniB/(kp_embedding_dim1 if kp_embedding_type==1 else kp_embedding_dim1 * kp_embedding_dim2), 
+    embedding_mem, embedding_act, embedding_wt, embedding_point =  getEmbeddingMem(
+        B=math.ceil(miniB/(kp_embedding_dim1 if kp_embedding_type==1 else kp_embedding_dim1 * kp_embedding_dim2)), 
         S=S, 
         V=V, 
         D=D, 
@@ -161,15 +171,45 @@ def getMemUsagePerCore(exp_config):
       
     return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem
 
+def getChipArea(exp_config_path, **kwargs):
+
+    exp_path = os.path.expandvars(os.path.expanduser(exp_config_path))
+    exp_config = config.parse_config(exp_path)
+    
+    batch_size = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
+    dp = int(kwargs.get('dp', exp_config.sch_config.dp))
+    lp = int(kwargs.get('lp', exp_config.sch_config.lp))
+    #type:-1 no kp
+    #type: 1 col-row
+    #type: 2 row-col
+    kp_type = int(kwargs.get('kp_type', -1))
+    kp1 = int(kwargs.get('kp1', 1))
+    kp2 = int(kwargs.get('kp2', 1))
+    tot_mem    = getMemUsagePerCore(exp_config, 
+                                    batch_size=batch_size, 
+                                    dp=dp, 
+                                    lp=lp, 
+                                    kp_type=kp_type,
+                                    kp1=kp1,
+                                    kp2=kp2)[0]
+    stack_capacity = exp_config.tech_config.DRAM.stack_capacity 
+    area_per_stack = exp_config.tech_config.DRAM.area_per_stack
+    node_area_budget = exp_config.area_breakdown.node_area_budget 
+
+    mem_area = math.ceil(tot_mem / stack_capacity) * area_per_stack
+    #print("Node_Area: {}, Mem_area: {}".format(node_area_budget, mem_area))
+    chip_area_budget = node_area_budget - mem_area
+
+    return chip_area_budget
 
 def power2RoundUp(x):
   #TODO: This does not sound like an ideal option
   #Ideally we want to round up to a value which is a multiply of factor of 2 and a number
   #y = math.floor(math.pow(2,(math.ceil(math.log(x,2)))))
   log_power = math.ceil(math.log(x,2))
-  power_2   = [2**p for p in range(1, log_power)]
+  power_2   = [2**p for p in range(0, log_power)]
   min_dist  = x
-  min_val   = 0
+  min_val   = 1
   for i in power_2[::-1]: 
     a = math.ceil(x/i)
     dist = a * i - x

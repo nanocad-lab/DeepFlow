@@ -6,8 +6,10 @@ import collections
 import random
 import numpy as np
 import copy
+import sys
 
 import config
+import util
 
 import ruamel as _ruamel
 import ruamel.yaml as _yaml
@@ -30,27 +32,55 @@ class GradientDescentSearch:
         self.parameters['area_breakdown']['L2'] = 0.14
         self.parameters['area_breakdown']['shared_mem'] = 0.14
         self.parameters['area_breakdown']['reg_mem'] = 0.14
-        self.parameters['area_breakdown']['intra_node'] = 0.14
-        self.parameters['area_breakdown']['inter_node'] = 0.14
+        self.parameters['area_breakdown']['intra_node'] = (0.14 if int(kwargs.get('intra_derate', 1)) > 0 else 0)
+        self.parameters['area_breakdown']['inter_node'] = (0.14 if int(kwargs.get('inter_derate', 1)) > 0 else 0)
         self.parameters['power_breakdown']['core'] = 0.14
         self.parameters['power_breakdown']['DRAM'] = 0.14
         self.parameters['power_breakdown']['L2'] = 0.14
         self.parameters['power_breakdown']['shared_mem'] = 0.14
         self.parameters['power_breakdown']['reg_mem'] = 0.14
-        self.parameters['power_breakdown']['intra_node'] = 0.14
-        self.parameters['power_breakdown']['inter_node'] = 0.14
+        self.parameters['power_breakdown']['intra_node'] = (0.14 if int(kwargs.get('intra_derate', 1)) > 0 else 0)
+        self.parameters['power_breakdown']['inter_node'] = (0.14 if int(kwargs.get('inter_derate', 1)) > 0 else 0)
         self.parameters['perimeter_breakdown']['DRAM'] = 0.5
-        self.parameters['perimeter_breakdown']['inter_node'] = 0.3
-        self.parameters['perimeter_breakdown']['intra_node'] = 0.2
+        self.parameters['perimeter_breakdown']['inter_node'] = (0.3 if int(kwargs.get('inter_derate', 1)) > 0 else 0)
+        self.parameters['perimeter_breakdown']['intra_node'] = (0.2 if int(kwargs.get('intra_derate', 1)) > 0 else 0)
         
-        self.top_level_params = {}
-        self.top_level_params['data_scale'] = int(kwargs.get('data_scale', 1))
-        self.top_level_params['batch_size'] = int(kwargs.get('batch_size', 32))
+        self.model_level_params = {}
+        self.model_level_params['data_scale'] = int(kwargs.get('data_scale', 1))
+        self.model_level_params['batch_size'] = int(kwargs.get('batch_size', 32))
+        
+        self.sch_level_params = {}
+        self.sch_level_params['dp'] = int(kwargs.get('dp', 1))
+        self.sch_level_params['lp'] = int(kwargs.get('lp', 1))
+        
+        self.kp_level_params = {}
+        self.kp_level_params['kp_type'] = int(kwargs.get('kp_type', -1))
+        self.kp_level_params['kp1'] = int(kwargs.get('kp1', 1))
+        self.kp_level_params['kp2'] = int(kwargs.get('kp2', 1))
+
+        self.sch_level_params['kp'] = (1 if self.kp_level_params['kp_type'] == -1 else 
+                                       (self.kp_level_params['kp1'] if self.kp_level_params['kp_type'] == 1 else 
+                                        self.kp_level_params['kp1'] * self.kp_level_params['kp2']))
+        
+        self.chip_area_budget = int(kwargs.get('chip_area_budget', -1))   
+
+        self.system_hierarchy_params = {}
+        self.system_hierarchy_params['num_workers'] = (self.sch_level_params['kp'] * 
+                                                     self.sch_level_params['dp'] * 
+                                                     self.sch_level_params['lp'])
+        wafer_dim = int(kwargs.get('wafer_dim', 1))
+        self.system_hierarchy_params['num_nodes_per_wafer'] = wafer_dim * wafer_dim  
+        self.system_hierarchy_params['inter_derate'] = int(kwargs.get('inter_derate', 1))
+        self.system_hierarchy_params['intra_derate'] = int(kwargs.get('intra_derate', 1))
+        self.system_hierarchy_params['kp1_inter'] = bool(kwargs.get('kp1_inter', False))
+        self.system_hierarchy_params['kp2_inter'] = bool(kwargs.get('kp2_inter', False))
+        self.system_hierarchy_params['dp_inter'] = bool(kwargs.get('dp_inter', False))
+        self.system_hierarchy_params['lp_inter'] = bool(kwargs.get('lp_inter', False))
 
         self.search_params = {}
         self.search_params = self.parameters
 
-        self.index      = int(kwargs.get('index', 0))
+        self.index      = int(kwargs.get('index', 1))
         self.exp_dir    = exp_dir
         self.exp_config = exp_config
 
@@ -58,7 +88,7 @@ class GradientDescentSearch:
         
         self.initialize()
     
-    def printParams(self, params, message=''):
+    def printParams(self, params, message='', f=None):
         line=''
         for param_class in params:
             line = line + " " + param_class
@@ -67,21 +97,26 @@ class GradientDescentSearch:
                 if 'inter' in param:
                     param_abv = 'o'
                 line = line + " " + param_abv + ": " + "{0:.3f}".format(params[param_class][param])
-        print(message + " " + line + "\n")
+        if f is None:
+            print(message + " " + line + "\n")
+        else:
+            f.write(message + " " + line + "\n")
 
-    def collect_time(self, params):
-        exp_dir = self.create_config_dir(params)
+    def collect_time(self, params, iteration):
+        exp_dir = self.create_config_dir(params, iteration)
         self.populate_config(params, exp_dir)
         ##Performance Finder
         #print("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
         #self.printParams(params)
+        #print("Config file: {}".format(exp_dir + "/exp_config.yaml"))
         os.system("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
 
         ##Time Limit to compute a step
-        os.system("bash search_scripts/time_limit.sh " + str(self.top_level_params['data_scale']) + " " + str(self.top_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
+        os.system("bash search_scripts/time_limit.sh " + str(self.model_level_params['data_scale']) + " " + str(self.model_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
 
-        exec_time = 100000000
+        exec_time = float("inf")
         time_limit = 1e15
+        mem_overflow_rate = -1
 
         for line in open(exp_dir+'/summary.txt', 'r'):
             if re.search('Time:', line):
@@ -92,15 +127,21 @@ class GradientDescentSearch:
                 core_throughput = line.split(': ')[1]
             if re.search('Memory Bandwidth: ',line):
                 mem_bw = line.split(': ')[1]
+            if re.search('Model Shard/',line):
+                mem_overflow_rate = float(line.split(': ')[1])
+
+        assert(mem_overflow_rate > 0)
 
         found = False
         if exec_time < time_limit:
             found = True
 
         if self.debug:
-            print("In collect_time: {}\n".format(exec_time))
+            print("Config file: {}".format(exp_dir + "/exp_config.yaml"))
+            self.printParams(params)
+            print("Time: {}\n".format(exec_time))
 
-        return exec_time, time_limit, found
+        return exec_time, time_limit, found, exp_dir, mem_overflow_rate
  
     def initialize(self):
         random_seed = self.index
@@ -108,15 +149,24 @@ class GradientDescentSearch:
         print("Initializing...")
         for param_class in self.search_params:
             random_params = random.sample(range(1,100),len(self.search_params[param_class]))
+            if self.system_hierarchy_params['inter_derate'] == 0:
+                random_params[-1] = 0
+            if self.system_hierarchy_params['intra_derate'] == 0:
+                random_params[-2] = 0
+
             tot = float(sum(random_params))
             random_params = [x/tot for x in random_params]
-            for i, param in enumerate(self.search_params[param_class]):
+            for i, param in enumerate([i for i in self.search_params[param_class] if 'inter' not in i and 'intra' not in i]):
                 self.search_params[param_class][param] = random_params[i]
+            
+            self.search_params[param_class]['inter_node'] = random_params[-1]
+            self.search_params[param_class]['intra_node'] = random_params[-2]
+
         self.printParams(self.search_params)
 
-    def create_config_dir(self, params):
+    def create_config_dir(self, params, iteration):
         exp_dir=[]
-        exp_file=''
+        exp_file='s' + str(iteration) + "_"
         
         exp_root = self.exp_dir
         exp_config = self.exp_config
@@ -139,21 +189,24 @@ class GradientDescentSearch:
             pass
 
         os.makedirs(exp_dir)
-        if(self.debug):
-            print("Created directory at", exp_dir)
+        #if(self.debug):
+        #    print("Created directory at", exp_dir)
         return exp_dir
 
 
     def populate_config(self, params, exp_dir):
         exp_config  = self.exp_config #template to copy from
         config_file = exp_dir + "/exp_config.yaml" #config file to to run
+       
         
-        os.system("cp " + exp_config + " " + exp_dir + "/exp_config.yaml")
+        #print("cp " + exp_config + " " + config_file)
+        os.system("cp " + exp_config + " " + config_file)
         
         config_dict = {}
         with open(exp_config, "r") as f:
             config_dict = _yaml.load(f, Loader=_ruamel.yaml.Loader)
         
+        config_dict['area_breakdown']['proc_chip_area_budget'] = self.chip_area_budget if self.chip_area_budget != -1 else config_dict['area_breakdown']['proc_chip_area_budget']#in mm^2
         for param_class in params:
             for param in params[param_class]:
                 if param_class != 'perimeter_breakdown' and ('node' in param):
@@ -164,33 +217,61 @@ class GradientDescentSearch:
                         config_dict[param_class]['network'][param] = params[param_class][param]
                 else:
                     config_dict[param_class][param] = params[param_class][param]
-       
-        for param in self.top_level_params:
+      
+        #model_param
+        for param in self.model_level_params:
             try:
-                config_dict['model_param'][param] = self.top_level_params[param]
+                config_dict['model_param'][param] = self.model_level_params[param]
             except:
                 config_dict['model_param'] = {}
-                config_dict['model_param'][param] = self.top_level_params[param]
+                config_dict['model_param'][param] = self.model_level_params[param]
+        
+        #scheduling_param
+        for param in self.sch_level_params:
+            if "kp" not in param:
+                config_dict['scheduling_param'][param] = self.sch_level_params[param]
 
+        kp_type = self.kp_level_params['kp_type']
+        for param in config_dict['scheduling_param']:
+            if 'kp' in param  and 'dim1' in param:
+                config_dict['scheduling_param'][param] = (1 if kp_type == -1 
+                                        else self.kp_level_params['kp1'])
+            elif 'kp' in param  and 'dim2' in param:
+                config_dict['scheduling_param'][param] = (1 if kp_type == -1 or kp_type == 1 else self.kp_level_params['kp2'])
+            elif 'type' in param:
+                config_dict['scheduling_param'][param] = kp_type
+
+        #system_hierarchy_param
+        for param in self.system_hierarchy_params:
+            config_dict['system_hierarchy'][param] = self.system_hierarchy_params[param]
+        
         with open(config_file, 'w') as yaml_file:
             _yaml.dump(config_dict, yaml_file, default_flow_style=False)
-        
-        if self.debug:
-            for param_class in params:
-                print("{} parameters sum up to {}".format(config_dict[param_class], sum(params[param_class].values())))
+      
+        print(config_file)
+        #if self.debug:
+        #    for param_class in params:
+        #        print("{} parameters sum up to {}".format(config_dict[param_class], sum(params[param_class].values())))
 
     def do_GDSearch(self):
         saturated = False
         min_value_params = 0
         alpha = 1.1 #size of perturbation(should be >1)
+        lr = 0.1
         iteration = 0
         best_time = float('inf')
         prev_exec_time = float('inf')
         prev_ckpt_time = float('inf')
         best_params = {}
         search_params = self.search_params
-        beta_factor   = 0.005
+        #acc_grad = {}
 
+        #for param_class in search_params:
+        #    acc_grad[param_class] = {}
+        #    for param in search_params[param_class]:
+        #        acc_grad[param_class][param] = 0
+
+        best_dir = '' 
         while (saturated == False):
             #print("\n")
             print("******************************************************************************Iteration: {}".format(iteration))
@@ -202,85 +283,87 @@ class GradientDescentSearch:
             gradient_list = {}
             beta = {}
             old_params = copy.deepcopy(search_params)
-            exec_time = self.collect_time(search_params)[0]
-            if self.debug:
-                print("Execution time %4f with TDP parameters" %(exec_time), search_params)
+            exec_time_tuple = self.collect_time(search_params, iteration)
+            exec_time       = exec_time_tuple[0]
+            mem_overflow_rate = exec_time_tuple[4]
+
+            #if self.debug:
+            #    print("Execution time %4f with TDP parameters" %(exec_time), search_params)
             temp_params = copy.deepcopy(search_params)
 
             for param_class in search_params:
                 gradient_list[param_class] = {}
                 for param in search_params[param_class]:
                     temp_params[param_class][param] = search_params[param_class][param] * alpha #increase each param by alpha
-                    if self.debug:
-                        print("PARAM_CLASS: {} PARAM: {}, search_param_value: {}".format((param_class),(param),(temp_params[param_class][param])))
-                    new_exec_time = self.collect_time(temp_params)[0]
-                    gradient = (exec_time - new_exec_time) / ((alpha - 1) * search_params[param_class][param])
-                    if self.debug:
-                        print("Exec time improv =", gradient, exec_time, new_exec_time)
+                    #if self.debug:
+                    #    print("PARAM_CLASS: {} PARAM: {}, search_param_value: {}".format((param_class),(param),(temp_params[param_class][param])))
+                    new_exec_time = self.collect_time(temp_params, iteration)[0]
+                    
+                    if exec_time == float('Inf') and new_exec_time == float('Inf'):
+                        gradient = 0
+                    elif search_params[param_class][param] == 0:
+                        gradient = 0
+                    else:
+                        gradient = (exec_time - new_exec_time) / ((alpha - 1) * search_params[param_class][param])
+                    #if self.debug:
+                    #    print("Exec time improv =", gradient, exec_time, new_exec_time)
                     gradient_list[param_class][param] = gradient
+                    #acc_grad[param_class][param] += abs(gradient)
                     temp_params = copy.deepcopy(search_params)
 
             if self.debug:
-                print("gradient_list: {}".format(gradient_list))
+                print("***grad_list: {}".format(gradient_list))
+                #print("***acc_grad: {}".format(acc_grad))
 
-
-            grad_sum = sum(x for i in gradient_list.values() for x in i.values())
+            clip_max = 2
             for param_class in search_params:
-                if grad_sum != 0:
-                    beta[param_class] = beta_factor * sum(gradient_list[param_class].values()) / grad_sum
+              random_noise = np.random.normal(0, 1e-4, len(search_params[param_class])) 
+              for i, param in enumerate(search_params[param_class]):
+                  
+                  gradient_update = gradient_list[param_class][param] * lr
+                  gradient_clipped = (clip_max if gradient_update > clip_max else gradient_update)
+
+                  search_params[param_class][param] += gradient_clipped + random_noise[i]
+                  search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-2
+                  
+              if mem_overflow_rate > 1:
+                mem_percentage = search_params[param_class]['DRAM']
+                if 'area' in param_class: 
+                    mem_percentage = search_params[param_class]['DRAM'] * mem_overflow_rate
+                    print("Increasing DRAM area to meet the memory capacity requirement")
+                if mem_percentage > 1: 
+                  saturated = True
+                  print("Memory capacity is not sufficient to support the given model + parallelism strategy")
                 else:
-                    beta[param_class] = 0
-            #sorted_improv = sorted(gradient_list.items(), key=lambda kv: kv[1], reverse=True)
-            #gradient_list = collections.OrderedDict(sorted_improv)
+                  search_params[param_class]['DRAM'] = mem_percentage
 
-                if self.debug:
-                    print(gradient_list[param_class])
+              param_class_l2 = np.linalg.norm(list(search_params[param_class].values()), ord=1)
+              for param in search_params[param_class]:
+                  search_params[param_class][param] = search_params[param_class][param] if (param_class_l2 == 0) else search_params[param_class][param]/param_class_l2
 
-            frac_to_increase = {}
-            for param_class in search_params:
-                amount_to_increase = 0
-                tot_gradient = sum(gradient_list[param_class].values())
-            
-                for param in search_params[param_class]:
-                    if temp_params[param_class][param] > 0.01:
-                        temp_params[param_class][param] = search_params[param_class][param] - beta[param_class]
-                        amount_to_increase += beta[param_class]
-                    if tot_gradient != 0:
-                        frac_to_increase[param] = gradient_list[param_class][param]/tot_gradient
-                    else:
-                        frac_to_increase[param] = 0
-                
-                if self.debug:
-                    print("Amount Increased: ", amount_to_increase)
-                    print("search_params: {}\n,  temp_params: {}\n, frac_to_increase: {}\n".format(search_params, temp_params, frac_to_increase))
-                
-                #Generare Gaussian noise, mean=0, std=1e-6
-                random_noise = np.random.normal(0, 1e-6, len(search_params[param_class])) 
-           
-                for i, param in enumerate(search_params[param_class]):
-                    search_params[param_class][param] = (temp_params[param_class][param] + 
-                                                         frac_to_increase[param] * amount_to_increase +
-                                                         random_noise[i])
-
-
-            self.printParams(search_params)
-            t = self.collect_time(search_params)
+              
+            self.printParams(old_params, "old_params")
+            self.printParams(search_params, "new_params")
+            t = self.collect_time(search_params, iteration)
 
             new_exec_time = t[0]
-            
+            time_limit = t[1]
             if new_exec_time < best_time:
                 best_time = new_exec_time
-                best_params = search_params 
+                best_params = copy.deepcopy(search_params)
+                best_dir = t[3]
 
-            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, t[1]))
 
-            if iteration % 10 == 0:
-                if (prev_ckpt_time - new_exec_time < 0.0001):
+            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
+
+            if iteration % 10 == 0 or new_exec_time == float('inf'):
+                if ((prev_ckpt_time - new_exec_time < 0.001) or (prev_ckpt_time==float('inf') and new_exec_time == float('inf'))):
                     saturated = True
                     if t[2] == True:
                         print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
                     else:
-                        print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(new_exec_time, t[1]))
+                        print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(best_time, time_limit))
+                        print("Best architecture: {}".format(best_params))
                 prev_ckpt_time = new_exec_time
 
 
@@ -295,7 +378,7 @@ class GradientDescentSearch:
             iteration = iteration + 1    
             prev_exec_time = new_exec_time
             
-        return best_params, best_time
+        return best_params, best_time, time_limit, best_dir
     
    
 @click.command("arch_search")        
@@ -304,14 +387,76 @@ class GradientDescentSearch:
 @click.option("--debug", help="Debug", default=False, type=bool)
 @click.option("--batch_size", help="Batch size", default=32)
 @click.option("--data_scale", help="Data scale", default=1)
-@click.option("--index", help="Search index", default=0, required=True)
-def main(exp_config, exp_dir, debug, index, batch_size, data_scale):
+@click.option("--index", help="Search index", required=True)
+@click.option("--dp", help="Number of data parallel workers", required=True)
+@click.option("--lp", help="Number of layer parallel workers", default=1)
+@click.option("--kp_type", help="Number of kernel parallel workers", default=-1)
+@click.option("--kp1", help="Number of kernel parallel workers along input dimension in RC or inner dimesnion in CR", default=1)
+@click.option("--kp2", help="Number of kernel parallel workers along output dimension in RC or should be 1 for CR", default=1)
+@click.option("--inter_derate", help="derate factor for inter(cross)-wafer communication", default=1)
+@click.option("--intra_derate", help="derate factor for intra(within)-wafer communication", default=1)
+@click.option("--kp1_inter", help="Does parallelism along kp1 dimension cross the wafers?", default=False, type=bool)
+@click.option("--kp2_inter", help="Does parallelism along kp2 dimension cross the wafers?", default=False, type=bool)
+@click.option("--dp_inter", help="Does parallelism along dp dimension cross the wafers?", default=False, type=bool)
+@click.option("--lp_inter", help="Does parallelism along lp dimension cross the wafers?", default=False, type=bool)
+@click.option("--wafer_dim", help="wafer dimension (num of accelerator along x-axis, assuming wafer is square form)", default=1)
+def main(exp_config, 
+         exp_dir, 
+         debug, 
+         index, 
+         batch_size, 
+         data_scale, 
+         dp, 
+         lp, 
+         kp_type, 
+         kp1, 
+         kp2, 
+         inter_derate,
+         intra_derate,
+         kp1_inter,
+         kp2_inter,
+         dp_inter,
+         lp_inter,
+         wafer_dim):
+    output_file = exp_dir + "/best.txt"
+    chip_area_budget = util.getChipArea(exp_config, 
+                                        batch_size=batch_size, 
+                                        dp=dp, 
+                                        lp=lp, 
+                                        kp_type=kp_type, 
+                                        kp1=kp1, 
+                                        kp2=kp2)
+    
+    if chip_area_budget < 0:
+        print("Node area budget is not large enough to accomedate memory footprint, either increase node area budget or stack capacity") 
+        return
+
     GDS = GradientDescentSearch(exp_dir=exp_dir, 
                                 exp_config=exp_config, 
                                 debug=debug, 
                                 batch_size=batch_size, 
-                                data_scale=data_scale)
+                                data_scale=data_scale,
+                                dp=dp,
+                                lp=lp,
+                                kp_type=kp_type,
+                                kp1=kp1,
+                                kp2=kp2,
+                                inter_derate=inter_derate,
+                                intra_derate=intra_derate,
+                                kp1_inter=kp1_inter,
+                                kp2_inter=kp2_inter,
+                                dp_inter=dp_inter,
+                                lp_inter=lp_inter,
+                                wafer_dim=wafer_dim,
+                                chip_area_budget=chip_area_budget,
+                                index=index)
 
-    GDS.do_GDSearch()
+    best_params, best_time, time_limit, best_dir = GDS.do_GDSearch()
+    with open(output_file, "a+") as f:
+        f.write("Best Time: {}\n".format(best_time))
+        f.write("Time Limit: {}\n".format(time_limit))
+        f.write("Best Dir: {}\n".format(best_dir))
+        GDS.printParams(best_params, f=f)
+
 if __name__ == "__main__":
     main()

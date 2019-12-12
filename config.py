@@ -22,7 +22,7 @@ class DRAMConfig:
     self.static_power_per_bit     = mem_config_dict['static_power_per_bit']
     self.area_per_bit             = mem_config_dict['area_per_bit']
     self.stack_capacity           = mem_config_dict['stack_capacity']
-    self.stack_bw                 = mem_config_dict['stack_bandwidth']
+    #self.stack_bw                 = mem_config_dict['stack_bandwidth']
     self.area_per_stack           = mem_config_dict['area_per_stack']
     self.latency                  = mem_config_dict['latency']
     self.mem_ctrl_area            = mem_config_dict['mem_ctrl_area']
@@ -31,6 +31,7 @@ class DRAMConfig:
     self.threshold_voltage        = mem_config_dict['threshold_voltage']
     self.margin_voltage           = mem_config_dict['margin_voltage']
     self.num_links_per_mm         = mem_config_dict['num_links_per_mm']
+    self.num_links_per_stack      = mem_config_dict['num_links_per_stack']
 
 class L2Config:
   def __init__(self, l2_config_dict):
@@ -38,7 +39,7 @@ class L2Config:
     self.static_power_per_bit     = l2_config_dict['static_power_per_bit']
     self.area_per_bit             = l2_config_dict['area_per_bit']
     self.bank_capacity            = l2_config_dict['bank_capacity']
-    self.bank_bw                  = l2_config_dict['bank_bandwidth']
+    #self.bank_bw                  = l2_config_dict['bank_bandwidth']
     self.controller_area_per_link = l2_config_dict['controller_area_per_link']
     self.latency                  = l2_config_dict['latency']
 
@@ -48,7 +49,7 @@ class SMConfig:
     self.static_power_per_bit     = sm_config_dict['static_power_per_bit']
     self.area_per_bit             = sm_config_dict['area_per_bit']
     self.bank_capacity            = sm_config_dict['bank_capacity']
-    self.bank_bw                  = sm_config_dict['bank_bandwidth']
+    #self.bank_bw                  = sm_config_dict['bank_bandwidth']
     self.controller_area_per_link = sm_config_dict['controller_area_per_link']
     self.latency                  = sm_config_dict['latency']
 
@@ -58,7 +59,7 @@ class RegConfig:
     self.static_power_per_bit     = reg_config_dict['static_power_per_bit']
     self.area_per_bit             = reg_config_dict['area_per_bit']
     self.bank_capacity            = reg_config_dict['bank_capacity']
-    self.bank_bw                  = reg_config_dict['bank_bandwidth']
+    #self.bank_bw                  = reg_config_dict['bank_bandwidth']
     self.controller_area_per_link = reg_config_dict['controller_area_per_link']
     self.latency                  = reg_config_dict['latency']
 
@@ -169,31 +170,36 @@ class SystemHierarchyConfig:
     #It is the number of accelerators per wafer.
     self.num_nodes_per_wafer  = config_dict['num_nodes_per_wafer'] 
     #This is redundant but makes my life easier.
-    self.tot_nodes            = config_dict['tot_nodes']
-    self.num_wafers           = int(math.ceil(self.tot_nodes / self.num_nodes_per_wafer))
-    self.device_placement     = ParallelMap(config_dict['device_placement'], 
-                                            self.num_wafers, 
-                                            self.num_nodes_per_wafer)
+    self.num_workers          = config_dict['num_workers']
+    self.num_wafers           = int(math.ceil(self.num_workers / self.num_nodes_per_wafer))
+    self.inter_derate         = config_dict['inter_derate']
+    self.intra_derate         = config_dict['intra_derate']
+    self.kp1_inter            = config_dict['kp1_inter']
+    self.kp2_inter            = config_dict['kp2_inter']
+    self.dp_inter             = config_dict['dp_inter']
+    self.lp_inter             = config_dict['lp_inter']
+    self.par2cross = {'kp1': self.kp1_inter, 'kp2': self.kp2_inter, 'dp': self.dp_inter, 'lp': self.lp_inter}
 
-class ParallelMap:
-  def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
-    self.par2Dev = {}
-    for i in range(0, num_wafers):
-        for j in range(0, num_nodes_per_wafer):
-            parMapStr   = config_dict['w' + str(i)]['n' + str(j)]
-            parMapList  = [int(x) for x in parMapStr.split(',')]
-            parMapId    = tuple(i for i in parMapList)
-            hwId = (i,j)
-            if parMapId not in self.par2Dev:
-                self.par2Dev[parMapId] = hwId
-            else:
-                print("Duplicate mapping:")
-                print("parallelMapping: {} has been mapped to {} and {}".
-                      format(parMapId, hwId, self.par2Dev[parMapId]))
-                exit(0)
-  def getPar2Dev():
-      return self.par2Dev
-      
+
+#class ParallelMap:
+#  def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
+#    self.par2Dev = {}
+#    for i in range(0, num_wafers):
+#        for j in range(0, num_nodes_per_wafer):
+#            parMapStr   = config_dict['w' + str(i)]['n' + str(j)]
+#            parMapList  = [int(x) for x in parMapStr.split(',')]
+#            parMapId    = tuple(i for i in parMapList)
+#            hwId = (i,j)
+#            if parMapId not in self.par2Dev:
+#                self.par2Dev[parMapId] = hwId
+#            else:
+#                print("Duplicate mapping:")
+#                print("parallelMapping: {} has been mapped to {} and {}".
+#                      format(parMapId, hwId, self.par2Dev[parMapId]))
+#                exit(0)
+#  def getPar2Dev():
+#      return self.par2Dev
+#      
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
                           "num_layers", "layer_size", "seq_len", "projection", 
