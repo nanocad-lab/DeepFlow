@@ -117,7 +117,7 @@ def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
     wafer_dim = 8
     num_wafer = 1
     num_gpus  = num_wafer * wafer_dim * wafer_dim
-    #batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 258, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+    #batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
     batch_sizes = [256]
     exp_root = exp_dir
     #Column-Row
