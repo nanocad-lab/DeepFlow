@@ -41,7 +41,7 @@ tech_param:
         num_links_per_mm: 200
     L2:
         dynamic_energy_per_bit: 2.25e-15
-        static_power_per_bit: 0
+        static_power_per_bit: 3.7e-12
         area_per_bit: 3.84e-8 #mm2
         bank_bandwidth: 4000 GB/s
         bank_capacity: 32 KB
@@ -50,7 +50,7 @@ tech_param:
         latency: 0
     shared_mem:
         dynamic_energy_per_bit: 1.4e-15
-        static_power_per_bit: 0
+        static_power_per_bit: 3.5e-12
         area_per_bit: 5e-8 #mm2
         bank_bandwidth: 4 TB/s
         bank_capacity: 32 KB
@@ -59,7 +59,7 @@ tech_param:
         latency: 0
     reg_mem:
         dynamic_energy_per_bit: 1.4e-15
-        static_power_per_bit: 0
+        static_power_per_bit: 3.95e-12
         area_per_bit: 5e-8 #mm2
         bank_bandwidth: 8 TB/s
         bank_capacity: 64 KB
@@ -115,6 +115,7 @@ perimeter_breakdown:
   intra_node: 0.5
 
 system_hierarchy:
+    area_per_wafer: 5200 #mm^2
     num_nodes_per_wafer: 1
     tot_nodes: 1
     device_placement:

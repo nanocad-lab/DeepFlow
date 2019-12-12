@@ -29,8 +29,8 @@ tech_param:
         dynamic_energy_per_bit: 3.6e-12
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
-        stack_bandwidth: 225 GB/s
-        stack_capacity: 4 GB
+        # stack_bandwidth: 225 GB/s
+        stack_capacity: 24 GB
         area_per_stack: 100 #mm2
         latency: 100e-9
         mem_ctrl_area: 5 #mm2 
@@ -38,10 +38,11 @@ tech_param:
         nominal_voltage: 1 
         threshold_voltage: 0.4 
         margin_voltage: 0.6
-        num_links_per_mm: 200
+        num_links_per_mm: 400
+        num_links_per_stack: 1024
     L2:
         dynamic_energy_per_bit: 2.25e-15
-        static_power_per_bit: 0
+        static_power_per_bit: 3.7e-12
         area_per_bit: 3.84e-8 #mm2
         bank_capacity: 32 KB
         controller_area_per_link: 0.0025 #mm2 
@@ -49,7 +50,7 @@ tech_param:
         latency: 0
     shared_mem:
         dynamic_energy_per_bit: 1.4e-15
-        static_power_per_bit: 0
+        static_power_per_bit: 3.5e-12
         area_per_bit: 5e-8 #mm2
         bank_capacity: 32 KB
         controller_area_per_link: 0.0025 #mm2 
@@ -57,9 +58,9 @@ tech_param:
         latency: 0
     reg_mem:
         dynamic_energy_per_bit: 1.4e-15
-        static_power_per_bit: 0
+        static_power_per_bit: 3.95e-12
         area_per_bit: 5e-8 #mm2
-        bank_capacity: 64 KB
+        bank_capacity: 16 KB
         controller_area_per_link: 0.0025 #mm2 
         controller_power_per_link: 0.025 #W
         latency: 0 
@@ -84,7 +85,7 @@ tech_param:
           margin_voltage: 0.5
 
 area_breakdown:
-    node_area_budget: 1230 #mm2
+    node_area_budget: 1000 #mm2
     proc_chip_area_budget: 815 #mm2
     core: 0.3
     L2: 0.2
