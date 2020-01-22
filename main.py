@@ -59,7 +59,7 @@ def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, batch_size=3
         script_args = '--exp_config {exp_config} --exp_dir {exp_dir} --debug {debug}'.format(exp_config=exp_config, exp_dir=exp_dir, debug=debug)
         exp_name = 'perf'
     else:
-        script='GD_search.py'
+        script='GD_search_adam.py'
         script_args = '--exp_config {exp_config} --exp_dir {exp_dir} --debug {debug} --index {index} --batch_size {batch_size} --data_scale {data_scale} --dp {dp} --lp {lp} --kp_type {kp_type} --kp1 {kp1} --kp2 {kp2} --inter_derate {inter_derate} --intra_derate {intra_derate} --kp1_inter {kp1_inter} --kp2_inter {kp2_inter} --dp_inter {dp_inter} --lp_inter {lp_inter} --wafer_dim {wafer_dim}'.format(exp_config=exp_config, exp_dir=exp_dir, debug=debug, index=index, batch_size=batch_size, data_scale=data_scale, dp=dp, lp=lp, kp1=kp1, kp2=kp2, kp_type=kp_type, inter_derate=inter_derate, intra_derate=intra_derate, kp1_inter=par2cross['kp1'], kp2_inter=par2cross['kp2'], dp_inter=par2cross['dp'], lp_inter=par2cross['lp'], wafer_dim=wafer_dim)
         exp_name = 'GD_search'
 
@@ -116,16 +116,17 @@ def findMultipliers(n, curr_depth, results, result, max_depth):
         i = i * 2
 
 
-def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
+def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch, num_wafer=1, wafer_dim=8):
     #TODO: datascale can be optimized out of the GD search code
     data_scale = 1
     #kp_type=1 #CR
     #kp_type=2 #RC
-    wafer_dim = 8
-    num_wafer = 1
+    #wafer_dim = 16
+    #num_wafer = 1
     num_gpus  = num_wafer * wafer_dim * wafer_dim
     #batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
     batch_sizes = [256]
+    #batch_sizes=[1, 16, 4096]
     exp_root = exp_dir
     #Column-Row
     #We only need to specify kp and dp
@@ -141,6 +142,8 @@ def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
                     kp1 = ps[0]
                     kp2 = 1
                     dp = ps[1]
+                    if dp > batch_size:
+                      continue
                     print("kp1: {}, kp2: {}, dp : {}, lp: {}".format(kp1, kp2, dp, lp))
                     p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = wafer_dim, num_wafer = num_wafer)
                     for layout_id in range(0, len(p.order)):
@@ -267,12 +270,16 @@ def standalone(exp_config, exp_dir, debug, no_launch):
 @click.option("--debug", help="debug", default=False, type=bool)
 @click.option("--no_launch", help="Don't launch job, just print command", default=False, type=bool)
 @click.option("--num_search", help="Number of times to search the space from different starting point", default=100)
-def arch_search(exp_config, exp_dir, debug, no_launch, num_search):
+@click.option("--num_wafer", help="Number of wafers", default=1)
+@click.option("--wafer_dim", help="Wafer dimension", default=8)
+def arch_search(exp_config, exp_dir, debug, no_launch, num_search, num_wafer, wafer_dim):
     outerloop_sweep(exp_config = exp_config,
                     exp_dir = exp_dir, 
                     debug = debug, 
                     num_search = num_search,
-                    no_launch = no_launch)
+                    no_launch = no_launch,
+                    num_wafer = num_wafer,
+                    wafer_dim = wafer_dim)
 
 
 if __name__ == "__main__":
