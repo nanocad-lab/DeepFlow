@@ -90,7 +90,7 @@ area_breakdown:
     L2: 0.2
     shared_mem: 0.2
     reg_mem: 0.1
-    DRAM: 0.1
+    DRAM: 0.35
     network:
       intra_node: 0.1
       inter_node: 0.0
