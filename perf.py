@@ -35,7 +35,7 @@ class TimeCalculation:
         self.NL                 = self.model.num_non_linear
         self.A                  = self.model.num_add
         self.P                  = self.model.num_pointwise
-        
+       
         #Software Parameters
         self.O                  = exp_config.sw_config.kernel_launch_overhead
         self.precision          = exp_config.sw_config.precision
@@ -562,9 +562,9 @@ class TimeCalculation:
 
         point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp1') + self.O + point_comm
 
-
-        GEMM_time, reduction_time = self.getDistGEMM_b_kp1(self. miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1, "Cb_kp1") 
-
+        #GEMM_wrt_act and wt is calculated under getDistGEMM_b_kp1
+        GEMM_time, reduction_time = self.getDistGEMM_b_kp1(self.miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1, "Cb_kp1")
+        
         if self.debug:
             print("(gr) Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
 
@@ -626,9 +626,8 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp2') + self.O + point_comm
 
 
-         
-        GEMM_time, reduction_time = self.getDistGEMM_b_kp2(self.miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1, self.kp_hidden_dim2, "Cb_kp2")
 
+        GEMM_time, reduction_time = self.getDistGEMM_b_kp2(self.miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1,self.kp_hidden_dim2, "Cb_kp2")
       
         if self.debug:
             print("(gr) Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
@@ -716,7 +715,8 @@ class TimeCalculation:
         if (p == 1):
             return 0
         #If small data transfers, just broadcast
-        threshold = 128
+        #NOTE: Keep threshold zero to avoid if loop
+        threshold = 0
         data_tranfer = 0
         data_prep = 0
 
@@ -724,7 +724,7 @@ class TimeCalculation:
         #Implement brodcast timing under ring topology
         if (self.precision * Dim0 * Dim1 < threshold):
             factor = (1/p if partial else 1)
-            data_transfer = (self.precision * Dim0 * Dim1 * factor if p > 1 else 0)
+            data_transfer = (((self.precision * Dim0 * Dim1)/ib + ll) * factor if p > 1 else 0)
             data_prep_comp = Dim0 * Dim1 * (p-1) * factor
             data_prep_mem = (3 * self.precision * Dim0 * Dim1) * (p - 1) * factor
             data_prep = self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime')
@@ -847,18 +847,24 @@ class TimeCalculation:
                                    allReduce = False)
 
         #Multiply full grad_activation with shards of weights
-        grad_wt_transpose,  grad_wt_time  = self.getGEMMTime(k / dim1, m, n, name + "wt")
+        grad_wt_transpose,  grad_wt_time  = self.getGEMMTime(k, m / dim1, n, name + "wt")
         #Multiply full grad-activation with shards of activations 
-        grad_act_transpose, grad_act_time = self.getGEMMTime(m, n, k / dim1, name + "act")
+        grad_act_transpose, grad_act_time = self.getGEMMTime(m, n / dim1, k, name + "act")
 
 
-        GEMM_time = grad_wt_time + grad_act_time + reduction_time
+        GEMM_time = grad_wt_time + grad_act_time
 
         return GEMM_time, reduction_time
 
     def getDistGEMM_f_kp2(self, m, k, n, dim1, dim2, name):
         transpose, GEMM_time = self.getGEMMTime(m / dim1, k, n / dim2, name)
-        reduction_time = 0
+        reduction_time = self.getR(Dim0 = m / dim1, 
+                                   Dim1 = n,
+                                   p = dim2,
+                                   ib = self.IBK2,
+                                   ll = self.LLK2,
+                                   partial = False,
+                                   allReduce = False)
         return GEMM_time, reduction_time
 
     def getDistGEMM_b_kp2(self, m, k, n, dim1, dim2, name):
@@ -1121,12 +1127,9 @@ class TimeCalculation:
         point_comm = 0
 
         point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-b-kp1') + self.O + point_comm
-   
 
-        
         GEMM_time, reduction_time = self.getDistGEMM_b_kp1(self.miniB, self.projection if proj else self.D, self.V, self.kp_softmax_dim1, "softmax_b_kp1")
-        
-    
+
         if self.debug:
             print("(gr) Softmax point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
         
@@ -1186,8 +1189,7 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise-Softmax_b_kp2') + self.O + point_comm
    
 
-        GEMM_time, reduction_time = self.getDistGEMM_b_kp2(self.miniB * self.S, (self.projection if proj else self.D), self.V, self.kp_softmax_dim1, self.kp_softmax_dim2, "softmax_b_kp2")
-
+        GEMM_time, reduction_time = self.getDistGEMM_b_kp2(self.miniB, self.projection if proj else self.D, self.V, self.kp_softmax_dim1, self.kp_softmax_dim2, "softmax_b_kp2")
     
         if self.debug:
             print("(gr) Softmax point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
@@ -1225,7 +1227,7 @@ class TimeCalculation:
                                       ib = self.IBK1,
                                       ll = self.LLK1,
                                       partial = False,
-                                      allReduce = True)
+                                      allReduce = False)
         embedding_mem = 2 * (self.miniB * self.D * self.precision)
         #embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         embedding_time = self.roofline(0, embedding_mem, name='embedding_f') + self.O
@@ -1308,10 +1310,6 @@ class TimeCalculation:
         V = self.V
         lp = self.lp
         dp = self.dp
-        
-        applyGrad_hidden = self.applyGrad(Dim0 = 2 * D, Dim1 = G * D, name = "Hidden")
-        applyGrad_softmax = self.applyGrad(Dim0 = (self.projection if proj else self.D), Dim1 = V, name = "Softmax")
-        
 
         self.readjust_type()
 
@@ -1372,18 +1370,18 @@ class TimeCalculation:
             print("dp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}, kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding_dim1: {}, kp_embedding_dim2: {},  kp_hidden_type: {}, kp_softmax_type: {}, kp_embedding_type: {}\n".
                     format(dp, 
                           lp, 
-                          kp_hidden_dim1, 
-                          kp_hidden_dim2, 
-                          kp_softmax_dim1, 
-                          kp_softmax_dim2, 
-                          kp_embedding_dim1, 
-                          kp_embedding_dim2, 
-                          kp_hidden_type, 
-                          kp_softmax_type, 
-                          kp_embedding_type))
+                          self.kp_hidden_dim1, 
+                          self.kp_hidden_dim2, 
+                          self.kp_softmax_dim1, 
+                          self.kp_softmax_dim2, 
+                          self.kp_embedding_dim1, 
+                          self.kp_embedding_dim2, 
+                          self.kp_hidden_type, 
+                          self.kp_softmax_type, 
+                          self.kp_embedding_type))
 
           
-            print("Cf: {}, Cb:; {}, softmax_f: {}, softmax_b:{}, embedding_f: {}, embedding_b: {}," 
+            print("Cf: {}, Cb: {}, softmax_f: {}, softmax_b:{}, embedding_f: {}, embedding_b: {}," 
                    "Rs: {}, Rc:{}, Re: {}\n".format(Cf, 
                                                    Cb,
                                                    Sf, 
@@ -1419,7 +1417,6 @@ class TimeCalculation:
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
 def main(exp_config, exp_dir, debug):
-    debug=False
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
 
