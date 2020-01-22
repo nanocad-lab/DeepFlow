@@ -24,6 +24,11 @@ def run_command(exp_config, exp_dir, mode = 'standalone', debug=False, no_launch
                                             par2cross=par2cross, 
                                             wafer_dim=wafer_dim,
                                             debug=debug)
+    
+    output_file = "{}/command.txt".format(exp_dir)
+    with open(output_file, "a+") as f:
+      f.write(command)
+    
     if no_launch:
         print('WARN: Not running... printing command\n    {}'
               .format(command), flush=True)
@@ -70,7 +75,7 @@ def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, batch_size=3
         script_args +
         '" '
         '--partition={partition} '
-        '-o {exp_dir}/slurm.out').format(
+        '-o {exp_dir}/slurm-%j.out').format(
             num_nodes=num_nodes, exp_name=exp_name,
             cpus_per_task=cpus_per_task, gpus_per_node=gpus_per_node,
             script=script, exp_dir=exp_dir, partition=partition,
@@ -93,7 +98,9 @@ def run_slurm_command(command):
     ).decode("utf-8")
     job_id = re.search(r"[Jj]ob [0-9]+", output).group(0)
     job_id = int(job_id.split(' ')[1])
+    
     print("JOB {} Submitted!".format(job_id), flush=True)
+    
     return job_id
 
 def findMultipliers(n, curr_depth, results, result, max_depth):
@@ -112,7 +119,7 @@ def findMultipliers(n, curr_depth, results, result, max_depth):
 def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
     #TODO: datascale can be optimized out of the GD search code
     data_scale = 1
-    kp_type=1 #CR
+    #kp_type=1 #CR
     #kp_type=2 #RC
     wafer_dim = 8
     num_wafer = 1
@@ -123,99 +130,100 @@ def outerloop_sweep(exp_config, exp_dir, debug, num_search, no_launch):
     #Column-Row
     #We only need to specify kp and dp
     #lp can only be 1 or 4
-    if kp_type == 1:
-      for batch_size in batch_sizes:
-          for lp in [1, 4]:
-              parallelism_strategies = []
-              result = []
-              findMultipliers(num_gpus // lp, 1, parallelism_strategies, result, max_depth=2)
-              for ps in parallelism_strategies:
-                  kp1 = ps[0]
-                  kp2 = 1
-                  dp = ps[1]
-                  print("kp1: {}, kp2: {}, dp : {}, lp: {}".format(kp1, kp2, dp, lp))
-                  p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = wafer_dim, num_wafer = num_wafer)
-                  for layout_id in range(0, len(p.order)):
-                      p.project(layout_id)
-                      inter_derate, intra_derate, par2cross = p.get_derate_factors(layout_id)
-                      #print(layout_id, batch_size, dp, kp1)
-                      par2cross_encoded = ''
-                      for val in par2cross.values():
-                          par2cross_encoded += ('T' if val else 'F') 
-                      
-                      parallel_strategy = "{}-k{}-k{}-d{}-l{}".format("CR" if kp_type == 1 else "RC" if kp_type == 2 else "None", kp1,kp2,dp,lp)
-                      layout = "layout{}-x{}-i{}-{}".format(layout_id, inter_derate, intra_derate, par2cross_encoded)
-                      exp_dir='{exp_root}/{parallel_strategy}/{layout}/b{batch_size}'.format(exp_root=exp_root, 
-                                                                                             data_scale=data_scale, 
-                                                                                             batch_size=batch_size,
-                                                                                             parallel_strategy = parallel_strategy, 
-                                                                                             layout= layout)
-                      #print(exp_dir)
-                      GD_search(exp_config = exp_config, 
-                                exp_dir = exp_dir, 
-                                debug = debug, 
-                                num_search = num_search, 
-                                batch_size = batch_size, 
-                                data_scale = data_scale, 
-                                dp = dp, 
-                                lp = lp, 
-                                kp_type = kp_type, 
-                                kp1 = kp1, 
-                                kp2 = kp2, 
-                                inter_derate = inter_derate, 
-                                intra_derate = intra_derate, 
-                                par2cross = par2cross,
-                                wafer_dim = wafer_dim,
-                                no_launch = no_launch)
-    elif kp_type == 2:
-      for batch_size in batch_sizes:
-          for lp in [1, 4]:
-              parallelism_strategies = []
-              result = []
-              #for CR max_depth = 2
-              #for RC max_depth = 3
-              findMultipliers(num_gpus // lp, 1, parallelism_strategies, result, max_depth=3)
-              for ps in parallelism_strategies:
-                  kp1 = ps[0]
-                  kp2 = ps[1]
-                  dp = ps[2]
-                  print("kp1: {}, kp2: {}, dp : {}, lp: {}".format(kp1, kp2, dp, lp))
-                  p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = wafer_dim, num_wafer = num_wafer)
-                  for layout_id in range(0, len(p.order)):
-                      p.project(layout_id)
-                      inter_derate, intra_derate, par2cross = p.get_derate_factors(layout_id)
-                      #print(layout_id, batch_size, dp, kp1)
-                      par2cross_encoded = ''
-                      for val in par2cross.values():
-                          par2cross_encoded += ('T' if val else 'F') 
-                      
-                      parallel_strategy = "{}-k{}-k{}-d{}-l{}".format("CR" if kp_type == 1 else "RC" if kp_type == 2 else "None", kp1,kp2,dp,lp)
-                      layout = "layout{}-x{}-i{}-{}".format(layout_id, inter_derate, intra_derate, par2cross_encoded)
-                      exp_dir='{exp_root}/{parallel_strategy}/{layout}/b{batch_size}'.format(exp_root=exp_root, 
-                                                                                             data_scale=data_scale, 
-                                                                                             batch_size=batch_size,
-                                                                                             parallel_strategy = parallel_strategy, 
-                                                                                             layout= layout)
-                      #print(exp_dir)
-                      GD_search(exp_config = exp_config, 
-                                exp_dir = exp_dir, 
-                                debug = debug, 
-                                num_search = num_search, 
-                                batch_size = batch_size, 
-                                data_scale = data_scale, 
-                                dp = dp, 
-                                lp = lp, 
-                                kp_type = kp_type, 
-                                kp1 =kp1, 
-                                kp2 = kp2, 
-                                inter_derate = inter_derate, 
-                                intra_derate = intra_derate, 
-                                par2cross = par2cross, 
-                                wafer_dim = wafer_dim,
-                                no_launch = no_launch)
+    for kp_type in [1, 2]:
+      if kp_type == 1:
+        for batch_size in batch_sizes:
+            for lp in [1, 4]:
+                parallelism_strategies = []
+                result = []
+                findMultipliers(num_gpus // lp, 1, parallelism_strategies, result, max_depth=2)
+                for ps in parallelism_strategies:
+                    kp1 = ps[0]
+                    kp2 = 1
+                    dp = ps[1]
+                    print("kp1: {}, kp2: {}, dp : {}, lp: {}".format(kp1, kp2, dp, lp))
+                    p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = wafer_dim, num_wafer = num_wafer)
+                    for layout_id in range(0, len(p.order)):
+                        p.project(layout_id)
+                        inter_derate, intra_derate, par2cross = p.get_derate_factors(layout_id)
+                        #print(layout_id, batch_size, dp, kp1)
+                        par2cross_encoded = ''
+                        for val in par2cross.values():
+                            par2cross_encoded += ('T' if val else 'F') 
+                        
+                        parallel_strategy = "{}-k{}-k{}-d{}-l{}".format("CR" if kp_type == 1 else "RC" if kp_type == 2 else "None", kp1,kp2,dp,lp)
+                        layout = "layout{}-x{}-i{}-{}".format(layout_id, inter_derate, intra_derate, par2cross_encoded)
+                        exp_dir='{exp_root}/{parallel_strategy}/{layout}/b{batch_size}'.format(exp_root=exp_root, 
+                                                                                               data_scale=data_scale, 
+                                                                                               batch_size=batch_size,
+                                                                                               parallel_strategy = parallel_strategy, 
+                                                                                               layout= layout)
+                        #print(exp_dir)
+                        GD_search(exp_config = exp_config, 
+                                  exp_dir = exp_dir, 
+                                  debug = debug, 
+                                  num_search = num_search, 
+                                  batch_size = batch_size, 
+                                  data_scale = data_scale, 
+                                  dp = dp, 
+                                  lp = lp, 
+                                  kp_type = kp_type, 
+                                  kp1 = kp1, 
+                                  kp2 = kp2, 
+                                  inter_derate = inter_derate, 
+                                  intra_derate = intra_derate, 
+                                  par2cross = par2cross,
+                                  wafer_dim = wafer_dim,
+                                  no_launch = no_launch)
+      elif kp_type == 2:
+        for batch_size in batch_sizes:
+            for lp in [1, 4]:
+                parallelism_strategies = []
+                result = []
+                #for CR max_depth = 2
+                #for RC max_depth = 3
+                findMultipliers(num_gpus // lp, 1, parallelism_strategies, result, max_depth=3)
+                for ps in parallelism_strategies:
+                    kp1 = ps[0]
+                    kp2 = ps[1]
+                    dp = ps[2]
+                    print("kp1: {}, kp2: {}, dp : {}, lp: {}".format(kp1, kp2, dp, lp))
+                    p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = wafer_dim, num_wafer = num_wafer)
+                    for layout_id in range(0, len(p.order)):
+                        p.project(layout_id)
+                        inter_derate, intra_derate, par2cross = p.get_derate_factors(layout_id)
+                        #print(layout_id, batch_size, dp, kp1)
+                        par2cross_encoded = ''
+                        for val in par2cross.values():
+                            par2cross_encoded += ('T' if val else 'F') 
+                        
+                        parallel_strategy = "{}-k{}-k{}-d{}-l{}".format("CR" if kp_type == 1 else "RC" if kp_type == 2 else "None", kp1,kp2,dp,lp)
+                        layout = "layout{}-x{}-i{}-{}".format(layout_id, inter_derate, intra_derate, par2cross_encoded)
+                        exp_dir='{exp_root}/{parallel_strategy}/{layout}/b{batch_size}'.format(exp_root=exp_root, 
+                                                                                               data_scale=data_scale, 
+                                                                                               batch_size=batch_size,
+                                                                                               parallel_strategy = parallel_strategy, 
+                                                                                               layout= layout)
+                        #print(exp_dir)
+                        GD_search(exp_config = exp_config, 
+                                  exp_dir = exp_dir, 
+                                  debug = debug, 
+                                  num_search = num_search, 
+                                  batch_size = batch_size, 
+                                  data_scale = data_scale, 
+                                  dp = dp, 
+                                  lp = lp, 
+                                  kp_type = kp_type, 
+                                  kp1 =kp1, 
+                                  kp2 = kp2, 
+                                  inter_derate = inter_derate, 
+                                  intra_derate = intra_derate, 
+                                  par2cross = par2cross, 
+                                  wafer_dim = wafer_dim,
+                                  no_launch = no_launch)
 
-    else:
-        NotImplemented
+      else:
+          NotImplemented
 
 def GD_search(exp_config, exp_dir, debug, num_search, batch_size, data_scale, dp, lp, kp_type, kp1, kp2, inter_derate, intra_derate, par2cross, wafer_dim, no_launch):
     for i in range(num_search):
