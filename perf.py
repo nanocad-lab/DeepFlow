@@ -92,13 +92,16 @@ class TimeCalculation:
 
         #cross communication will pass through intra links too
         if self.num_wafer > 1 and self.num_workers > 1:
+          if intra_derate != 0:
             derated_inter_throughput = min(intra_throughput/intra_derate, 
-                                         inter_throughput/inter_derate)
+                                           inter_throughput/inter_derate)
+          else:
+            derated_inter_throughput = inter_throughput/inter_derate
         else:
             derated_inter_throughput = 0
 
-        if self.num_workers > 1:
-            derated_intra_throughput = intra_throughput/intra_derate
+        if self.num_workers > 1 and intra_derate != 0:
+              derated_intra_throughput = intra_throughput/intra_derate
         else:
             derated_intra_throughput = 0
 
@@ -740,10 +743,18 @@ class TimeCalculation:
             data_transfer  = float("inf") if (ib == 0) else ((((self.precision * Dim0 * Dim1) / p) / ib) + ll) * factor * (p - 1)
             #dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
             
-            data_prep_comp = (Dim0 * Dim1) / p
-            data_prep_mem  = (3 * self.precision * Dim0 * Dim1 / p) 
-            data_prep = ((self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime') + self.O)
-                          * (p - 1))
+            #First round is accumlate as pass around
+            data_prep_comp1 = (Dim0 * Dim1) / p
+            data_prep_mem1  = (3 * self.precision * Dim0 * Dim1 / p)
+            data_prep1 = ((self.roofline(data_prep_comp1, data_prep_mem1, name='R-prepTime') + self.O) * (p - 1))
+
+            #Second round, us just pass around
+            data_prep_comp2 = 0
+            data_prep_mem2  = (2 * self.precision * Dim0 * Dim1 / p)
+            data_prep2 = ((self.roofline(data_prep_comp2, data_prep_mem2, name='R-prepTime')) * (p - 1))
+
+
+            data_prep = data_prep1 + (data_prep2 if factor==2 else 0)
 
             #print("R1: {}, factor: {}\n".format(dt,factor))
         if self.debug:
@@ -1283,7 +1294,10 @@ class TimeCalculation:
     def getInterLayerCommLatency(self, dim1, dim2):
         w = 0
         if self.lp > 1:
-          w = self.precision * dim1 * dim2 / self.IBL + self.LLL
+          w_size         = self.precision * dim1 * dim2
+          transfer_time  = w_size / self.IBL + self.LLL
+          mem_time       = self.roofline(0, w_size, name='inter_layer')
+          w              = mem_time + transfer_time
         return w
 
 
