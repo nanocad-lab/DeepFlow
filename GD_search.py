@@ -80,7 +80,8 @@ class GradientDescentSearch:
         #Refine the search_parameters list to exclude excluded_params
         self.search_params = copy.deepcopy(self.parameters)
         #self.excluded = {'area_breakdown':['DRAM', 'inter_node'], 'power_breakdown':['inter_node'], 'perimeter_breakdown':['inter_node']}
-        self.excluded = {'area_breakdown':['DRAM']}
+        #self.excluded = {'area_breakdown':['DRAM']}
+        self.excluded = {}
         if  self.system_hierarchy_params['inter_derate'] == 0:
             for param_class in self.parameters:
               if param_class in self.excluded:
@@ -108,7 +109,7 @@ class GradientDescentSearch:
 
         self.debug      = debug
         self.best_time  = float('inf')
-        self.lr = 0.1
+        self.lr = 0.5
 
         self.initialize()
     
@@ -294,7 +295,7 @@ class GradientDescentSearch:
         with open(config_file, 'w') as yaml_file:
             _yaml.dump(config_dict, yaml_file, default_flow_style=False)
       
-        print(config_file)
+        #print(config_file)
         #if self.debug:
         #    for param_class in params:
         #        print("{} parameters sum up to {}".format(config_dict[param_class], sum(params[param_class].values())))
@@ -304,10 +305,14 @@ class GradientDescentSearch:
         min_value_params = 0
         alpha = 1.5 #size of perturbation(should be >1)
         lr = self.lr
+        beta1 = 0.9
+        beta2 = 0.999
+        eps   = 1e-8
         iteration = 1
         best_time = self.best_time
         prev_exec_time = best_time
-        prev_ckpt_time = float('inf')
+        prev_ckpt_time = best_time
+        best_iteration = 0
         best_params = {}
         search_params = self.search_params
         #acc_grad = {}
@@ -316,6 +321,17 @@ class GradientDescentSearch:
         #    acc_grad[param_class] = {}
         #    for param in search_params[param_class]:
         #        acc_grad[param_class][param] = 0
+        
+        M = {}
+        R = {}
+
+        for param_class in search_params:
+          M[param_class] = {}
+          R[param_class] = {}
+          for param in search_params[param_class]:
+            M[param_class][param] = 0
+            R[param_class][param] = 0
+
 
         best_dir = '' 
         while (saturated == False):
@@ -363,13 +379,19 @@ class GradientDescentSearch:
 
             clip_max = 10
             for param_class in search_params:
-              random_noise = np.random.normal(0, 1e-4, len(search_params[param_class])) 
               for i, param in enumerate(search_params[param_class]):
+                  #Adam optimizer
+                  M[param_class][param] = beta1 * M[param_class][param] + (1. - beta1) * gradient_list[param_class][param]
+                  R[param_class][param] = beta2 * R[param_class][param] + (1. - beta2) * gradient_list[param_class][param]**2
 
-                  gradient_update = gradient_list[param_class][param] * lr
+                  m_k_hat = M[param_class][param] / (1. - beta1**(iteration))
+                  r_k_hat = R[param_class][param] / (1. - beta2**(iteration))
+                  gradient_update = lr * m_k_hat / (np.sqrt(r_k_hat) + eps)
+                  
+                  #gradient_update = gradient_list[param_class][param] * lr
                   gradient_clipped = (clip_max if gradient_update > clip_max else gradient_update)
 
-                  search_params[param_class][param] += gradient_clipped + random_noise[i]
+                  search_params[param_class][param] += gradient_clipped
                   search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-2
                   
               if mem_overflow_rate > 1:
@@ -402,23 +424,27 @@ class GradientDescentSearch:
 
             new_exec_time = t[0]
             time_limit = t[1]
+            ratio = new_exec_time / prev_exec_time
             if new_exec_time < best_time:
                 best_time = new_exec_time
                 best_params = copy.deepcopy(search_params)
                 best_dir = t[3]
+                best_iteration = iteration
             
-
-            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
-
-            if iteration % 10 == 0 or new_exec_time == float('inf'):
-                if ((prev_ckpt_time - new_exec_time < 0.001) or (prev_ckpt_time==float('inf') and new_exec_time == float('inf'))):
-                    saturated = True
-                    if t[2] == True:
-                        print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
-                    else:
-                        print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(best_time, time_limit))
-                        print("Best architecture: {}".format(best_params))
-                prev_ckpt_time = new_exec_time
+            #print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
+            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}, bit: {}".format(iteration, new_exec_time, best_time, time_limit, lr, best_iteration))
+           
+            if iteration == 100 or new_exec_time == float('inf'):
+              saturated = True
+            #if iteration % 10 == 0 or new_exec_time == float('inf'):
+            #    if ((prev_ckpt_time - new_exec_time < threshold) or (prev_ckpt_time==float('inf') and new_exec_time == float('inf'))):
+            #        saturated = True
+            #        if t[2] == True:
+            #            print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
+            #        else:
+            #            print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(best_time, time_limit))
+            #            print("Best architecture: {}".format(best_params))
+            #    prev_ckpt_time = new_exec_time
 
 
             #if new_exec_time >= prev_exec_time:
@@ -431,7 +457,9 @@ class GradientDescentSearch:
 
             iteration = iteration + 1    
             prev_exec_time = new_exec_time
-            
+        
+        best_config='{}/summary.txt'.format(best_dir)
+        print("Best_config: {}".format(best_config))     
         return best_params, best_time, time_limit, best_dir
     
    
