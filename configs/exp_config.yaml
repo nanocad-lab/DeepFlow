@@ -43,7 +43,7 @@ tech_param:
         dynamic_energy_per_bit: 3.5e-15
         static_power_per_bit: 8.4e-12
         area_per_bit: 6.4e-8 #mm2
-        bank_capacity: 96 KB
+        bank_capacity: 32 KB
         controller_area_per_link: 0.004 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0

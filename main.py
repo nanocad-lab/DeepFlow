@@ -59,7 +59,7 @@ def create_sbatch_enqueue_command(exp_config, exp_dir, mode, index, batch_size=3
         script_args = '--exp_config {exp_config} --exp_dir {exp_dir} --debug {debug}'.format(exp_config=exp_config, exp_dir=exp_dir, debug=debug)
         exp_name = 'perf'
     else:
-        script='GD_search_adam.py'
+        script='GD_search.py'
         script_args = '--exp_config {exp_config} --exp_dir {exp_dir} --debug {debug} --index {index} --batch_size {batch_size} --data_scale {data_scale} --dp {dp} --lp {lp} --kp_type {kp_type} --kp1 {kp1} --kp2 {kp2} --inter_derate {inter_derate} --intra_derate {intra_derate} --kp1_inter {kp1_inter} --kp2_inter {kp2_inter} --dp_inter {dp_inter} --lp_inter {lp_inter} --wafer_dim {wafer_dim}'.format(exp_config=exp_config, exp_dir=exp_dir, debug=debug, index=index, batch_size=batch_size, data_scale=data_scale, dp=dp, lp=lp, kp1=kp1, kp2=kp2, kp_type=kp_type, inter_derate=inter_derate, intra_derate=intra_derate, kp1_inter=par2cross['kp1'], kp2_inter=par2cross['kp2'], dp_inter=par2cross['dp'], lp_inter=par2cross['lp'], wafer_dim=wafer_dim)
         exp_name = 'GD_search'
 
