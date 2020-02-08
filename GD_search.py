@@ -166,6 +166,8 @@ class GradientDescentSearch:
             print("Config file: {}".format(exp_dir + "/exp_config.yaml"))
             self.printParams(params)
             print("Time: {}\n".format(exec_time))
+        
+        #print("{}/summary.txt".format(exp_dir))
 
         return exec_time, time_limit, found, exp_dir, mem_overflow_rate
  
@@ -201,7 +203,7 @@ class GradientDescentSearch:
             random_params = [x/scale_factor for x in random_params]
             for i, param in enumerate(self.search_params[param_class]):
               self.search_params[param_class][param] = random_params[i]
-            
+        
         self.printParams(self.search_params)
         
         iteration = 0
@@ -372,11 +374,17 @@ class GradientDescentSearch:
                     gradient_list[param_class][param] = gradient
                     #acc_grad[param_class][param] += abs(gradient)
                     temp_params = copy.deepcopy(search_params)
+                    print("{:} {:}: {:,} -> {:,} , {}".format(param_class, param, exec_time, new_exec_time, gradient_list[param_class][param]))
+                    print()
 
             if self.debug:
                 print("***grad_list: {}".format(gradient_list))
                 #print("***acc_grad: {}".format(acc_grad))
 
+            #for param_class in search_params:
+            #  for param in search_params[param_class]:
+            #    print("{:} {:} {:,}".format(param_class, param, gradient_list[param_class][param]))
+              
             clip_max = 10
             for param_class in search_params:
               for i, param in enumerate(search_params[param_class]):
