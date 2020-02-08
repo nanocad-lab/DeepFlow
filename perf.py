@@ -311,10 +311,17 @@ class TimeCalculation:
         
         #print("Name: {}, Time: {}, gmem: {}, l2mem: {}, smem: {}, rmem: {}, MemBW: {}".format(name, time, time_gmem, time_l2mem, time_smem, time_rmem, self.mem_bw/1e12))
         if self.debug:
+            print(name)
             print("inflection_point_gmem: {:.2f}".format(inflection_point_gmem))
             print("comp_int_gmem: {:.2f}".format(comp_int_gmem))
             print("inflection_point_L2mem: {:.2f}".format(inflection_point_l2mem))
             print("comp_int_L2mem: {:.2f}".format(comp_int_l2mem))
+            print("inflection_point_smem: {:.2f}".format(inflection_point_smem))
+            print("comp_int_smem: {:.2f}".format(comp_int_smem))
+            print("inflection_point_rmem: {:.2f}".format(inflection_point_rmem))
+            print("comp_int_rmem: {:.2f}".format(comp_int_rmem))
+            print("time_gmem: {}, time_l2mem: {}, time_smem: {}, time_rmem: {}".format(time_gmem, time_l2mem, time_smem, time_rmem))
+            print()
         
         return time
 
@@ -524,21 +531,21 @@ class TimeCalculation:
         
        
         #Pointwise ops: all the linear/non-linear ops after MM
-        point_flop = self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 4
-        #4 refers to the number of pointwise ops (mul + add +tanh + mul) on 
+        point_flop = self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 5
+        #4 refers to the number of pointwise ops (mul + add +tanh + mul + tanh) on 
         #the critical path 
         point_mem  = (self.precision * self.miniB * (self.G * self.D / self.kp_hidden_dim1) *
-                     (3 * 3 + 2 * 1 ))
+                     (3 * 3 + 2 * 2 ))
         # 3(3 memory access per operation with two input and one output)
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
-        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 3 / self.IBK1
-        # 3 refers to the number of pointwise ops (mul + add + mul) on the
+        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 4 * self.precision / self.IBK1
+        # 3 refers to the number of pointwise ops (mul + add + mul + tanh) on the
         # critical path whose inputs are located across different GPUs
         #NOTE:Assuming all communications can happpen in parallel
 
-        point_time = self.roofline(point_flop, point_mem, name='pointwise_cf_kp1') + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_cf_kp1') + 5 * self.O + point_comm
 
 
         return GEMM_time + reduction_time + point_time
@@ -546,24 +553,25 @@ class TimeCalculation:
     def getCb_kp1(self):
         #TODO:Add local accumulation of weights at every time step
         #Pointwise
-        point_flop = (self.miniB) * (self.G * self.D / self.kp_hidden_dim1) * 4
+        point_flop = ((self.miniB) * (self.G * self.D / self.kp_hidden_dim1) * 5
+                     + (2 * self.D * self.G * self.D / self.kp_hidden_dim1)) # local accumulation of wts
         #4 refers to the number of pointwise ops (mul + add +tanh + mul) on 
         #the critical path 
         point_mem  = (self.precision * self.miniB * 
-                                       (self.G * self.D / self.kp_hidden_dim1) *
-                                       (3 * 3 + 2 * 1))
+                      (self.G * self.D / self.kp_hidden_dim1) * (3 * 3 + 2 * 2)
+                     + (2 * self.precision * self.D * self.G * self.D / self.kp_hidden_dim1) * 3) # local accumulation of wts
         # 3(3 memory access per operation with two input and one output)
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
    
-        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 3 / self.IBK1
+        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 4 * self.precision / self.IBK1
         #3 refers to the number of pointwise ops (mul + tanh + mul) on
         # critical path whose inputs are located across different GPUs
         #NOTE:Assuming all communications can happpen in parallel
 
 
-        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp1') + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp1') + 5 * self.O + point_comm
 
         #GEMM_wrt_act and wt is calculated under getDistGEMM_b_kp1
         GEMM_time, reduction_time = self.getDistGEMM_b_kp1(self.miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1, "Cb_kp1")
@@ -585,22 +593,22 @@ class TimeCalculation:
         GEMM_time, reduction_time = self.getDistGEMM_f_kp2(self.miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1,self.kp_hidden_dim2, "Cf_kp2")
         
         #Pointwise ops
-        point_flop = (self.miniB/self.kp_hidden_dim1) * (self.G * self.D / self.kp_hidden_dim2) * 4
+        point_flop = (self.miniB/self.kp_hidden_dim1) * (self.G * self.D / self.kp_hidden_dim2) * 5
         #4 refers to the number of pointwise ops (mul + add +tanh + mul) on 
         #the critical path 
         point_mem  = (self.precision * (self.miniB / self.kp_hidden_dim1) * 
                      (self.G * self.D / self.kp_hidden_dim2) *
-                     (3 * 3 + 2 * 1 ))
+                     (3 * 3 + 2 * 2 ))
         # 3(3 memory access per operation with two input and one output)
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
         point_comm =  ((self.miniB / self.kp_hidden_dim1) * 
-                       (self.G * self.D / self.kp_hidden_dim2) * 3 / self.IBK2)
+                       (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision / self.IBK2)
         #3 refers to the number of pointwise ops (mul + add + mul) whose inputs
         #across different GPU
 
-        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cf_kp2') + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cf_kp2') + 5 * self.O + point_comm
 
         
         return GEMM_time + reduction_time + point_time
@@ -608,25 +616,27 @@ class TimeCalculation:
     def getCb_kp2(self):
       
         #Pointwise ops
-        point_flop = (self.miniB / self.kp_hidden_dim1) * (self.G * self.D / self.kp_hidden_dim2) * 4
+        point_flop = ((self.miniB / self.kp_hidden_dim1) * (self.G * self.D / self.kp_hidden_dim2) * 5
+                     + (2 * self.D * self.G * self.D / self.kp_hidden_dim2)) # local accumulation of wts
         #4 refers to the number of pointwise ops (mul + add +tanh + mul) on 
         #the critical path 
         # kp_hidden_dim2 is for the reduction sum operation after doing outer product
         # for (B,4D)x(4D,2D).This is outerproduct due to the data distribution.
-        point_mem  = (self.precision * (self.miniB / self.kp_hidden_dim1) * 
+        point_mem  = ((self.precision * (self.miniB / self.kp_hidden_dim1) * 
                                        (self.G * self.D / self.kp_hidden_dim2) *
-                                       (3 * 3 + 2 * 1))
+                                       (3 * 3 + 2 * 2))
+                     + (2 * self.precision * self.D * self.G * self.D / self.kp_hidden_dim2) * 3) # local accumulation of wts
         # 3(3 memory access per operation with two input and one output)
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
    
-        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim2) * 3 / self.IBK2
+        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision / self.IBK2
         #3 refers to the number of pointwise ops (mul + add +tanh + mul) on 
         #3 refers to the number of hops to gather i,f, o and c in each GPU
         #in order to perform (B,4D)x(4D,2D)
 
-        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp2') + self.O + point_comm
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp2') + 5 * self.O + point_comm
 
 
 
@@ -645,18 +655,18 @@ class TimeCalculation:
         transpose, GEMM_time = self.getGEMMTime(self.miniB, 2 * self.D, self.G * self.D, "Cf")
 
         
-        point_flop = self.miniB * self.D * self.G * (1 + 5/4 + 1)
+        point_flop = self.miniB * self.D * self.G * 5
         #1: add bias
         #5/4: add nonlinearities, there is one more than the number of gates (self.G)
         #1: pointwise muliply and add
         point_mem  = (self.precision * self.miniB * self.D * self.G *
-                     (3 * 2 + 2 * 5/4 ))
+                     (3 * 3 + 2 * 2 ))
         #3: 3 memory accesses for operands with two inputs and one output
         #2: 1 for bias add + 1 for pointwise mul
         #2: 2 memory accesses for operands with one input and one output
         #1: 5/4 non-linearities per gate
 
-        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cf') + 15 * self.O
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cf') + 5 * self.O
 
   
         if self.debug:
@@ -675,12 +685,11 @@ class TimeCalculation:
         
         GEMM_time = grad_act_time + grad_wt_time
 
-        point_flop = ((self.miniB * self.D * (1 + 5/4 + 1)) + 
+        point_flop = ((self.miniB * self.D * 5) + 
                      (2 * self.D * self.G * self.D)) # local accumulation of wts
-        point_mem  = ((self.precision * self.miniB * self.D * (3 * 2 + 2 * 5/4)) + 
-                     (2 * self.D * self.G * self.D) * 3) #local accumulation of wts
-        #TODO: does the local accumulation needs a factor of two for wts and acc????
-        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb') + 15 * self.O
+        point_mem  = ((self.precision * self.miniB * self.D * (3 * 3 + 2 * 2)) + 
+                     (2 * self.precision * self.D * self.G * self.D) * 3) #local accumulation of wts
+        point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb') + 5 * self.O
    
         if self.debug:
             print("(gr) Hidden point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
@@ -740,22 +749,16 @@ class TimeCalculation:
             #data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) * 
             #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
             factor = (1 if partial or not allReduce else 2)
-            data_transfer  = float("inf") if (ib == 0) else ((((self.precision * Dim0 * Dim1) / p) / ib) + ll) * factor * (p - 1)
+            mem_access  = self.roofline(0, 2 * self.precision * Dim0 * Dim1 / p, name='memory access before/after data transfer over network')
+            data_transfer  = float("inf") if (ib == 0) else ((((self.precision * Dim0 * Dim1) / p) / ib) + mem_access + ll) * factor * (p - 1)
             #dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
             
             #First round is accumlate as pass around
-            data_prep_comp1 = (Dim0 * Dim1) / p
-            data_prep_mem1  = (3 * self.precision * Dim0 * Dim1 / p)
-            data_prep1 = ((self.roofline(data_prep_comp1, data_prep_mem1, name='R-prepTime') + self.O) * (p - 1))
+            data_prep_comp = (Dim0 * Dim1) / p
+            data_prep_mem  = (3 * self.precision * Dim0 * Dim1 / p)
+            data_prep = ((self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime') + self.O) * (p - 1))
 
-            #Second round, us just pass around
-            data_prep_comp2 = 0
-            data_prep_mem2  = (2 * self.precision * Dim0 * Dim1 / p)
-            data_prep2 = ((self.roofline(data_prep_comp2, data_prep_mem2, name='R-prepTime')) * (p - 1))
-
-
-            data_prep = data_prep1 + (data_prep2 if factor==2 else 0)
-
+            
             #print("R1: {}, factor: {}\n".format(dt,factor))
         if self.debug:
             print("(gr) allReduce_flop: {:,}, allReduce_mem: {:,}".format(int(data_prep_comp/G), int(data_prep_mem/G)))
