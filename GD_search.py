@@ -14,6 +14,11 @@ import util
 import ruamel as _ruamel
 import ruamel.yaml as _yaml
 
+import math
+
+import subprocess
+import re
+
 #exp_root = os.getcwd() + '/hw_architecture/batch_sweep'
 
 class GradientDescentSearch:
@@ -92,7 +97,7 @@ class GradientDescentSearch:
         if  self.system_hierarchy_params['intra_derate'] == 0:
            for param_class in self.parameters:
              if param_class in self.excluded:
-               if 'inter_node' not in self.excluded[param_class]:
+               if 'intra_node' not in self.excluded[param_class]:
                  self.excluded[param_class].append('intra_node')
              else:
                self.excluded[param_class]=['intra_node']
@@ -109,7 +114,7 @@ class GradientDescentSearch:
 
         self.debug      = debug
         self.best_time  = float('inf')
-        self.lr = 0.5
+        self.lr = 1
 
         self.initialize()
     
@@ -124,7 +129,7 @@ class GradientDescentSearch:
                 val = params[param_class][param] if (param_class in params and param in params[param_class]) else self.parameters[param_class][param]
                 line = line + " " + param_abv + ": " + "{0:.3f}".format(val)
         if f is None:
-            print(message + " " + line + "\n")
+            print(message + " " + line + "\n", flush=True)
         else:
             f.write(message + " " + line + "\n")
 
@@ -190,7 +195,7 @@ class GradientDescentSearch:
                 self.parameters[param_class][param] = config_dict[param_class][param]
 
 
-        print("Initializing...")
+        print("Initializing...", flush=True)
         for param_class in self.search_params:
             random_params = random.sample(range(1,100),len(self.search_params[param_class]))
               
@@ -211,7 +216,7 @@ class GradientDescentSearch:
         new_exec_time = t[0]
         time_limit = t[1]
         self.best_time = new_exec_time
-        print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}".format(iteration, new_exec_time, self.best_time, time_limit, self.lr))
+        print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}".format(iteration, new_exec_time, self.best_time, time_limit, self.lr), flush=True)
 
     def create_config_dir(self, params, iteration):
         exp_dir=[]
@@ -368,14 +373,15 @@ class GradientDescentSearch:
                     elif search_params[param_class][param] == 0:
                         gradient = 0
                     else:
-                        gradient = (exec_time - new_exec_time) / ((alpha - 1) * search_params[param_class][param])
+                        #gradient = (exec_time - new_exec_time) / ((alpha - 1) * search_params[param_class][param])
+                        gradient = (new_exec_time - exec_time) / ((alpha - 1) * search_params[param_class][param])
                     #if self.debug:
                     #    print("Exec time improv =", gradient, exec_time, new_exec_time)
                     gradient_list[param_class][param] = gradient
                     #acc_grad[param_class][param] += abs(gradient)
                     temp_params = copy.deepcopy(search_params)
-                    print("{:} {:}: {:,} -> {:,} , {}".format(param_class, param, exec_time, new_exec_time, gradient_list[param_class][param]))
-                    print()
+                    #print("{:} {:}: {:,} -> {:,} , {}".format(param_class, param, exec_time, new_exec_time, gradient_list[param_class][param]))
+                    #print()
 
             if self.debug:
                 print("***grad_list: {}".format(gradient_list))
@@ -387,29 +393,37 @@ class GradientDescentSearch:
               
             clip_max = 10
             for param_class in search_params:
+              grad_norm = math.sqrt(np.sum([i**2 for i in gradient_list[param_class].values()]))
               for i, param in enumerate(search_params[param_class]):
                   #Adam optimizer
-                  M[param_class][param] = beta1 * M[param_class][param] + (1. - beta1) * gradient_list[param_class][param]
-                  R[param_class][param] = beta2 * R[param_class][param] + (1. - beta2) * gradient_list[param_class][param]**2
+                  #M[param_class][param] = beta1 * M[param_class][param] + (1. - beta1) * gradient_list[param_class][param]
+                  #R[param_class][param] = beta2 * R[param_class][param] + (1. - beta2) * gradient_list[param_class][param]**2
 
-                  m_k_hat = M[param_class][param] / (1. - beta1**(iteration))
-                  r_k_hat = R[param_class][param] / (1. - beta2**(iteration))
-                  gradient_update = lr * m_k_hat / (np.sqrt(r_k_hat) + eps)
+                  #m_hat = M[param_class][param] / (1. - beta1**(iteration))
+                  #r_hat = R[param_class][param] / (1. - beta2**(iteration))
                   
-                  #gradient_update = gradient_list[param_class][param] * lr
-                  gradient_clipped = (clip_max if gradient_update > clip_max else gradient_update)
+                  #gradient_update = lr * m_hat / (np.sqrt(r_hat) + eps)
+                  
+                  gradient_update = (gradient_list[param_class][param] * lr / grad_norm) if grad_norm > 0 else (gradient_list[param_class][param] * lr)
+                  
+                  #gradient_clipped = (clip_max if gradient_update > clip_max else gradient_update)
 
-                  search_params[param_class][param] += gradient_clipped
+                  #search_params[param_class][param] += gradient_clipped
+                  search_params[param_class][param] = search_params[param_class][param] - gradient_update
+                  #search_params[param_class][param] = search_params[param_class][param] - gradient_clipped
                   search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-2
-                  
+                  M[param_class][param] = beta1 * M[param_class][param] + (1. - beta1) * search_params[param_class][param]
+                  search_params[param_class][param] = M[param_class][param]
+
+
               if mem_overflow_rate > 1:
                 mem_percentage = search_params[param_class]['DRAM']
                 if 'area' in param_class: 
                     mem_percentage = search_params[param_class]['DRAM'] * mem_overflow_rate
-                    print("Increasing DRAM area to meet the memory capacity requirement")
+                    print("Increasing DRAM area to meet the memory capacity requirement", flush=True)
                 if mem_percentage > 1: 
                   saturated = True
-                  print("Memory capacity is not sufficient to support the given model + parallelism strategy")
+                  print("Memory capacity is not sufficient to support the given model + parallelism strategy and there is not enough area on chip to support a larger controller", flush=True)
                 else:
                   search_params[param_class]['DRAM'] = mem_percentage
 
@@ -423,8 +437,11 @@ class GradientDescentSearch:
               
               scale_factor = feat_sum / expected_sum
               for param in search_params[param_class]:
+                  old_v =  search_params[param_class][param]
                   search_params[param_class][param] = search_params[param_class][param] if (scale_factor == 0) else search_params[param_class][param]/scale_factor
-
+                  #adam_update = (old_params[param_class][param] - old_v)
+                  #print("{:} {:}: {:,} -> {:,} -> {:,} , ({}), {}".format(param_class, param, old_params[param_class][param], old_v, search_params[param_class][param], gradient_list[param_class][param], adam_update))
+                  #print()
               
             self.printParams(old_params, "old_params")
             self.printParams(search_params, "new_params")
@@ -440,7 +457,9 @@ class GradientDescentSearch:
                 best_iteration = iteration
             
             #print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
-            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}, bit: {}".format(iteration, new_exec_time, best_time, time_limit, lr, best_iteration))
+            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}, bit: {}".format(iteration, new_exec_time, best_time, time_limit, lr, best_iteration), flush=True)
+            #curr_dir='{}/summary.txt'.format(t[3])
+            #print("{}".format(curr_dir))     
            
             if iteration == 100 or new_exec_time == float('inf'):
               saturated = True
@@ -467,10 +486,28 @@ class GradientDescentSearch:
             prev_exec_time = new_exec_time
         
         best_config='{}/summary.txt'.format(best_dir)
-        print("Best_config: {}".format(best_config))     
+        print("Best_config: {}".format(best_config), flush=True)     
         return best_params, best_time, time_limit, best_dir
     
-   
+def get_slurm_job_info():
+    """Get information about the current job using `scontrol show job`.
+
+    Returns a dict mapping parameter names (e.g. "UserId", "RunTime", etc) to
+    their values, both as strings.
+    """
+    info = {}
+
+    if "SLURM_JOB_ID" in os.environ:
+      job_id  = int(os.environ["SLURM_JOB_ID"])
+
+      command = ["scontrol", "show", "job", str(job_id)]
+      output  = subprocess.check_output(command).decode("utf-8")
+
+      # Use a regex to extract the parameter names and values
+      pattern = "([A-Za-z/]*)=([^ \t\n]*)"
+      info    = dict(re.findall(pattern, output))
+    return info
+
 @click.command("arch_search")        
 @click.option("--exp_config", help="Path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
@@ -508,7 +545,15 @@ def main(exp_config,
          dp_inter,
          lp_inter,
          wafer_dim):
-    output_file = exp_dir + "/best.txt"
+
+    info = get_slurm_job_info()
+    if ('NodeList' in info):
+      print("JobId: {}".format(info['JobId']), flush=True)
+      print("Node: {}".format(info['NodeList']), flush=True)
+      print(subprocess.check_output('uptime').decode("utf-8"), flush=True)
+      #command=["ps","-aux"]
+      #print(subprocess.check_output(command).decode("utf-8"))
+    
     chip_area_budget = util.getChipArea(exp_config, 
                                         batch_size=batch_size, 
                                         dp=dp, 
@@ -541,12 +586,32 @@ def main(exp_config,
                                 chip_area_budget=chip_area_budget,
                                 index=index)
 
+    output_file = exp_dir + "/best.txt"
     best_params, best_time, time_limit, best_dir = GDS.do_GDSearch()
     with open(output_file, "a+") as f:
         f.write("Best Time: {}\n".format(best_time))
         f.write("Time Limit: {}\n".format(time_limit))
         f.write("Best Dir: {}\n".format(best_dir))
         GDS.printParams(best_params, f=f)
+    
+    try:
+      output_dir = re.sub("/tmp","/mnt/scratch", exp_dir)
+      shutil.copyfile(output_file, output_dir + "/best.txt")
+      cmd=["cp","-r", best_dir, output_dir + "/best_dir"]
+      subprocess.check_output(cmd).decode("utf-8")
+      shutil.rmtree(exp_dir)
+      if ('JobId' in info):
+        job_id = info['JobId']
+        slurm_dir = re.sub("/tmp","/mnt/home", exp_dir)
+        slurm_output = "{}/slurm-{}.out".format(slurm_dir, job_id)
+        shutil.copyfile(slurm_output, output_dir + "/slurm.txt")
+    except:
+      pass
+
+    
+    info = get_slurm_job_info()
+    if ('RunTime' in info):
+      print("Runtime: {}".format(info['RunTime']), flush=True)
 
 if __name__ == "__main__":
     main()
