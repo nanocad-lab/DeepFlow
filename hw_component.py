@@ -99,7 +99,7 @@ class Core(Base):
           self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
           self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
       
-      self.operating_freq               = self.frequency_scaling_factor * self.nominal_freq
+      self.operating_freq               = self.frequency_scaling_factor * self.operating_freq
 
   def calcEnergyPerUnit(self):
       self.nominal_energy_per_flop      = (self.nominal_energy_per_mcu / 
@@ -181,7 +181,7 @@ class DRAM(Memory):
           self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
           self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
     
-      self.operating_freq               = self.frequency_scaling_factor * self.nominal_freq
+      self.operating_freq               = self.frequency_scaling_factor * self.operating_freq
 
   def calcActiveEnergy(self):
       self.dynamic_power             = 0 if (self.tot_power < self.static_power_per_byte * self.size) else (self.tot_power - self.static_power_per_byte * self.size)

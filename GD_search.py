@@ -77,26 +77,52 @@ class GradientDescentSearch:
         self.system_hierarchy_params['dp_inter'] = bool(kwargs.get('dp_inter', False))
         self.system_hierarchy_params['lp_inter'] = bool(kwargs.get('lp_inter', False))
 
-        self.search_params = {}
-        self.search_params = self.parameters
+        #Refine the search_parameters list to exclude excluded_params
+        self.search_params = copy.deepcopy(self.parameters)
+        #self.excluded = {'area_breakdown':['DRAM', 'inter_node'], 'power_breakdown':['inter_node'], 'perimeter_breakdown':['inter_node']}
+        #self.excluded = {'area_breakdown':['DRAM']}
+        self.excluded = {}
+        if  self.system_hierarchy_params['inter_derate'] == 0:
+            for param_class in self.parameters:
+              if param_class in self.excluded:
+                if 'inter_node' not in self.excluded[param_class]:
+                  self.excluded[param_class].append('inter_node')
+              else:
+                self.excluded[param_class]=['inter_node']
+        if  self.system_hierarchy_params['intra_derate'] == 0:
+           for param_class in self.parameters:
+             if param_class in self.excluded:
+               if 'inter_node' not in self.excluded[param_class]:
+                 self.excluded[param_class].append('intra_node')
+             else:
+               self.excluded[param_class]=['intra_node']
+        
+
+        #for c,p in zip(self.excluded_param_class, self.excluded_param):
+        for c, plist in self.excluded.items():
+          for p in plist:
+            self.search_params[c].pop(p)
 
         self.index      = int(kwargs.get('index', 1))
         self.exp_dir    = exp_dir
         self.exp_config = exp_config
 
         self.debug      = debug
-        
+        self.best_time  = float('inf')
+        self.lr = 0.5
+
         self.initialize()
     
     def printParams(self, params, message='', f=None):
         line=''
-        for param_class in params:
+        for param_class in self.parameters:
             line = line + " " + param_class
-            for param in params[param_class]:
+            for param in self.parameters[param_class]:
                 param_abv = param[0]
                 if 'inter' in param:
                     param_abv = 'o'
-                line = line + " " + param_abv + ": " + "{0:.3f}".format(params[param_class][param])
+                val = params[param_class][param] if (param_class in params and param in params[param_class]) else self.parameters[param_class][param]
+                line = line + " " + param_abv + ": " + "{0:.3f}".format(val)
         if f is None:
             print(message + " " + line + "\n")
         else:
@@ -140,29 +166,52 @@ class GradientDescentSearch:
             print("Config file: {}".format(exp_dir + "/exp_config.yaml"))
             self.printParams(params)
             print("Time: {}\n".format(exec_time))
+        
+        #print("{}/summary.txt".format(exp_dir))
 
         return exec_time, time_limit, found, exp_dir, mem_overflow_rate
  
     def initialize(self):
         random_seed = self.index
         random.seed(random_seed)
+
+        with open(self.exp_config, "r") as f:
+            config_dict = _yaml.load(f, Loader=_ruamel.yaml.Loader)
+
+        for param_class in self.parameters:
+          if param_class == 'perimeter_breakdown': 
+            for param in self.parameters[param_class]:
+              self.parameters[param_class][param] = config_dict[param_class][param]
+          else:
+            for param in self.parameters[param_class]:
+              if 'node' in param:
+                self.parameters[param_class][param] = config_dict[param_class]['network'][param]
+              else:
+                self.parameters[param_class][param] = config_dict[param_class][param]
+
+
         print("Initializing...")
         for param_class in self.search_params:
             random_params = random.sample(range(1,100),len(self.search_params[param_class]))
-            if self.system_hierarchy_params['inter_derate'] == 0:
-                random_params[-1] = 0
-            if self.system_hierarchy_params['intra_derate'] == 0:
-                random_params[-2] = 0
-
-            tot = float(sum(random_params))
-            random_params = [x/tot for x in random_params]
-            for i, param in enumerate([i for i in self.search_params[param_class] if 'inter' not in i and 'intra' not in i]):
-                self.search_params[param_class][param] = random_params[i]
-            
-            self.search_params[param_class]['inter_node'] = random_params[-1]
-            self.search_params[param_class]['intra_node'] = random_params[-2]
-
+              
+            expected_sum = 1
+            if param_class in self.excluded:
+              for param in self.excluded[param_class]:
+                expected_sum = expected_sum - self.parameters[param_class][param]
+            tot = float(sum(random_params)) 
+            scale_factor = tot/expected_sum
+            random_params = [x/scale_factor for x in random_params]
+            for i, param in enumerate(self.search_params[param_class]):
+              self.search_params[param_class][param] = random_params[i]
+        
         self.printParams(self.search_params)
+        
+        iteration = 0
+        t = self.collect_time(self.search_params, iteration)
+        new_exec_time = t[0]
+        time_limit = t[1]
+        self.best_time = new_exec_time
+        print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}".format(iteration, new_exec_time, self.best_time, time_limit, self.lr))
 
     def create_config_dir(self, params, iteration):
         exp_dir=[]
@@ -248,7 +297,7 @@ class GradientDescentSearch:
         with open(config_file, 'w') as yaml_file:
             _yaml.dump(config_dict, yaml_file, default_flow_style=False)
       
-        print(config_file)
+        #print(config_file)
         #if self.debug:
         #    for param_class in params:
         #        print("{} parameters sum up to {}".format(config_dict[param_class], sum(params[param_class].values())))
@@ -256,12 +305,16 @@ class GradientDescentSearch:
     def do_GDSearch(self):
         saturated = False
         min_value_params = 0
-        alpha = 1.1 #size of perturbation(should be >1)
-        lr = 0.1
-        iteration = 0
-        best_time = float('inf')
-        prev_exec_time = float('inf')
-        prev_ckpt_time = float('inf')
+        alpha = 1.5 #size of perturbation(should be >1)
+        lr = self.lr
+        beta1 = 0.9
+        beta2 = 0.999
+        eps   = 1e-8
+        iteration = 1
+        best_time = self.best_time
+        prev_exec_time = best_time
+        prev_ckpt_time = best_time
+        best_iteration = 0
         best_params = {}
         search_params = self.search_params
         #acc_grad = {}
@@ -270,6 +323,17 @@ class GradientDescentSearch:
         #    acc_grad[param_class] = {}
         #    for param in search_params[param_class]:
         #        acc_grad[param_class][param] = 0
+        
+        M = {}
+        R = {}
+
+        for param_class in search_params:
+          M[param_class] = {}
+          R[param_class] = {}
+          for param in search_params[param_class]:
+            M[param_class][param] = 0
+            R[param_class][param] = 0
+
 
         best_dir = '' 
         while (saturated == False):
@@ -310,20 +374,32 @@ class GradientDescentSearch:
                     gradient_list[param_class][param] = gradient
                     #acc_grad[param_class][param] += abs(gradient)
                     temp_params = copy.deepcopy(search_params)
+                    print("{:} {:}: {:,} -> {:,} , {}".format(param_class, param, exec_time, new_exec_time, gradient_list[param_class][param]))
+                    print()
 
             if self.debug:
                 print("***grad_list: {}".format(gradient_list))
                 #print("***acc_grad: {}".format(acc_grad))
 
-            clip_max = 2
+            #for param_class in search_params:
+            #  for param in search_params[param_class]:
+            #    print("{:} {:} {:,}".format(param_class, param, gradient_list[param_class][param]))
+              
+            clip_max = 10
             for param_class in search_params:
-              random_noise = np.random.normal(0, 1e-4, len(search_params[param_class])) 
               for i, param in enumerate(search_params[param_class]):
+                  #Adam optimizer
+                  M[param_class][param] = beta1 * M[param_class][param] + (1. - beta1) * gradient_list[param_class][param]
+                  R[param_class][param] = beta2 * R[param_class][param] + (1. - beta2) * gradient_list[param_class][param]**2
+
+                  m_k_hat = M[param_class][param] / (1. - beta1**(iteration))
+                  r_k_hat = R[param_class][param] / (1. - beta2**(iteration))
+                  gradient_update = lr * m_k_hat / (np.sqrt(r_k_hat) + eps)
                   
-                  gradient_update = gradient_list[param_class][param] * lr
+                  #gradient_update = gradient_list[param_class][param] * lr
                   gradient_clipped = (clip_max if gradient_update > clip_max else gradient_update)
 
-                  search_params[param_class][param] += gradient_clipped + random_noise[i]
+                  search_params[param_class][param] += gradient_clipped
                   search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-2
                   
               if mem_overflow_rate > 1:
@@ -337,9 +413,17 @@ class GradientDescentSearch:
                 else:
                   search_params[param_class]['DRAM'] = mem_percentage
 
-              param_class_l2 = np.linalg.norm(list(search_params[param_class].values()), ord=1)
+              feat_vector = list(search_params[param_class].values())
+              feat_sum = np.sum(feat_vector)
+              
+              expected_sum = 1
+              if param_class in self.excluded:
+                for param in self.excluded[param_class]:
+                  expected_sum = expected_sum - self.parameters[param_class][param]
+              
+              scale_factor = feat_sum / expected_sum
               for param in search_params[param_class]:
-                  search_params[param_class][param] = search_params[param_class][param] if (param_class_l2 == 0) else search_params[param_class][param]/param_class_l2
+                  search_params[param_class][param] = search_params[param_class][param] if (scale_factor == 0) else search_params[param_class][param]/scale_factor
 
               
             self.printParams(old_params, "old_params")
@@ -348,23 +432,27 @@ class GradientDescentSearch:
 
             new_exec_time = t[0]
             time_limit = t[1]
+            ratio = new_exec_time / prev_exec_time
             if new_exec_time < best_time:
                 best_time = new_exec_time
                 best_params = copy.deepcopy(search_params)
                 best_dir = t[3]
-
-
-            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
-
-            if iteration % 10 == 0 or new_exec_time == float('inf'):
-                if ((prev_ckpt_time - new_exec_time < 0.001) or (prev_ckpt_time==float('inf') and new_exec_time == float('inf'))):
-                    saturated = True
-                    if t[2] == True:
-                        print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
-                    else:
-                        print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(best_time, time_limit))
-                        print("Best architecture: {}".format(best_params))
-                prev_ckpt_time = new_exec_time
+                best_iteration = iteration
+            
+            #print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
+            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}, bit: {}".format(iteration, new_exec_time, best_time, time_limit, lr, best_iteration))
+           
+            if iteration == 100 or new_exec_time == float('inf'):
+              saturated = True
+            #if iteration % 10 == 0 or new_exec_time == float('inf'):
+            #    if ((prev_ckpt_time - new_exec_time < threshold) or (prev_ckpt_time==float('inf') and new_exec_time == float('inf'))):
+            #        saturated = True
+            #        if t[2] == True:
+            #            print("Saturated. Best time: {}, Best architecture: {}".format(best_time, best_params))
+            #        else:
+            #            print("Saturated at {} but no architecture meets the **Time Limit**: {}".format(best_time, time_limit))
+            #            print("Best architecture: {}".format(best_params))
+            #    prev_ckpt_time = new_exec_time
 
 
             #if new_exec_time >= prev_exec_time:
@@ -377,7 +465,9 @@ class GradientDescentSearch:
 
             iteration = iteration + 1    
             prev_exec_time = new_exec_time
-            
+        
+        best_config='{}/summary.txt'.format(best_dir)
+        print("Best_config: {}".format(best_config))     
         return best_params, best_time, time_limit, best_dir
     
    

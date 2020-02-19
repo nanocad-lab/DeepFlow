@@ -9,6 +9,7 @@ DRAM=0.7
 L2=1
 shared_mem=1
 reg_mem=1
+proj = False #Turn off the projection layer
 
 def printError(message):
   sys.exit(message)
@@ -135,8 +136,10 @@ def getMemUsagePerCore(exp_config, **kwargs):
     #miniBatch
     miniB               = math.ceil(B / dp)
 
-
-    hidden_mem, hidden_act, hidden_wt, point_act =  getHiddenMem(L=L/lp, 
+    hlp = lp
+    if lp > 2:
+      hlp = hlp - 2
+    hidden_mem, hidden_act, hidden_wt, point_act =  getHiddenMem(L=L/hlp, 
         Dim1 = math.ceil(miniB / (kp_hidden_dim1 if kp_hidden_type == 2 else  1)), 
         Dim2 = math.ceil(2 * D / (1 if kp_hidden_type == 2 else kp_hidden_dim1)),  
         Dim3 = math.ceil(D * G / (kp_hidden_dim2 if kp_hidden_type == 2 else 1)), 
@@ -167,8 +170,15 @@ def getMemUsagePerCore(exp_config, **kwargs):
         D=D, 
         precision = precision)
 
-    tot_mem = hidden_mem + softmax_mem + projection_mem + embedding_mem
-      
+    tot_mem = 0
+
+    if lp == 1:
+      tot_mem = hidden_mem + softmax_mem + (projection_mem if proj else 0)+ embedding_mem
+    elif lp >= 4: 
+      tot_mem = max(hidden_mem, embedding_mem, (softmax_mem + projection_mem if proj else 0))
+    else:
+      NotImplemented
+
     return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem
 
 def getChipArea(exp_config_path, **kwargs):
