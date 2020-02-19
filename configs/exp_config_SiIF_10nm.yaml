@@ -18,7 +18,7 @@ tech_param:
     core:
         nominal_power_per_mcu: 0.7e-1 #W
         nominal_flop_rate_per_mcu: 64
-        nominal_area_per_mcu: 0.6 #mm^2
+        nominal_area_per_mcu: 0.06 #mm^2
         nominal_frequency: 1.33e9 #Hz
         nominal_voltage: 0.7 
         threshold_voltage: 0.2 
@@ -29,7 +29,6 @@ tech_param:
         dynamic_energy_per_bit: 3.6e-12
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
-        # stack_bandwidth: 225 GB/s
         stack_capacity: 24 GB
         area_per_stack: 100 #mm2
         latency: 100e-9
@@ -69,7 +68,7 @@ tech_param:
           latency: 16e-9 
           nominal_frequency: 3e9
           nominal_voltage: 0.9
-          nominal_energy_per_link: 1e-12
+          nominal_energy_per_link: 0.81e-12
           nominal_area_per_link: 25e-6 #mm^2
           num_links_per_mm: 400
           threshold_voltage: 0.25
