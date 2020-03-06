@@ -89,7 +89,9 @@ class TimeCalculation:
         inter_derate            = exp_config.system_config.inter_derate
         intra_derate            = exp_config.system_config.intra_derate
         par2cross               = exp_config.system_config.par2cross
-
+        
+        derated_inter_throughput = -1
+        derated_intra_throughput = -1
         #cross communication will pass through intra links too
         if self.num_wafer > 1 and self.num_workers > 1:
           if intra_derate != 0:
@@ -540,10 +542,15 @@ class TimeCalculation:
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
-        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 4 * self.precision / self.IBK1
-        # 3 refers to the number of pointwise ops (mul + add + mul + tanh) on the
+        
+        data_size = 4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
+        # 4 refers to the number of pointwise ops (mul + add + mul + tanh) on the
         # critical path whose inputs are located across different GPUs
         #NOTE:Assuming all communications can happpen in parallel
+        mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network')
+        #2:  one read from the source and one write to the destination memory
+        data_transfer =  data_size / self.IBK1 
+        point_comm = mem_transfer + data_transfer
 
         point_time = self.roofline(point_flop, point_mem, name='pointwise_cf_kp1') + 5 * self.O + point_comm
 
@@ -564,8 +571,11 @@ class TimeCalculation:
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
-   
-        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim1) * 4 * self.precision / self.IBK1
+  
+        data_size =  4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
+        mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network') 
+        data_transfer =  data_size / self.IBK1
+        point_comm = mem_transfer + data_transfer
         #3 refers to the number of pointwise ops (mul + tanh + mul) on
         # critical path whose inputs are located across different GPUs
         #NOTE:Assuming all communications can happpen in parallel
@@ -603,10 +613,16 @@ class TimeCalculation:
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
-        point_comm =  ((self.miniB / self.kp_hidden_dim1) * 
-                       (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision / self.IBK2)
-        #3 refers to the number of pointwise ops (mul + add + mul) whose inputs
+        data_size =  ((self.miniB / self.kp_hidden_dim1) * 
+                       (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision)
+        #4 refers to the number of pointwise ops (mul + add + tanh + mul) whose inputs
         #across different GPU
+        
+        point_comm = 0
+        if (self.kp_softmax_dim2 > 1):
+          mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network') 
+          data_transfer =  data_size / self.IBK2
+          point_comm = mem_transfer + data_transfer
 
         point_time = self.roofline(point_flop, point_mem, name='pointwise_Cf_kp2') + 5 * self.O + point_comm
 
@@ -631,11 +647,17 @@ class TimeCalculation:
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
    
-        point_comm =  self.miniB * (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision / self.IBK2
+        data_size =  self.miniB * (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision
         #3 refers to the number of pointwise ops (mul + add +tanh + mul) on 
         #3 refers to the number of hops to gather i,f, o and c in each GPU
         #in order to perform (B,4D)x(4D,2D)
 
+        point_comm = 0
+        if (self.kp_softmax_dim2 > 1):
+          mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network') 
+          data_transfer =  data_size / self.IBK2
+          point_comm = mem_transfer + data_transfer
+        
         point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb_kp2') + 5 * self.O + point_comm
 
 
@@ -749,11 +771,11 @@ class TimeCalculation:
             #data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) * 
             #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
             factor = (1 if partial or not allReduce else 2)
-            mem_access  = self.roofline(0, 2 * self.precision * Dim0 * Dim1 / p, name='memory access before/after data transfer over network')
+            mem_access  = self.roofline(0, 2 * self.precision * Dim0 * Dim1 / p, name='memory accesses before and after data transfer over network')
             data_transfer  = float("inf") if (ib == 0) else ((((self.precision * Dim0 * Dim1) / p) / ib) + mem_access + ll) * factor * (p - 1)
             #dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
             
-            #First round is accumlate as pass around
+            #First round accumlates the updates as going around the ring
             data_prep_comp = (Dim0 * Dim1) / p
             data_prep_mem  = (3 * self.precision * Dim0 * Dim1 / p)
             data_prep = ((self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime') + self.O) * (p - 1))
@@ -816,12 +838,12 @@ class TimeCalculation:
         #3: one pointwise division by  scalar after reducing all the gradients, 
         #   one final addition of gradients to the weights
         #   one multiply by learning rate
-        applyGrad_mem = ((2 * Dim0 * Dim1 * self.precision) +
-                         (3 * Dim0 * Dim1 * self.precision) +
-                         (2 * Dim0 * Dim1 * self.precision))
-        #2:read and write for pointiwse div
-        #3: 2 reads and one write for pointwise add
-        #2: 1 reads and one write for multiplication by lr
+        applyGrad_mem = ((1 * Dim0 * Dim1 * self.precision) +
+                         (2 * Dim0 * Dim1 * self.precision) +
+                         (1 * Dim0 * Dim1 * self.precision))
+        #1: read for pointiwse div
+        #2: 1 reads and one write for pointwise add
+        #1: one write for multiplication by lr
         applyGrad_time = self.roofline(applyGrad_comp, applyGrad_mem, name='pointwise-applyGrad')
        
         clip_time = self.gradClipping(Dim0, Dim1, name)
@@ -1173,8 +1195,14 @@ class TimeCalculation:
         #1: one for write/broadcast the reduction result into all cells 
         #3: division needs one for read and one for write. 
 
-        point_comm = self.precision * (self.miniB / self.kp_softmax_dim1) * (self.kp_softmax_dim2) / self.IBK2
-        
+        data_size = self.precision * (self.miniB / self.kp_softmax_dim1) * (self.kp_softmax_dim2)
+       
+        point_comm = 0
+        if (self.kp_softmax_dim2 > 1):
+          mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network') 
+          data_transfer =  data_size / self.IBK2
+          point_comm = mem_transfer + data_transfer
+
         point_time = self.roofline(point_flop, point_mem, name='pointwise-Softmax_f_kp2') + self.O + point_comm
   
 
@@ -1299,7 +1327,8 @@ class TimeCalculation:
         if self.lp > 1:
           w_size         = self.precision * dim1 * dim2
           transfer_time  = w_size / self.IBL + self.LLL
-          mem_time       = self.roofline(0, w_size, name='inter_layer')
+          mem_time       = self.roofline(0, 2 * w_size, name='inter_layer')
+          #2: read from memory of previous layer and write to the memory of the next layer
           w              = mem_time + transfer_time
         return w
 
