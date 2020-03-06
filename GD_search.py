@@ -52,7 +52,8 @@ class GradientDescentSearch:
         
         self.model_level_params = {}
         self.model_level_params['data_scale'] = int(kwargs.get('data_scale', 1))
-        self.model_level_params['batch_size'] = int(kwargs.get('batch_size', 32))
+        self.model_level_params['batch_size'] = int(kwargs.get('batch_size', 256))
+        self.model_level_params['layer_size'] = int(kwargs.get('hidden_dim', 19968))
         
         self.sch_level_params = {}
         self.sch_level_params['dp'] = int(kwargs.get('dp', 1))
@@ -215,7 +216,9 @@ class GradientDescentSearch:
         t = self.collect_time(self.search_params, iteration)
         new_exec_time = t[0]
         time_limit = t[1]
+        best_dir = t[3]
         self.best_time = new_exec_time
+        self.best_dir = best_dir
         print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}".format(iteration, new_exec_time, self.best_time, time_limit, self.lr), flush=True)
 
     def create_config_dir(self, params, iteration):
@@ -340,7 +343,7 @@ class GradientDescentSearch:
             R[param_class][param] = 0
 
 
-        best_dir = '' 
+        best_dir = self.best_dir
         while (saturated == False):
             #print("\n")
             print("******************************************************************************Iteration: {}".format(iteration))
@@ -412,6 +415,7 @@ class GradientDescentSearch:
                   search_params[param_class][param] = search_params[param_class][param] - gradient_update
                   #search_params[param_class][param] = search_params[param_class][param] - gradient_clipped
                   search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-2
+                  #search_params[param_class][param] = search_params[param_class][param] if search_params[param_class][param] > 0 else 1e-1
                   M[param_class][param] = beta1 * M[param_class][param] + (1. - beta1) * search_params[param_class][param]
                   search_params[param_class][param] = M[param_class][param]
 
@@ -435,12 +439,17 @@ class GradientDescentSearch:
                 for param in self.excluded[param_class]:
                   expected_sum = expected_sum - self.parameters[param_class][param]
               
-              scale_factor = feat_sum / expected_sum
+              #Only scale things down if their sum is above 100% otherwise it is ok to sum up to less than 100%
+              if True: 
+              #if feat_sum > 1:
+                scale_factor = feat_sum / expected_sum
+              else:
+                scale_factor = 1
               for param in search_params[param_class]:
                   old_v =  search_params[param_class][param]
                   search_params[param_class][param] = search_params[param_class][param] if (scale_factor == 0) else search_params[param_class][param]/scale_factor
                   #adam_update = (old_params[param_class][param] - old_v)
-                  #print("{:} {:}: {:,} -> {:,} -> {:,} , ({}), {}".format(param_class, param, old_params[param_class][param], old_v, search_params[param_class][param], gradient_list[param_class][param], adam_update))
+                  #print("{:} {:}: {:,} -> {:,} -> {:,} , ({})".format(param_class, param, old_params[param_class][param], old_v, search_params[param_class][param], gradient_list[param_class][param]))
                   #print()
               
             self.printParams(old_params, "old_params")
@@ -512,7 +521,8 @@ def get_slurm_job_info():
 @click.option("--exp_config", help="Path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="Debug", default=False, type=bool)
-@click.option("--batch_size", help="Batch size", default=32)
+@click.option("--batch_size", help="Batch size", default=256)
+@click.option("--hidden_dim", help="Dimension of Hidden Layer", default=19968)
 @click.option("--data_scale", help="Data scale", default=1)
 @click.option("--index", help="Search index", required=True)
 @click.option("--dp", help="Number of data parallel workers", required=True)
@@ -531,7 +541,8 @@ def main(exp_config,
          exp_dir, 
          debug, 
          index, 
-         batch_size, 
+         batch_size,
+         hidden_dim,
          data_scale, 
          dp, 
          lp, 
@@ -569,7 +580,8 @@ def main(exp_config,
     GDS = GradientDescentSearch(exp_dir=exp_dir, 
                                 exp_config=exp_config, 
                                 debug=debug, 
-                                batch_size=batch_size, 
+                                batch_size=batch_size,
+                                hidden_dim=hidden_dim,
                                 data_scale=data_scale,
                                 dp=dp,
                                 lp=lp,
@@ -603,7 +615,7 @@ def main(exp_config,
       if ('JobId' in info):
         job_id = info['JobId']
         slurm_dir = re.sub("/tmp","/mnt/home", exp_dir)
-        slurm_output = "{}/slurm-{}.out".format(slurm_dir, job_id)
+        slurm_output = "{}/slurm-{}.outn".format(slurm_dir, job_id)
         shutil.copyfile(slurm_output, output_dir + "/slurm.txt")
     except:
       pass
