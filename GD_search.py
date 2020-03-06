@@ -615,7 +615,7 @@ def main(exp_config,
       if ('JobId' in info):
         job_id = info['JobId']
         slurm_dir = re.sub("/tmp","/mnt/home", exp_dir)
-        slurm_output = "{}/slurm-{}.outn".format(slurm_dir, job_id)
+        slurm_output = "{}/slurm-{}.out".format(slurm_dir, job_id)
         shutil.copyfile(slurm_output, output_dir + "/slurm.txt")
     except:
       pass
