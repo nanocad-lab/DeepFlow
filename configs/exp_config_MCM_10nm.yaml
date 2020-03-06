@@ -120,8 +120,7 @@ system_hierarchy:
     kp2_inter: False
     dp_inter: False
     lp_inter: False
-
-  scheduling_param:
+scheduling_param:
     auto: False 
     dp: 1
     lp: 1

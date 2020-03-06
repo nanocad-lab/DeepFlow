@@ -92,7 +92,7 @@ area_breakdown:
     reg_mem: 0.1
     DRAM: 0.1
     network:
-      intra_node: 0.1
+      intra_node: 0.0
       inter_node: 0.0
 
 power_breakdown:
@@ -103,13 +103,13 @@ power_breakdown:
     shared_mem: 0.08
     reg_mem: 0.08
     network:
-      intra_node: 0.04
+      intra_node: 0.0
       inter_node: 0.0
 
 perimeter_breakdown:
   DRAM: 0.5
   inter_node: 0.0
-  intra_node: 0.5
+  intra_node: 0.0
 
 system_hierarchy:
     num_nodes_per_wafer: 64
