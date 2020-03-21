@@ -1,0 +1,138 @@
+model_param:
+    batch_size: 512
+    vocab_size: 800000
+    num_layers: 2
+    layer_size: 19968
+    projection: 2048
+    seq_len: 20
+    num_gates: 4
+    num_non_linear: 5
+    num_add: 8
+    data_scale: 100 
+
+sw_param:
+    kernel_launch_overhead: 37e-6
+    precision: 4
+
+tech_param:
+    core:
+        nominal_power_per_mcu: 1e-1 #W
+        nominal_flop_rate_per_mcu: 64
+        nominal_area_per_mcu: 0.11 #mm^2
+        nominal_frequency: 1.33e9 #Hz
+        nominal_voltage: 0.8 
+        threshold_voltage: 0.2 
+        margin_voltage: 0.35
+        operating_area_per_mcu: 1
+        num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
+    DRAM:
+        dynamic_energy_per_bit: 1.9e-12
+        static_power_per_bit: 0.6e-12
+        area_per_bit: 11e-10 #mm2
+        stack_capacity: 24 GB
+        area_per_stack: 100 #mm2
+        latency: 100e-9
+        mem_ctrl_area: 5 #mm2 
+        nominal_frequency: 1.38e9
+        nominal_voltage: 1 
+        threshold_voltage: 0.4 
+        margin_voltage: 0.6
+        num_links_per_mm: 400
+        num_links_per_stack: 1024
+    L2:
+        dynamic_energy_per_bit: 3.5e-15
+        static_power_per_bit: 8.4e-12
+        area_per_bit: 6.4e-8 #mm2
+        bank_capacity: 32 KB
+        controller_area_per_link: 0.004 #mm2 
+        controller_power_per_link: 0.04 #W
+        latency: 0
+    shared_mem:
+        dynamic_energy_per_bit: 2e-15
+        static_power_per_bit: 8e-12
+        area_per_bit: 8e-8 #mm2
+        bank_capacity: 32 KB
+        controller_area_per_link: 0.004 #mm2 
+        controller_power_per_link: 0.04 #W
+        latency: 0
+    reg_mem:
+        dynamic_energy_per_bit: 2e-15
+        static_power_per_bit: 9e-12
+        area_per_bit: 8e-8 #mm2
+        bank_capacity: 16 KB
+        controller_area_per_link: 0.004 #mm2 
+        controller_power_per_link: 0.04 #W
+        latency: 0 
+    network:
+        intra_node:
+          latency: 16e-9 
+          nominal_frequency: 3e9
+          nominal_voltage: 1
+          nominal_energy_per_link: 1e-12
+          nominal_area_per_link: 500e-6 #mm^2
+          num_links_per_mm: 200
+          threshold_voltage: 0.25
+          margin_voltage: 0.45
+        inter_node:
+          latency: 16e-7
+          nominal_frequency: 20e9
+          nominal_voltage: 1.2
+          nominal_energy_per_link: 10e-12
+          nominal_area_per_link: 0.045
+          num_links_per_mm: 20 #Assuming 4 layers on PCB and 200 um pitch for high speed signalling
+          threshold_voltage: 0.35
+          margin_voltage: 0.5
+
+area_breakdown:
+    node_area_budget: 1250 #mm2
+    proc_chip_area_budget: 815 #mm2
+    core: 0.3
+    L2: 0.2
+    shared_mem: 0.2
+    reg_mem: 0.1
+    DRAM: 0.1
+    network:
+      intra_node: 0.1
+      inter_node: 0.0
+
+power_breakdown:
+    TDP: 300
+    core: 0.5
+    DRAM: 0.2
+    L2: 0.1
+    shared_mem: 0.08
+    reg_mem: 0.08
+    network:
+      intra_node: 0.04
+      inter_node: 0.0
+
+perimeter_breakdown:
+  DRAM: 0.5
+  inter_node: 0.0
+  intra_node: 0.5
+
+system_hierarchy:
+    num_nodes_per_wafer: 4
+    num_workers: 1
+    inter_derate: 1
+    intra_derate: 1
+    kp1_inter: False
+    kp2_inter: False
+    dp_inter: False
+    lp_inter: False
+scheduling_param:
+    auto: False 
+    dp: 1
+    lp: 1
+    kp_hidden_dim1: 1
+    kp_hidden_dim2: 1
+    kp_softmax_dim1: 1
+    kp_softmax_dim2: 1
+    kp_embedding_dim1: 1
+    kp_embedding_dim2: 1
+    kp_projection_dim1: 1
+    kp_projection_dim2: 1
+    kp_hidden_type: -1
+    kp_softmax_type: -1
+    kp_embedding_type: -1
+    kp_projection_type: -1
