@@ -80,7 +80,7 @@ def getTotMemReq(exp_config):
                                                        precision = precision)
     softmax_mem, softmax_act, softmax_wt, softmax_point =  getSoftmaxMem(B=miniB,
                                                            S=S, 
-                                                           P=projection, 
+                                                           P=(projection if proj else D), 
                                                            V=V, 
                                                            precision = precision)
     projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(B=miniB, 
@@ -109,9 +109,9 @@ def getMemUsagePerCore(exp_config, **kwargs):
     V                   = exp_config.model_config.vocab_size
     L                   = exp_config.model_config.num_layers
     D                   = exp_config.model_config.layer_size
-    projection          = exp_config.model_config.projection
+    projection          = exp_config.model_config.projection 
     S                   = exp_config.model_config.seq_len
-    G                   =  exp_config.model_config.num_gates
+    G                   = exp_config.model_config.num_gates
     precision           = exp_config.sw_config.precision
 
     #Parallelism Params
@@ -151,17 +151,19 @@ def getMemUsagePerCore(exp_config, **kwargs):
     softmax_mem, softmax_act, softmax_wt, softmax_point =  getSoftmaxMem(
         B=math.ceil(miniB / (kp_softmax_dim1 if kp_softmax_type == 2 else  1)), 
         S=S, 
-        P=math.ceil(projection/ (1 if kp_softmax_type == 2 else kp_softmax_dim1)), 
+        P=math.ceil((projection if proj else D)/ (1 if kp_softmax_type == 2 else kp_softmax_dim1)), 
         V=math.ceil(V/(kp_softmax_dim2 if kp_softmax_type == 2 else 1)), 
         precision = precision)
 
-    projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(
-        B=math.ceil(miniB/(kp_projection_dim1 if kp_projection_type == 2 else  1)), 
-        S=S, 
-        D=math.ceil(D/(1 if kp_projection_type == 2 else kp_projection_dim1)), 
-        P=math.ceil(projection/(kp_projection_dim2 if kp_projection_type == 2 else 1)), 
-        precision = precision)
-    
+    if proj:
+        projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(
+            B=math.ceil(miniB/(kp_projection_dim1 if kp_projection_type == 2 else  1)), 
+            S=S, 
+            D=math.ceil(D/(1 if kp_projection_type == 2 else kp_projection_dim1)), 
+            P=math.ceil(projection/(kp_projection_dim2 if kp_projection_type == 2 else 1)), 
+            precision = precision)
+    else:
+      projection_mem, projection_act, projection_wt, projection_point = 0, 0, 0 , 0
     #embedding_mem = miniB * S * D * precision + V * D / kp_embedding_dim1
     embedding_mem, embedding_act, embedding_wt, embedding_point =  getEmbeddingMem(
         B=math.ceil(miniB/(kp_embedding_dim1 if kp_embedding_type==1 else kp_embedding_dim1 * kp_embedding_dim2)), 
