@@ -16,7 +16,7 @@ sw_param:
 
 tech_param:
     core:
-        nominal_power_per_mcu: 1e-1 #W
+        nominal_power_per_mcu: 1.3e-1 #W
         nominal_flop_rate_per_mcu: 64
         nominal_area_per_mcu: 0.11 #mm^2
         nominal_frequency: 1.33e9 #Hz
@@ -35,10 +35,12 @@ tech_param:
         latency: 100e-9
         mem_ctrl_area: 5 #mm2 
         nominal_frequency: 1.38e9
-        nominal_voltage: 1 
+        nominal_voltage: 1.2
         threshold_voltage: 0.4 
         margin_voltage: 0.6
-        num_links_per_mm: 200
+        max_voltage: 1.8
+        num_links_per_mm: 400
+        num_links_per_stack: 1024
     L2:
         dynamic_energy_per_bit: 1.2e-15
         static_power_per_bit: 1e-15
