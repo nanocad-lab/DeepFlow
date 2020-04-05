@@ -75,7 +75,7 @@ class Core(Base):
       self.area_scaling                 = self.operating_area_per_mcu / self.nominal_area_per_mcu
       #Assumption: performance scales linearly with area
       self.operating_flop_rate_per_mcu  = self.nominal_flop_rate_per_mcu * self.area_scaling
-      self.nominal_power                = self.nominal_power_per_mcu * self.num_mcu
+      self.nominal_power                = self.nominal_power_per_mcu * self.num_mcu * self.area_scaling
       
       if self.tot_power > 0 and self.nominal_power > 0:
         self.calcOperatingVoltageFrequency()
@@ -126,8 +126,6 @@ class DRAM(Memory):
       self.dynamic_energy_per_bit     = exp_config.tech_config.DRAM.dynamic_energy_per_bit
       self.static_power_per_byte      = exp_config.tech_config.DRAM.static_power_per_bit * 8
       self.area_per_byte              = exp_config.tech_config.DRAM.area_per_bit * 8
-      #TODO
-      #self.stack_bw                   = exp_config.tech_config.DRAM.stack_bw
       self.stack_capacity             = exp_config.tech_config.DRAM.stack_capacity
       self.area_per_stack             = exp_config.tech_config.DRAM.area_per_stack
       self.latency                    = exp_config.tech_config.DRAM.latency
@@ -135,7 +133,7 @@ class DRAM(Memory):
       self.nominal_voltage            = exp_config.tech_config.DRAM.nominal_voltage
       self.threshold_voltage          = exp_config.tech_config.DRAM.threshold_voltage
       self.margin_voltage             = exp_config.tech_config.DRAM.margin_voltage
-
+      self.max_voltage                = exp_config.tech_config.DRAM.max_voltage
       self.num_stacks                 = min(self.tot_area // self.area_per_stack, 
                                             self.tot_mem_ctrl_area // self.mem_ctrl_area)
       self.num_links_per_mm           = exp_config.tech_config.DRAM.num_links_per_mm
@@ -180,6 +178,9 @@ class DRAM(Memory):
       if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
           self.scaled_voltage           = self.threshold_voltage + self.margin_voltage
           self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage)**2
+    
+      elif self.operating_voltage > self.max_voltage:
+          self.frequency_scaling_factor = (self.max_voltage / self.operating_voltage)**2
     
       self.operating_freq               = self.frequency_scaling_factor * self.operating_freq
 
