@@ -16,7 +16,7 @@ sw_param:
 
 tech_param:
     core:
-        nominal_power_per_mcu: 1e-1 #W
+        nominal_power_per_mcu: 1.3e-1 #W
         nominal_flop_rate_per_mcu: 64
         nominal_area_per_mcu: 0.11 #mm^2
         nominal_frequency: 1.33e9 #Hz
@@ -26,7 +26,7 @@ tech_param:
         operating_area_per_mcu: 1
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
-        dynamic_energy_per_bit: 3.6e-12
+        dynamic_energy_per_bit: 4.2e-12
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
         stack_capacity: 24 GB
@@ -34,9 +34,10 @@ tech_param:
         latency: 100e-9
         mem_ctrl_area: 5 #mm2 
         nominal_frequency: 1.38e9
-        nominal_voltage: 1 
+        nominal_voltage: 1.2 
         threshold_voltage: 0.4 
         margin_voltage: 0.6
+        max_voltage: 1.8
         num_links_per_mm: 400
         num_links_per_stack: 1024
     L2:
