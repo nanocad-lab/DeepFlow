@@ -79,7 +79,7 @@ tech_param:
           nominal_frequency: 20e9
           nominal_voltage: 1.2
           nominal_energy_per_link: 10e-12
-          nominal_area_per_link: 0.01
+          nominal_area_per_link: 0.045
           num_links_per_mm: 20 #Assuming 4 layers on PCB and 200 um pitch for high speed signalling
           threshold_voltage: 0.35
           margin_voltage: 0.5
