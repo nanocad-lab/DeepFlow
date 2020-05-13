@@ -55,6 +55,7 @@ class Core(Base):
       self.tot_power                    = exp_config.power_breakdown.core * self.TDP
       self.tot_area                     = exp_config.area_breakdown.core * self.proc_chip_area_budget
       
+      self.FMA_width                    = exp_config.tech_config.core.FMA_width
       self.nominal_voltage              = exp_config.tech_config.core.nominal_voltage
       self.nominal_freq                 = exp_config.tech_config.core.nominal_frequency
       self.nominal_area_per_mcu         = exp_config.tech_config.core.nominal_area_per_mcu
@@ -62,6 +63,7 @@ class Core(Base):
       self.nominal_flop_rate_per_mcu    = exp_config.tech_config.core.nominal_flop_rate_per_mcu
       self.nominal_power_per_mcu        = exp_config.tech_config.core.nominal_power_per_mcu
       
+
       #self.operating_voltage            = exp_config.tech_config.core.operating_voltage
 
       self.threshold_voltage            = exp_config.tech_config.core.threshold_voltage
