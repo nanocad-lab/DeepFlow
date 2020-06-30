@@ -38,6 +38,7 @@ class Memory(Base):
       self.size                     = -1
       self.tile_dim                 = -1
       self.latency                  = -1
+      self.core                     = Core(self.exp_config)
 
   def getSize(self):
       assert(self.size != -1)
@@ -51,26 +52,41 @@ class Memory(Base):
       assert(self.latency != -1)
       return self.latency
 
+  def getTileDims(self):
+      tile_dim_candidates = []
+      self.calcTileDim()
+      square_tile = self.getTileDim()
+      mu, sigma = square_tile, square_tile
+      M = self.size_per_bundle / self.precision
+      for i in range(0, 10):
+          z = -1
+          while(z < 0):
+            s = [int(abs(i)) for i in np.random.normal(mu, sigma, 2)]      
+            z = int(math.floor((M - s[0] * s[1]) / (s[0] + s[1])))
+          tile_dim = (s[0], s[1], z)
+          tile_dim_candidates.append(tile_dim)
 
-class MemoryHierarchy(Base):
-  def __init__(self, exp_config):
-      super().__init__(exp_config)
-      self.num_levels = exp_config.memory_hierarchy.num_levels
-      self.memLayer = [None] * self.num_levels
+      print(tile_dim_candidates)
+      return tile_dim_candidates
+
+  def calcTileDim(self):
+      self.tile_dim = 0
+
+      if (self.scope == 'global'):
+        divisor = 1
+      elif (self.scope == 'mcu-bundle'):
+        divisor                       = self.core.num_bundle
+      elif (self.scope == 'mcu'):
+        divisor                       = self.core.num_mcu
+      else: 
+        NotImplemented()
+
+      self.size_per_bundle            = 0 if (divisor == 0) else self.size / divisor
       
-      for level in range(0,self.num_levels):
-        mem_config = exp_config.memory_hierarchy.mem_hr['l'+ str(level)]
-        if mem_config.type == 'DRAM':
-          self.memLayer[level] = DRAM(exp_config)
-        elif m.type == 'SRAM-R':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.reg_mem, exp_config.area_breakdown.reg_mem, exp_config.tech_config.SRAM-R, mem_config)
-        elif m.type == 'SRAM-L1':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L1, exp_config.area_breakdown.L1, exp_config.tech_config.SRAM-L1, mem_config)
-        elif m.type == 'SRAM-L2':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L2, exp_config.area_breakdown.L2, exp_config.tech_config.SRAM-L2, mem_config)
-        else:
-          NotImplemented()
-      
+      if (self.size > 0):
+          #self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
+          self.tile_dim = math.floor(math.sqrt((self.size_per_bundle / self.precision) / 3))
+ 
 
 class Core(Base):
   def __init__(self, exp_config):
@@ -111,13 +127,11 @@ class Core(Base):
 
   def calcOperatingVoltageFrequency(self):
       #minimum voltage that meets power constraints
-
       self.operating_voltage            = self.solve_poly(p0 = 1, 
                                                           p1 = -2 * self.threshold_voltage, 
                                                           p2 = self.threshold_voltage**2, 
                                                           p3 = -1 * self.tot_power / self.nominal_power * self.nominal_voltage * (self.nominal_voltage - self.threshold_voltage)**2)
       #Calculate operating frequency at minimum voltage
-      #SP: Changed the frequency scaling model to non-linear: F ~ (Vdd-Vth)^2/Vdd
       self.operating_freq               = self.nominal_freq * (((self.operating_voltage - self.threshold_voltage)**2 / (self.operating_voltage)) /
                                                               ((self.nominal_voltage - self.threshold_voltage)**2 / self.nominal_voltage)) 
       self.frequency_scaling_factor = 1 
@@ -130,16 +144,7 @@ class Core(Base):
 
       self.operating_power_per_mcu      = self.nominal_power_per_mcu * (self.operating_freq / self.nominal_freq) * (self.operating_voltage / self.nominal_voltage)**2
 
-  #def calcEnergyPerUnit(self):
-  #    self.nominal_energy_per_flop      = (self.nominal_energy_per_mcu / 
-  #                                         self.nominal_flop_rate_per_mcu)
-  #    #Assumption: energy per flop does not scale with mcu area
-  #    #Changed energy per flop scaling model to be proportional to square of voltage
-  #    self.energy_per_flop              = (self.nominal_energy_per_flop * 
-  #                                           ((self.operating_voltage / self.nominal_voltage)**2))
   def calcThroughput(self):
-      #self.nominal_throughput           = min(self.tot_power / self.energy_per_flop, 
-      #                                        self.operating_flop_rate_per_mcu * self.operating_freq * self.num_mcu)
      self.operating_throughput         = self.operating_flop_rate_per_mcu * self.operating_freq * self.num_mcu
      self.throughput                   = self.operating_throughput * util.core
 
@@ -155,8 +160,30 @@ class Core(Base):
      print("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
      print("eff_power: {0:.2f} (mm2), tot_power: {1:.2f} (mm2), util: {2:.2f}%".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 
-class DRAM(Memory):
+
+class MemoryHierarchy(Base):
   def __init__(self, exp_config):
+      super().__init__(exp_config)
+      self.num_levels = exp_config.memory_hierarchy.num_levels
+      self.memLayer = [None] * self.num_levels
+      
+      for level in range(0,self.num_levels):
+        mem_config = exp_config.memory_hierarchy.mem_hr[level]
+
+        if mem_config.type == 'DRAM':
+          self.memLayer[level] = DRAM(exp_config, mem_config)
+        elif mem_config.type == 'SRAM-R':
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.reg_mem, exp_config.area_breakdown.reg_mem, exp_config.tech_config.SRAMR, mem_config)
+        elif mem_config.type == 'SRAM-L1':
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L1, exp_config.area_breakdown.L1, exp_config.tech_config.SRAML1, mem_config)
+        elif mem_config.type == 'SRAM-L2':
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L2, exp_config.area_breakdown.L2, exp_config.tech_config.SRAML2, mem_config)
+        else:
+          NotImplemented()
+      
+
+class DRAM(Memory):
+  def __init__(self, exp_config, mem_config):
       super().__init__(exp_config)
       self.tot_power                  = exp_config.power_breakdown.DRAM * self.TDP
       self.tot_area                   = exp_config.area_breakdown.node_area_budget - self.proc_chip_area_budget
@@ -168,6 +195,7 @@ class DRAM(Memory):
       self.stack_capacity             = exp_config.tech_config.DRAM.stack_capacity
       self.area_per_stack             = exp_config.tech_config.DRAM.area_per_stack
       self.latency                    = exp_config.tech_config.DRAM.latency
+      self.scope                      = mem_config.scope
       self.nominal_freq               = exp_config.tech_config.DRAM.nominal_frequency
       self.nominal_voltage            = exp_config.tech_config.DRAM.nominal_voltage
       self.threshold_voltage          = exp_config.tech_config.DRAM.threshold_voltage
@@ -182,11 +210,6 @@ class DRAM(Memory):
                                             exp_config.perimeter_breakdown.DRAM *
                                             self.num_links_per_mm)
       self.num_links                  = min(self.perimeter_bound, self.num_links_per_stack * self.num_stacks)
-      #if self.num_links == self.num_links_per_stack * self.num_stacks :
-      #  print("DRAM throughput area_bound, num_stacks: {}".format(self.num_stacks))
-      #else:
-      #    print("DRAM throughput perimeter_bound")
-      #self.calcArea()
       self.calcSize()
       self.calcActiveEnergy()
       
@@ -203,6 +226,7 @@ class DRAM(Memory):
         self.num_stacks=0
 
       self.calcSize()
+      self.calcTileDim()
       self.printStats()
 
   def calcOperatingVoltageFrequency(self):
@@ -242,10 +266,6 @@ class DRAM(Memory):
       #                                         self.cell_area / self.area_per_byte)
       self.size                       = self.num_stacks * self.stack_capacity
 
-  def calcTileDim(self):
-      self.tile_dim = 0
-      if (self.size > 0):
-          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size / self.precision) / 3), 2))))
 
   def printStats(self):
       self.operating_dynamic_energy_per_bit  = self.dynamic_energy_per_bit * (self.operating_voltage / self.nominal_voltage)**2
@@ -282,7 +302,8 @@ class SRAM(Memory):
       self.bank_capacity              = tech_config.bank_capacity
       self.controller_area_per_link   = tech_config.controller_area_per_link
       self.latency                    = tech_config.latency
-      self.cell_percentage            = tech_config.cell_percentage
+      self.overhead                   = tech_config.overhead #percetage of cells dedicated ti cicuitry overhead for SRAM cells
+      self.cell_percentage            = 1 - self.overhead
       self.util                       = tech_config.util
       self.scope                      = mem_hierarchy_config.scope
       self.type                       = mem_hierarchy_config.type
@@ -321,32 +342,12 @@ class SRAM(Memory):
 
       self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
   
-  def calcTileDim(self):
-      #TODO: Does it make sense to keep the tile dim power of 2 or can we allow non-power of 2 tile-dim
-      #check http://web.cse.ohio-state.edu/~pouchet.2/doc/hipc-article.11.pdf
-      self.tile_dim = 0
-
-      if (self.scope == 'global'):
-        divisor = 1
-      elif (self.scope == 'mcu-bundle'):
-        core                          = Core(self.exp_config)
-        divisor                       = core.num_bundle
-      elif (self.scope == 'mcu'):
-        core                          = Core(self.exp_config)
-        divisor                       = core.num_mcu
-      else: 
-        NotImplemented()
-
-      self.size_per_bundle            = 0 if (divisor == 0) else self.size / divisor
-      
-      if (self.size > 0):
-          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
-  
+ 
   def printStats(self):
       self.operating_dynamic_energy_per_bit  = self.dynamic_energy_per_bit * (self.operating_voltage / self.nominal_voltage)**2
       self.eff_power                         = self.dynamic_power + self.static_power
       self.eff_ctrl_area                     = self.num_banks * self.core.num_bundle * self.controller_area_per_link
-      self.eff_bank_area                     = self.num_banks * self.bank_area / 0.8
+      self.eff_bank_area                     = self.num_banks * self.bank_area / self.cell_percentage
       print("=============")
       print("L2")
       print("=============")
@@ -358,220 +359,6 @@ class SRAM(Memory):
       print("eff_ctrl_area: {0:11.2f} (mm2)\t tot_ctrl_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_ctrl_area, self.tot_mem_ctrl_area, self.eff_ctrl_area/self.tot_mem_ctrl_area * 100 ))
       print("eff_stack_area: {0:11.2f} (mm2)\t tot_stack_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_stack_area, self.tot_area, self.eff_stack_area/self.tot_area * 100 ))
       print("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (mm2)\t tot_power: {3:.2f} (mm2)\t\t util: {4:.2f}%".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
-
-
-
-
-class L2(Memory):
-  def __init__(self, exp_config):
-      super().__init__(exp_config)
-      self.tot_power                  = exp_config.power_breakdown.L2 * self.TDP
-      self.tot_area                   = exp_config.area_breakdown.L2 * self.proc_chip_area_budget
-      self.dynamic_energy_per_byte    = exp_config.tech_config.L2.dynamic_energy_per_bit * 8
-      self.static_power_per_byte      = exp_config.tech_config.L2.static_power_per_bit * 8
-      self.area_per_byte              = exp_config.tech_config.L2.area_per_bit * 8
-      #self.bank_bw                    = exp_config.tech_config.L2.bank_bw
-      self.bank_capacity              = exp_config.tech_config.L2.bank_capacity
-      self.controller_area_per_link   = exp_config.tech_config.L2.controller_area_per_link
-      self.latency                    = exp_config.tech_config.L2.latency
-      
-      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.bank_area                  = self.bank_capacity * self.area_per_byte
-      
-      #self.throughput                 = self.nominal_throughput
-      #self.dynamic_throughput         = self.nominal_throughput
-
-      self.core                       = Core(self.exp_config)
-      
-      self.num_banks                  = (0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
-      self.calcArea()
-      self.calcSize()
-      self.calcActiveEnergy()
-      self.calcThroughput()
-      self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
-      
-      if self.dynamic_throughput <= 0:
-        assert(self.dynamic_throughput == 0)
-        self.num_banks=0
-      
-      self.calcSize()
-      self.calcTileDim()
-
-  def calcArea(self):
-      #I/O, inter-bank, intra-bank overhead
-      #TODO: @Saptadeep, do you know how to capture the DRAM circutry overhead
-      #in over_head area calculation, should it be num_SMS or num_cores?
-      self.overhead_area              = self.num_banks * self.core.num_bundle * self.controller_area_per_link
-      self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
-      #assert(self.overhead_area < self.tot_area)
-      if self.overhead_area > self.tot_area:
-          self.cell_area              = 0
-  
-  def calcActiveEnergy(self):
-      #TODO: @Saptaddeep: Can you verify if this is correct?
-      self.static_power             = self.static_power_per_byte * self.size
-      self.dynamic_power            = 0 if (self.tot_power < self.static_power) else (self.tot_power - self.static_power)
-
-  def calcThroughput(self):
-      self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
-      #self.dynamic_throughput2        = self.num_banks * self.bank_bw
-      self.throughput                 = self.dynamic_throughput * util.L2
-
-  def calcSize(self):
-      self.size                       = self.num_banks * self.bank_capacity
-      #self.size2                      = self.cell_area / self.area_per_byte
-  
-  def calcTileDim(self):
-      #TODO: Does it make sense to keep the tile dim power of 2 or can we allow non-power of 2 tile-dim
-      #check http://web.cse.ohio-state.edu/~pouchet.2/doc/hipc-article.11.pdf
-      self.tile_dim = 0
-      if (self.size > 0):
-          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size / self.precision) / 3), 2))))
-  
-  def printStats(self):
-      self.operating_dynamic_energy_per_bit  = self.dynamic_energy_per_bit * (self.operating_voltage / self.nominal_voltage)**2
-      self.eff_power                         = self.dynamic_power + self.static_power
-      self.eff_ctrl_area                     = self.num_banks * self.core.num_bundle * self.controller_area_per_link
-      self.eff_bank_area                     = self.num_banks * self.bank_area / 0.8
-      print("=============")
-      print("L2")
-      print("=============")
-      print("num_banks: {0:10d}".format(self.num_banks)) 
-      print("num_links: {0:14d}\t\t stack_limit: {1:13d}\t\t perimeter_limit: {2:8d}".format(self.num_links,
-                                                                                     self.perimeter_bound,
-                                                                                     self.num_links_per_stack * self.num_stacks)) 
-      print("stack_bandwidth: {0:9.2f} (GB/s)\t stack_capacity: {1:9.2f} (GB)".format(self.stack_bw/8/giga, self.stack_capacity/giga))
-      print("eff_ctrl_area: {0:11.2f} (mm2)\t tot_ctrl_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_ctrl_area, self.tot_mem_ctrl_area, self.eff_ctrl_area/self.tot_mem_ctrl_area * 100 ))
-      print("eff_stack_area: {0:11.2f} (mm2)\t tot_stack_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_stack_area, self.tot_area, self.eff_stack_area/self.tot_area * 100 ))
-      print("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (mm2)\t tot_power: {3:.2f} (mm2)\t\t util: {4:.2f}%".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
-
-
-
-class SharedMem(Memory):
-  def __init__(self, exp_config):
-      super().__init__(exp_config)
-      self.tot_power                  = exp_config.power_breakdown.shared_mem * self.TDP
-      self.tot_area                   = exp_config.area_breakdown.shared_mem * self.proc_chip_area_budget
-      self.dynamic_energy_per_byte    = exp_config.tech_config.shared_mem.dynamic_energy_per_bit * 8
-      self.static_power_per_byte      = exp_config.tech_config.shared_mem.static_power_per_bit * 8
-      self.area_per_byte              = exp_config.tech_config.shared_mem.area_per_bit * 8
-      #self.bank_bw                    = exp_config.tech_config.shared_mem.bank_bw
-      self.bank_capacity              = exp_config.tech_config.shared_mem.bank_capacity
-      self.controller_area_per_link   = exp_config.tech_config.shared_mem.controller_area_per_link
-      self.latency                    = exp_config.tech_config.shared_mem.latency
-      self.core                            = Core(self.exp_config)
-      
-      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      self.bank_area                  = self.bank_capacity * self.area_per_byte
-      #self.throughput                 = self.nominal_throughput
-      #self.dynamic_throughput         = self.nominal_throughput
-
-      self.num_banks                  = (0.8 * self.tot_area) // (self.bank_area + 0.8 * self.core.num_bundle * self.controller_area_per_link) 
-      self.calcArea()
-      self.calcSize()
-      self.calcActiveEnergy()
-      self.calcThroughput()
-      self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
-      
-      if self.dynamic_throughput <= 0:
-        assert(self.dynamic_throughput == 0)
-        self.num_banks=0
-      
-      self.calcSize()
-      self.calcTileDim()
-
-
-  def calcArea(self):
-      #I/O, inter-bank, intra-bank overhead
-      #TODO: @Saptadeep, do you know how to capture the shared mem circutry overhead
-      self.overhead_area              = self.num_banks * self.core.num_mcu_per_bundle * self.controller_area_per_link
-      self.cell_area                  = (self.tot_area - self.overhead_area)*0.8
-      #assert(self.overhead_area < self.tot_area)
-      if self.overhead_area > self.tot_area:
-          self.cell_area              = 0
-
-  def calcActiveEnergy(self):
-      #TODO: @Saptaddeep: Can you verify if this is correct?
-      self.static_power             = self.static_power_per_byte * self.size
-      self.dynamic_power            = 0 if (self.tot_power < self.static_power) else (self.tot_power - self.static_power)
-
-  def calcThroughput(self):
-      self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
-      self.throughput                 = self.dynamic_throughput * util.shared_mem
-
-  def calcSize(self):
-      self.size                       = self.num_banks * self.bank_capacity
-
-  def calcTileDim(self):
-      self.tile_dim = 0
-      core                            = Core(self.exp_config)
-      self.size_per_bundle          = 0 if (core.num_bundle == 0) else self.size / core.num_bundle 
-      
-      if (self.size_per_bundle > 0):
-          self.tile_dim               = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
-
-class RegMem(Memory):
-  def __init__(self, exp_config):
-      super().__init__(exp_config)
-      self.tot_power                  = exp_config.power_breakdown.reg_mem * self.TDP
-      self.tot_area                   = exp_config.area_breakdown.reg_mem * self.proc_chip_area_budget
-      self.dynamic_energy_per_byte    = exp_config.tech_config.reg_mem.dynamic_energy_per_bit * 8
-      self.static_power_per_byte      = exp_config.tech_config.reg_mem.static_power_per_bit * 8
-      self.area_per_byte              = exp_config.tech_config.reg_mem.area_per_bit * 8
-      #self.bank_bw                    = exp_config.tech_config.reg_mem.bank_bw
-      self.bank_capacity              = exp_config.tech_config.reg_mem.bank_capacity
-      self.controller_area_per_link   = exp_config.tech_config.reg_mem.controller_area_per_link
-      self.latency                    = exp_config.tech_config.reg_mem.latency
-      
-      #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
-      #self.tot_capacity               = self.tot_area / self.area_per_byte
-      #self.num_banks                  = self.tot_capacity // self.bank_capacity
-      self.bank_area                  = self.bank_capacity * self.area_per_byte
-      self.num_banks                  = (0.75 * self.tot_area) // self.bank_area
-      
-      self.calcArea()
-      self.calcSize()
-      self.calcActiveEnergy()
-      self.calcThroughput()
-      
-      if self.dynamic_throughput <= 0:
-        assert(self.dynamic_throughput == 0)
-        self.num_banks=0
-      self.calcSize()
-      self.calcTileDim()
-
-  def calcArea(self):
-      #I/O, inter-bank, intra-bank overhead
-      #TODO: @Saptadeep, do you know how to capture the shared mem circutry overhead
-      core                            = Core(self.exp_config)
-      #self.overhead_area              = self.num_banks * core.num_mcu_per_bundle * self.controller_area_per_link
-      #SP: Usually the overhead gets a bit amortized as the bank size grows, but the sense amps etc. also scale with bitline length, so not a straight-forward model. I am assuming about 25% overhead which is reasonable based on ISSCC 2018 SRAM papers from Intel and Samsung 
-      self.overhead_area              = self.tot_area * 0.25
-      self.cell_area                  = self.tot_area - self.overhead_area
-      #assert(self.overhead_area < self.tot_area)
-      if self.overhead_area > self.tot_area:
-          self.cell_area              = 0
-  
-  def calcActiveEnergy(self):
-      #TODO: @Saptaddeep: Can you verify if this is correct?
-      self.static_power             = self.static_power_per_byte * self.size
-      self.dynamic_power            = 0 if (self.tot_power < self.static_power) else (self.tot_power - self.static_power)
-
-  def calcThroughput(self):
-      self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
-      self.throughput                 = self.dynamic_throughput * util.reg_mem
-
-  def calcSize(self):
-      self.size                       = self.num_banks * self.bank_capacity
-
-  def calcTileDim(self):
-      self.tile_dim = 0
-      core                            = Core(self.exp_config)
-      
-      self.size_per_bundle            = 0 if (core.num_bundle == 0) else self.size / core.num_bundle
-
-      if (self.size_per_bundle > 0):
-          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
 
 
 class Network(Base):
@@ -587,7 +374,6 @@ class Network(Base):
                                                    exp_config.power_breakdown.network.inter_node,
                                                    exp_config.area_breakdown.network.inter_node,
                                                    'inter')
-
 
   def calcThroughput(self):
       inter_throughput = self.inter_network.calcThroughput() 

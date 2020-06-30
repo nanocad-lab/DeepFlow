@@ -1,18 +1,18 @@
 model_param:
-    batch_size: 512
+    batch_size: 32768
     vocab_size: 800000
     num_layers: 2
-    layer_size: 19968
+    layer_size: 8192
     projection: 2048
     seq_len: 20
     num_gates: 4
     num_non_linear: 5
     num_add: 8
-    data_scale: 1 
+    data_scale: 100 
 
 sw_param:
     kernel_launch_overhead: 9e-6 #9us
-    precision: 2 # 2 for tensorcores enabled and 4 for tensorcore disabled
+    precision: 2 
 
 tech_param:
     core:
@@ -25,13 +25,13 @@ tech_param:
         margin_voltage: 0.35
         operating_area_per_mcu: 0.11
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
-        FMA_width: 4 #4 for tensorcore enabled (implying 4x4 systolic array) and 1 for tensorcore disabled
+        FMA_width: 4
         util: 1
     DRAM:
         dynamic_energy_per_bit: 4.2e-12
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
-        stack_capacity: 8 GB
+        stack_capacity: 4 GB
         area_per_stack: 100 #mm2
         latency: 100e-9
         mem_ctrl_area: 5 #mm2 
@@ -51,7 +51,7 @@ tech_param:
         controller_area_per_link: 0.004 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0
-        cell_percentage: 0.8
+        overhead: 0.20 #20% circuitry overhead in cell area
         util: 1
     SRAM-L1:
         dynamic_energy_per_bit: 2e-15
@@ -61,7 +61,7 @@ tech_param:
         controller_area_per_link: 0.004 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0
-        cell_percentage: 1
+        overhead: 0.20
         util: 1
     SRAM-R:
         dynamic_energy_per_bit: 2e-15
@@ -71,7 +71,7 @@ tech_param:
         controller_area_per_link: 0.00 #mm2 
         controller_power_per_link: 0.0 #W
         latency: 0
-        cell_percentage: 1
+        overhead: 0.25
         util: 1 
     network:
         intra_node:
@@ -97,25 +97,25 @@ tech_param:
 area_breakdown:
     node_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
-    core: 0.201
-    L2: 0.18
-    shared_mem: 0.226
+    core: 0.3
+    L2: 0.265
+    L1: 0.3375
     reg_mem: 0.022
-    DRAM: 0.05
+    DRAM: 0.0248
     network:
       intra_node: 0.0
-      inter_node: 0.015
+      inter_node: 0.1
 
 power_breakdown:
     TDP: 300
     core: 0.1504 #0.0189 for 15.7Tflops #0.1504 for 125TFLOps
-    DRAM: 0.15135
+    DRAM: 0.16
     L2: 0.000217
-    shared_mem: 0.001623
+    L1: 0.0016
     reg_mem: 0.0055
     network:
       intra_node: 0.0
-      inter_node: 0.05603
+      inter_node: 0.056
 
 perimeter_breakdown:
     DRAM: 0.5
@@ -141,7 +141,7 @@ memory_hierarchy:
       scope: "mcu-bundle"
     l2: #L2 
       type: "SRAM-L2"
-      scope: "mcu-bundle"
+      scope: "global"
     l3: #Global Memory
       type: "DRAM"
       scope: "global" 
