@@ -10,6 +10,7 @@ import sys
 
 import config
 import util
+import perf
 
 import ruamel as _ruamel
 import ruamel.yaml as _yaml
@@ -35,14 +36,14 @@ class GradientDescentSearch:
         self.parameters['area_breakdown']['core'] = 0.14
         self.parameters['area_breakdown']['DRAM'] = 0.14
         self.parameters['area_breakdown']['L2'] = 0.14
-        self.parameters['area_breakdown']['shared_mem'] = 0.14
+        self.parameters['area_breakdown']['L1'] = 0.14
         self.parameters['area_breakdown']['reg_mem'] = 0.14
         self.parameters['area_breakdown']['intra_node'] = (0.14 if int(kwargs.get('intra_derate', 1)) > 0 else 0)
         self.parameters['area_breakdown']['inter_node'] = (0.14 if int(kwargs.get('inter_derate', 1)) > 0 else 0)
         self.parameters['power_breakdown']['core'] = 0.14
         self.parameters['power_breakdown']['DRAM'] = 0.14
         self.parameters['power_breakdown']['L2'] = 0.14
-        self.parameters['power_breakdown']['shared_mem'] = 0.14
+        self.parameters['power_breakdown']['L1'] = 0.14
         self.parameters['power_breakdown']['reg_mem'] = 0.14
         self.parameters['power_breakdown']['intra_node'] = (0.14 if int(kwargs.get('intra_derate', 1)) > 0 else 0)
         self.parameters['power_breakdown']['inter_node'] = (0.14 if int(kwargs.get('inter_derate', 1)) > 0 else 0)
@@ -141,10 +142,11 @@ class GradientDescentSearch:
         #print("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
         #self.printParams(params)
         #print("Config file: {}".format(exp_dir + "/exp_config.yaml"))
-        os.system("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
+        #os.system("python3 perf.py --exp_config {exp_dir}/exp_config.yaml --exp_dir {exp_dir} --debug {debug}".format(exp_dir=exp_dir, debug=False))
+        perf.callPerf(exp_config='{}/exp_config.yaml'.format(exp_dir), exp_dir=exp_dir, debug=False)
 
         ##Time Limit to compute a step
-        os.system("bash search_scripts/time_limit.sh " + str(self.model_level_params['data_scale']) + " " + str(self.model_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
+        #os.system("bash search_scripts/time_limit.sh " + str(self.model_level_params['data_scale']) + " " + str(self.model_level_params['batch_size']) + ' | grep "time_per_step" >> ' + exp_dir+"/summary.txt")
 
         exec_time = float("inf")
         time_limit = 1e15
@@ -219,7 +221,7 @@ class GradientDescentSearch:
         best_dir = t[3]
         self.best_time = new_exec_time
         self.best_dir = best_dir
-        print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}".format(iteration, new_exec_time, self.best_time, time_limit, self.lr), flush=True)
+        print("Step: {}, New_time: {}, Best_time: {}, lr: {}".format(iteration, new_exec_time, self.best_time,  self.lr), flush=True)
 
     def create_config_dir(self, params, iteration):
         exp_dir=[]
@@ -466,7 +468,7 @@ class GradientDescentSearch:
                 best_iteration = iteration
             
             #print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}".format(iteration, new_exec_time, best_time, time_limit))
-            print("Step: {}, New_time: {}, Best_time: {}, Time_limit: {}, lr: {}, bit: {}".format(iteration, new_exec_time, best_time, time_limit, lr, best_iteration), flush=True)
+            print("Step: {}, New_time: {}, Best_time: {}, lr: {}, bit: {}".format(iteration, new_exec_time, best_time, lr, best_iteration), flush=True)
             #curr_dir='{}/summary.txt'.format(t[3])
             #print("{}".format(curr_dir))     
            
@@ -566,7 +568,8 @@ def main(exp_config,
       #print(subprocess.check_output(command).decode("utf-8"))
     
     chip_area_budget = util.getChipArea(exp_config, 
-                                        batch_size=batch_size, 
+                                        batch_size=batch_size,
+                                        hidden_dim=hidden_dim,
                                         dp=dp, 
                                         lp=lp, 
                                         kp_type=kp_type, 
