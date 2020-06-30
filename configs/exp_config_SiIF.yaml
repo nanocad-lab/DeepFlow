@@ -11,20 +11,21 @@ model_param:
     data_scale: 100 
 
 sw_param:
-    kernel_launch_overhead: 37e-6
-    precision: 4
+    kernel_launch_overhead: 9e-6 #9us
+    precision: 2
 
 tech_param:
     core:
-        nominal_power_per_mcu: 1.3e-1 #W
-        nominal_flop_rate_per_mcu: 64
+        nominal_power_per_mcu: 0.13 #W
+        nominal_flop_rate_per_mcu: 128
         nominal_area_per_mcu: 0.11 #mm^2
         nominal_frequency: 1.33e9 #Hz
         nominal_voltage: 0.8 
         threshold_voltage: 0.2 
         margin_voltage: 0.35
-        operating_area_per_mcu: 1
+        operating_area_per_mcu: 0.11
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
+        FMA_width: 4 #4 for tensorcore enabled (implying 4x4 systolic array) and 1 for tensorcore disabled
     DRAM:
         dynamic_energy_per_bit: 4.2e-12
         static_power_per_bit: 0.6e-12
@@ -66,7 +67,7 @@ tech_param:
         latency: 0 
     network:
         intra_node:
-          latency: 16e-9 
+          latency: 5e-6 
           nominal_frequency: 3e9
           nominal_voltage: 1
           nominal_energy_per_link: 1e-12
@@ -75,10 +76,10 @@ tech_param:
           threshold_voltage: 0.25
           margin_voltage: 0.45
         inter_node:
-          latency: 16e-7
+          latency: 5e-6
           nominal_frequency: 20e9
           nominal_voltage: 1.2
-          nominal_energy_per_link: 10e-12
+          nominal_energy_per_link: 13e-12
           nominal_area_per_link: 0.045
           num_links_per_mm: 20 #Assuming 4 layers on PCB and 200 um pitch for high speed signalling
           threshold_voltage: 0.35
@@ -89,7 +90,7 @@ area_breakdown:
     proc_chip_area_budget: 815 #mm2
     core: 0.3
     L2: 0.2
-    shared_mem: 0.2
+    shared_mem: 2.2
     reg_mem: 0.1
     DRAM: 0.1
     network:
@@ -98,7 +99,7 @@ area_breakdown:
 
 power_breakdown:
     TDP: 300
-    core: 0.5
+    core: 0.7
     DRAM: 0.2
     L2: 0.1
     shared_mem: 0.08

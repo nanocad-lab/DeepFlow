@@ -11,14 +11,13 @@ from parallelism import Parallelism
 from topology import Topology
 from simulate import Graph
 import util
-from hw_component import Core, DRAM, L2, SharedMem, RegMem, Network
+from hw_component import Core, MemoryHierarchy, Network
 from model import Model
 
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for validation
 tensorflow_overhead=750e-6 #0.75 u-seconds
-
-G=1 #1024.0*1024.0*1024.0
+validating_GEMM=True #If you want to validate GEMM, turn on this variable and look at the Cf value in the debug model, last line
 
 
 class TimeCalculation:
@@ -45,38 +44,14 @@ class TimeCalculation:
         #Hardware Parameters
         self.core               = Core(exp_config)
         self.th                 = self.core.getThroughput()
-
-        self.mm                 = DRAM(exp_config) 
-        self.mem_bw             = self.mm.getThroughput()
-        self.mem_size           = self.mm.getSize()
-        self.mem_latency        = self.mm.getLatency()
-
-        #try:
-        #    assert(self.mem_bw > 0), "mem_bw = 0"
-        #except Exception as e:
-        #    print("The LLM bandwidth cannot be zero\n"
-        #    "{}".format(e), flush=True)
-        #    sys.exit(0)
+        self.FMA_width          = self.core.FMA_width
 
 
-        self.L2Mem              = L2(exp_config) 
-        self.L2_bw              = self.L2Mem.getThroughput()
-        self.L2_size            = self.L2Mem.getSize()
-        self.L2_tile_dim        = self.L2Mem.getTileDim()
-        self.L2_latency         = self.L2Mem.getLatency()
-
-        self.sharedMem          = SharedMem(exp_config) 
-        self.shared_mem_bw      = self.sharedMem.getThroughput()
-        self.shared_mem_size    = self.sharedMem.getSize()
-        self.shared_mem_tile_dim= self.sharedMem.getTileDim()
-        self.shared_mem_latency = self.sharedMem.getLatency()
-
-        self.regMem             = RegMem(exp_config) 
-        self.reg_bw             = self.regMem.getThroughput()
-        self.reg_size           = self.regMem.getSize()
-        self.reg_tile_dim       = self.regMem.getTileDim()
-        self.reg_latency        = self.regMem.getLatency()
-        
+        self.memoryHierarchy     = MemoryHierarchy(exp_config)
+        self.num_levels          = self.memoryHierarchy.num_levels
+        self.memLayer            = self.memoryHierarchy.memLayer
+        self.tileSpace           = self.generateTileSpace()
+       
         #System Parameters
         self.num_wafer          = exp_config.system_config.num_wafers
         self.num_workers        = exp_config.system_config.num_workers
@@ -92,6 +67,7 @@ class TimeCalculation:
         
         derated_inter_throughput = -1
         derated_intra_throughput = -1
+        
         #cross communication will pass through intra links too
         if self.num_wafer > 1 and self.num_workers > 1:
           if intra_derate != 0:
@@ -162,365 +138,329 @@ class TimeCalculation:
       teraByte = gigaByte * 1024
 
       with open(output_file, "w") as f:
-            f.write("======================\n")
-            f.write("Hardware Configuration\n")
-            f.write("======================\n")
-            f.write("Throughput: {:.1f} Tflops\n"
-                    "Memory Bandwidth: {:.1f} GB/s\n"
-                    "Memory Size: {:.1f} GB\n"
-                    "L2 Bandwidth: {:.1f} TB/s\n"
-                    "L2 Size: {:.1f} MB\n"
-                    "Shared Memory Bandwidth: {:.1f} TB/s\n"
-                    "Shared Memory Size: {:.1f} MB\n"
-                    "Register Memory Bandwidth: {:.1f} TB/s\n"
-                    "Register Size: {:.1f} MB\n"
-                    "Intra-node Bandwidth: {:.1f} GB/s\n"
-                    "Inter-node Bandwidth: {:.1f} GB/s\n"
-                    .format(self.core.operating_throughput/1e12, 
-                            self.mm.dynamic_throughput/(gigaByte), 
-                            self.mm.size/(gigaByte), 
-                            self.L2Mem.dynamic_throughput/(teraByte), 
-                            self.L2Mem.size/(megaByte), 
-                            self.sharedMem.dynamic_throughput/(teraByte),
-                            self.sharedMem.size/(megaByte),
-                            self.regMem.dynamic_throughput/(teraByte),
-                            self.regMem.size/(megaByte),
-                            self.network.intra_network.throughput/(gigaByte),
-                            self.network.inter_network.throughput/(gigaByte)))
+          f.write("==========================\n")
+          f.write("Hardware Configuration\n")
+          f.write("==========================\n")
 
-            M = self.mem_size
-            tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
-            f.write("\n\n===========================================\n")
-            f.write("Memory Requirement Breakdown per Data Shard\n")
-            f.write("===========================================\n")
-            f.write("Total Memory: {:.1f} GB\n"
-                    "Embedding Memory: {:.1f} GB\n"
-                    "Hidden Memory: {:.1f} GB\n"
-                    "Softmax Memory: {:.1f} GB\n"
-                    "Projection Memory: {:.1f} GB\n"
-                    .format(tot_mem/gigaByte, 
-                            embedding_mem/gigaByte, 
-                            hidden_mem/gigaByte, 
-                            softmax_mem/gigaByte, 
-                            projection_mem/gigaByte))
-            
-            f.write("\nTotal Memory: {:.1f} GB\n"
-                    "Weight Memory: {:.1f} GB\n"
-                    "Activation Memory: {:.1f} GB\n"
-                    "Pointwise Memory: {:.1f} GB\n"
-                    .format(tot_mem/gigaByte, 
-                            wt_mem/gigaByte, 
-                            act_mem/gigaByte, 
-                            point_mem/gigaByte))
+          f.write("Throughput: {:.1f} Tflops\n".format(self.core.operating_throughput/1e12))
+          for i in range(self.num_levels-1, -1, -1):
+              mem_bw    = self.memLayer[i].dynamic_throughput
+              mem_size  = self.memLayer[i].size
+
+              if mem_bw < 1e3 * gigaByte:
+                  f.write("L{:} Bandwidth: {:.1f} GB/s\n".format(i, mem_bw/(gigaByte)))
+              else:
+                  f.write("L{:} Bandwidth: {:.1f} TB/s\n".format(i, mem_bw/(teraByte)))
+
+              if mem_size < 1e3 * megaByte:
+                  f.write("L{:} Size: {:.1f} MB\n".format(i, mem_size/(megaByte)))
+              elif mem_size < 1e3 * gigaByte:
+                  f.write("L{:} Size: {:.1f} GB\n".format(i, mem_size/(gigaByte)))
+              else:
+                  f.write("L{:} Size: {:.1f} TB\n".format(i, mem_size/(teraByte)))
+          
+          f.write("Intra-node Bandwidth: {:.1f} GB/s\n".format(self.network.intra_network.throughput/(gigaByte)))
+          f.write("Inter-node Bandwidth: {:.1f} GB/s\n".format(self.network.inter_network.throughput/(gigaByte)))
+          
+          M = self.memLayer[self.num_levels - 1].size
+          tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
+          f.write("\n\n===========================================\n")
+          f.write("Memory Requirement Breakdown per Data Shard\n")
+          f.write("===========================================\n")
+          f.write("Total Memory: {:.1f} GB\n"
+                  "Embedding Memory: {:.1f} GB\n"
+                  "Hidden Memory: {:.1f} GB\n"
+                  "Softmax Memory: {:.1f} GB\n"
+                  "Projection Memory: {:.1f} GB\n"
+                  .format(tot_mem/gigaByte, 
+                          embedding_mem/gigaByte, 
+                          hidden_mem/gigaByte, 
+                          softmax_mem/gigaByte, 
+                          projection_mem/gigaByte))
+          
+          f.write("\nTotal Memory: {:.1f} GB\n"
+                  "Weight Memory: {:.1f} GB\n"
+                  "Activation Memory: {:.1f} GB\n"
+                  "Pointwise Memory: {:.1f} GB\n"
+                  .format(tot_mem/gigaByte, 
+                          wt_mem/gigaByte, 
+                          act_mem/gigaByte, 
+                          point_mem/gigaByte))
 
 
-            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n".format(float("inf") if M==0 else tot_mem/M))
+          f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n".format(float("inf") if M==0 else tot_mem/M))
 
-            
-            tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
-            f.write("\n\n=========================================================\n")
-            f.write("Memory Requirement Breakdown per Data Shard Per Model Shard\n")
-            f.write("===========================================================\n")
-            f.write("Total Memory: {:.1f} GB\n"
-                    "Embedding Memory: {:.1f} GB\n"
-                    "Hidden Memory: {:.1f} GB\n"
-                    "Softmax Memory: {:.1f} GB\n"
-                    "Projection Memory: {:.1f} GB"
-                       .format(tot_mem/gigaByte, 
-                               embedding_mem/gigaByte, 
-                               hidden_mem/gigaByte, 
-                               softmax_mem/gigaByte, 
-                               projection_mem/gigaByte))
+          
+          tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
+          f.write("\n\n=========================================================\n")
+          f.write("Memory Requirement Breakdown per Data Shard Per Model Shard\n")
+          f.write("===========================================================\n")
+          f.write("Total Memory: {:.1f} GB\n"
+                  "Embedding Memory: {:.1f} GB\n"
+                  "Hidden Memory: {:.1f} GB\n"
+                  "Softmax Memory: {:.1f} GB\n"
+                  "Projection Memory: {:.1f} GB"
+                     .format(tot_mem/gigaByte, 
+                             embedding_mem/gigaByte, 
+                             hidden_mem/gigaByte, 
+                             softmax_mem/gigaByte, 
+                             projection_mem/gigaByte))
 
-            f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard Per Model Shard/ Memory capacity per node): {:.1f}\n"
-                  .format(float("inf") if M == 0 else tot_mem/M))
+          f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard Per Model Shard/ Memory capacity per node): {:.1f}\n"
+                .format(float("inf") if M == 0 else tot_mem/M))
 
-            f.write("\nTotal Memory: {:.1f} GB\n"
-                    "Weight Memory: {:.1f} GB\n"
-                    "Activation Memory: {:.1f} GB\n"
-                    "Pointwise Memory: {:.1f} GB\n"
-                    .format(tot_mem/gigaByte, 
-                            wt_mem/gigaByte, 
-                            act_mem/gigaByte, 
-                            point_mem/gigaByte))
-            
-            f.write("\n\n====================\n")
-            f.write("Parallelism Strategy\n")
-            f.write("====================\n")
-            f.write("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
-                    "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
-                    "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
-                    .format(self.dp,
-                     self.lp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
-                     self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
-                     self.kp_projection_dim1, self.kp_projection_dim2))   
+          f.write("\nTotal Memory: {:.1f} GB\n"
+                  "Weight Memory: {:.1f} GB\n"
+                  "Activation Memory: {:.1f} GB\n"
+                  "Pointwise Memory: {:.1f} GB\n"
+                  .format(tot_mem/gigaByte, 
+                          wt_mem/gigaByte, 
+                          act_mem/gigaByte, 
+                          point_mem/gigaByte))
+          
+          f.write("\n\n====================\n")
+          f.write("Parallelism Strategy\n")
+          f.write("====================\n")
+          f.write("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
+                  "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
+                  "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
+                  .format(self.dp,
+                   self.lp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
+                   self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
+                   self.kp_projection_dim1, self.kp_projection_dim2))   
 
 
 
-    def roofline(self, flop, gmem, l2mem=0, smem=0, rmem=0, name=''):
+    def roofline(self, flop, mem_access_, name=''):
+
+        mem_access = []
+        if isinstance(mem_access_, int):
+            mem_access.append(mem_access_)
+        elif isinstance(mem_access_, list):
+            mem_access = mem_access_
+        else:
+            print("mem_access_ should be inetger or list, wrong input", flush=True)
+            sys.exit(0)
+             
+
+          
+        num_level        = len(mem_access)
+        time             = [0] * num_level
+        comp_int         = [0] * num_level
+        inflection_point = [0] * num_level
 
         try:
-            assert(gmem > 0) , "gmem = 0"
+            assert(mem_access[num_level - 1] > 0) , "last_level_mem = 0"
         except Exception as e:
-            print("Number of accesses to the last level of memory hierarchy cannot be zero:\n"
-            "{}".format(e), flush=True)
+            print("{}: Number of accesses to the last level of memory hierarchy cannot be zero:\n {}".format(name, e), flush=True)
             sys.exit(0)
 
-        self.tot_flop += flop
-        self.tot_mem  += gmem
-
-        inflection_point_gmem   = float("inf") if self.mem_bw == 0 else self.th / self.mem_bw
-        inflection_point_l2mem  = float("inf") if self.L2_bw == 0 else self.th / self.L2_bw
-        inflection_point_smem   = float("inf") if self.shared_mem_bw == 0 else self.th / self.shared_mem_bw
-        inflection_point_rmem   = float("inf") if self.reg_bw == 0 else self.th / self.reg_bw
-
-        comp_int_gmem  = 0 if gmem == 0 else flop / gmem
-        comp_int_l2mem = 0 if l2mem == 0 else flop / l2mem
-        comp_int_smem  = 0 if smem == 0 else flop / smem
-        comp_int_rmem  = 0 if rmem == 0 else flop / rmem
+        for i in range(0, num_level):
+            time[i]      = 0
+            mem_bw       = self.memLayer[i].getThroughput()
+            mem_latency  = self.memLayer[i].getLatency()
+            num_mem      = mem_access[i] 
+            inflection_point[i]   = float("inf") if mem_bw == 0 else self.th / mem_bw
+            comp_int[i]  = 0 if num_mem == 0 else flop / num_mem
      
-        #All memory levels except for the last level are optional
-        #That's why if they do not exist their time contribution is zero
-        #for the last level (gmem), if it does not exist the time should be infinit
-        time_gmem  = 0
-        if comp_int_gmem < inflection_point_gmem: #mem-bound
-            time_gmem = (float("inf") if (self.mem_bw == 0 or gmem == 0) else (gmem / self.mem_bw)) + self.mem_latency
-        else: #compute-bound
-            time_gmem = float("inf") if (self.th == 0) else (flop / self.th)
+            if comp_int[i] < inflection_point[i]: #mem-bound
+                time[i] = (float("inf") if (mem_bw == 0 or num_mem == 0) else (num_mem / mem_bw)) + mem_latency
+            else: #compute-bound
+                time[i] = float("inf") if (self.th == 0) else (flop / self.th)
         
-        time_l2mem  = 0
-        if comp_int_l2mem < inflection_point_l2mem: #mem-bound
-            time_l2mem = (0 if (self.L2_bw == 0 or l2mem == 0) else (l2mem / self.L2_bw))
-            #print("mem_bound")
-        else: #compute-bound
-            #print("compute")
-            time_l2mem = float("inf") if (self.th == 0) else (flop / self.th)
-        
-        time_smem  = 0
-        if comp_int_smem < inflection_point_smem: #mem-bound
-            time_smem = (0 if (self.shared_mem_bw == 0 or smem == 0) else (smem / self.shared_mem_bw))
-        else: #compute-bound
-            time_smem = float("inf") if (self.th == 0) else (flop / self.th)
-        
-        time_rmem  = 0
-        if comp_int_rmem < inflection_point_rmem: #mem-bound
-            time_rmem = (0 if (self.reg_bw == 0 or rmem == 0) else (rmem / self.reg_bw))
-        else: #compute-bound
-            time_rmem = float("inf") if (self.th == 0) else (flop / self.th)
-        
-        time = max(time_gmem, time_l2mem, time_smem, time_rmem)
+       
+        max_time = max(time)
         
         
-        #print("Name: {}, Time: {}, gmem: {}, l2mem: {}, smem: {}, rmem: {}, MemBW: {}".format(name, time, time_gmem, time_l2mem, time_smem, time_rmem, self.mem_bw/1e12))
         if self.debug:
-            print(name)
-            print("inflection_point_gmem: {:.2f}".format(inflection_point_gmem))
-            print("comp_int_gmem: {:.2f}".format(comp_int_gmem))
-            print("inflection_point_L2mem: {:.2f}".format(inflection_point_l2mem))
-            print("comp_int_L2mem: {:.2f}".format(comp_int_l2mem))
-            print("inflection_point_smem: {:.2f}".format(inflection_point_smem))
-            print("comp_int_smem: {:.2f}".format(comp_int_smem))
-            print("inflection_point_rmem: {:.2f}".format(inflection_point_rmem))
-            print("comp_int_rmem: {:.2f}".format(comp_int_rmem))
-            print("time_gmem: {}, time_l2mem: {}, time_smem: {}, time_rmem: {}".format(time_gmem, time_l2mem, time_smem, time_rmem))
-            print()
+            print('{}: {}'.format(name, max_time))
+            for i in range(0, num_level):
+                print("L{}".format(i))
+                print("inflection_point: {:.2f}".format(inflection_point[i]))
+                print("comp_int: {:.2f}".format(comp_int[i]))
+                print("time: {}".format(time[i]))
+                print()
         
-        return time
+        return max_time
 
     
+
+    #Convert GEMM into sqaure tiles
+   # def getGEMMTime(self, A_, B_, C_, name):
+   #     
+   #     #A = util.power2RoundUp(A_)
+   #     #B = util.power2RoundUp(B_)
+   #     #C = util.power2RoundUp(C_)
+   #     A = A_
+   #     B = B_
+   #     C = C_
+
+   #     #return False, self.GEMM_wrapper(A, B, C, name)
+   #     dim        = min(min(A, B), C)
+   #     Af         = math.ceil(A / dim)
+   #     Bf         = math.ceil(B / dim)
+   #     Cf         = math.ceil(C / dim)
+
+   #     time       = (Af * Bf * Cf) * self.GEMM_Strassen(dim, name) + (Af * Cf * (Bf-1)) * self.getAddTime(dim, dim, name)
+   #     return False, time
+
+   # def GEMM_Strassen(self, dim, name):
+   #     if dim <= 512:
+   #         time = self.GEMM_wrapper(dim, dim, dim, name)
+   #         return time
+   #     else:
+   #         time = 7 * self.GEMM_Strassen(dim // 2, name) #+ 18 * self.getAddTime(dim // 2, dim // 2, name)
+   #         return time
+   #  
+   # def getAddTime(self, A, B, name):
+   #     ADD_flop  = A * B
+   #     ADD_gmem  = 3 * A * B * self.precision
+   #     ADD_time  = self.roofline(ADD_flop, ADD_gmem, name='FMA addition') + self.O
+   #     return ADD_time
+
     def getGEMMTime(self, A, B, C, name):
-        GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem = self.GEMM(A, B, C)
-        GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t = self.GEMM(C, B, A)
-        
-        GEMM_time = self.roofline(GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem, name) + self.O
-        GEMM_time_t = self.roofline(GEMM_flop_t, GEMM_gmem_t, GEMM_l2mem_t, GEMM_smem_t, GEMM_rmem_t, name) + self.O
-        
-        transpose = False
-        time = GEMM_time
-        if (GEMM_time > GEMM_time_t):
-            transpose = True
-            time = GEMM_time_t
+       tile2time = {}
+       for tile_dims in self.tileSpace:
+          GEMM_flop, mem_access = self.GEMM(A, B, C, tile_dims, name)
+          GEMM_time = self.roofline(GEMM_flop,mem_access, name) + self.O
+          tile2time[tile_dims] = GEMM_time
 
+       
+       time = min(tile2time, key=tile2time.get)
 
+       if self.debug:
+          print("{} GEMM_time: {:,}\n".format(name, GEMM_time))
+
+       return False, time
+    
+    def generateTileSpace(self):
+        tile_space = []
+        tiles = [None] * self.num_levels 
+        
+        for level in range(0, self.num_levels-1):
+            memory = self.memLayer[level]
+            tiles[level] = memory.getTileDims()
+        
+        if self.num_levels == 1:
+            tile_space = []
+        elif self.num_levels == 2:
+            tile_space = tiles[0]
+        elif self.num_levels == 3:
+            tile_space = [(x,y) for x in tiles[0] for y in tiles[1]]
+        elif self.num_levels == 4:
+            tile_space = [(x,y,z) for x in tiles[0] for y in tiles[1] for z in tiles[2]]
+        else: 
+          raise NotImplementedError()
+
+        return tile_space
+
+    def getTileSize(self, lid):
+        memory = self.memLayer[lid]
+        memory.calcTileDim()
+        tile_dim  = memory.getTileDim()
+        return tile_dim, tile_dim, tile_dim
+
+    #Count the number of accesses from level-1 to level
+    # input matrix A(dim1, dim2) and B(dim2, dim3)
+    # output matrix C(dim1, dim3)
+    def getNumAccesses(self, level, dim1, dim2, dim3, tile_dim, num_repeat, name):
+        #tile1,tile2,tile3 = self.getTileSize(level-1)
+        tile1, tile2, tile3 = tile_dim
+
+        if tile1 > dim1:
+            tile1 = dim1
+        if tile2 > dim2:
+            tile2 = dim2
+        if tile3 > dim3:
+            tile3 = dim3
+
+        reload_A = 1
+        reload_B = 1
+        reload_C = 1
+
+        if tile1 > 0 and tile2 > 0 and tile3 > 0:
+           if  dim2 <= tile2:
+               reload_A = 1
+               reload_B = math.ceil(dim1 / tile1)
+               reload_C = 1
+           else:
+               reload_A = math.ceil(dim3 / tile3)
+               reload_B = math.ceil(dim1 / tile1)
+               reload_C = 1
+           
+         
+        num_mem = num_repeat * (dim1 * dim2 * reload_A + dim2 * dim3 * reload_B + dim1 * dim3 * reload_C) * self.precision
         if self.debug:
-            if transpose:
-                print("{} GEMM_flop_t: {:,}, GEMM_gmem_t: {:,}".format(name, int(GEMM_flop_t),int(GEMM_gmem_t)))
-                print("{} GEMM_time_t: {:,}\n".format(name, GEMM_time))
-            else:
-                print("{} GEMM_flop: {:,}, GEMM_gmem: {:,}, GEMM_l2mem: {:,}".format(name, int(GEMM_flop),int(GEMM_gmem), int(GEMM_l2mem)))
-                print("{} GEMM_time: {:,}\n".format(name, GEMM_time))
+           print(name)
+           print("Matrix dimension at Level {}: {:,} x {:,} x {:,}".format(level, dim1, dim2, dim3))
+           print("Tile dimension at Level {}: {:,} x {:,} x {:,}".format(level-1, tile1, tile2, tile3))
+           print("reload_A: {}, reload_B: {}, reload_C: {}".format(reload_A, reload_B, reload_C))
+           print("num_repeat: {}".format(num_repeat))
+           print("Bytes Accessed: {:,}".format(num_mem))
+           print("")
 
-        return transpose, time
+        return num_mem, tile1, tile2, tile3
+        
 
     #This is the main function that captures the memory hierarchy impact
     #on the number of accesses to global memory considering not everything fits in 
     #L2 cache and also captures the effect of shared memory
-    def GEMM(self, A_, B_, C_):
-        A = util.power2RoundUp(A_)
-        B = util.power2RoundUp(B_)
-        C = util.power2RoundUp(C_)
-        #A = A_
-        #B = B_
-        #C = C_
+    def GEMM(self, dim1_, dim2_, dim3_, tile_dims, name):
+        dim1 = util.power2RoundUp(dim1_)
+        dim2 = util.power2RoundUp(dim2_)
+        dim3 = util.power2RoundUp(dim3_)
+        #dim1 = dim1_
+        #dim2 = dim2_
+        #dim3 = dim3_
 
-        GEMM_flop = 0
-        GEMM_gmem = 0
-        GEMM_l2mem = 0
-        GEMM_smem = 0
-        GEMM_rmem = 0
+        GEMM_flop = dim1 * dim3 * (dim2 + dim2 - 1)
+        #dim2 multiply
+        #dim2-1 add
 
-        num_repeat = 1
+        #X1 = self.L2_tile_dim
+        #X2 = self.shared_mem_tile_dim
+        #X3 = self.reg_tile_dim
 
-        if self.debug:
-          print("Matrix dimension at Global Memory: {:,} x {:,} x {:,}".format(A, B, C))
-
-        GEMM_flop = 2 * A * B * C
-        #2 for multiplly and add
-        X1 = self.L2_tile_dim
-        X2 = self.shared_mem_tile_dim
-        X3 = self.reg_tile_dim
+        num_accesses = [0] * self.num_levels
 
         if (algByte):
-            GEMM_gmem = (A * B + B * C + A * C) * self.precision
-            GEMM_l2mem = 0
-
+            num_accesses[self.num_levels - 1] = (dim1 * dim2 + dim2 * dim3 + dim1 * dim3) * self.precision
         else:
-             #Here we are assuming tiles are in square form
-             #Global memory accesses going through L2
-             reload_AB = 1
-             reload_BC = 1
-             reload_AC = 1
-
-             if X1 > 0 :
-                 if  B <= X1:
-                     reload_AB = 1
-                     reload_BC = math.ceil(A / X1)
-                     reload_AC = 1
-                 else:
-                     reload_AB = math.ceil(C / X1)
-                     reload_BC = math.ceil(A / X1)
-                     reload_AC = 1
-             
-                 GEMM_gmem = (A * B * reload_AB + B * C * reload_BC + A * C * reload_AC) * self.precision
-
-             if self.debug:
-                print("gmem: reload_AB: {}, reload_AC: {}, reload_BC: {}\n", reload_AB, reload_AC, reload_BC)
-             if self.debug:
-                print("Matrix dimension at L2 Memory: {:,} x {:,} x {:,}".format(X1, X1, X1))
-
-             #Modeling Shared_memory
-             #number of L2memory accesses going through Shared memory
-             reload_AB = 1
-             reload_BC = 1
-             reload_AC = 1
-        
-             if X1 != 0:
-                As = X1
-                Bs = X1
-                Cs = X1
-             else:
-                As = A
-                Bs = B
-                Cs = C
-            
-             if X2 > X1 and X1 != 0:
-                 X2 = X1
-
-             if X2 > 0:
-                if  Bs <= X2:
-                    reload_AB = 1
-                    reload_BC = math.ceil(As / X2)
-                    reload_AC = 1
-                else:
-                    reload_AB = math.ceil(Cs / X2)
-                    reload_BC = math.ceil(As / X2)
-                    reload_AC = 1
-                
+            num_repeat = 1
+            for level in range(self.num_levels - 1, 0, -1):
+                num_accesses[level], tile1, tile2, tile3  = self.getNumAccesses(level, dim1, dim2, dim3, tile_dims[level-1], num_repeat, name)
                 try:
-                    num_repeat = A/X1 * C/X1
+                  num_repeat           *= math.ceil(dim1/tile1) * math.ceil(dim2/tile2) * math.ceil(dim3/tile3)
                 except:
-                    num_repeat = 1
+                  num_repeat           *= 1
+
+                dim1                   = tile1 if tile1 != 0 else dim1
+                dim2                   = tile2 if tile2 != 0 else dim2
+                dim3                   = tile3 if tile3 != 0 else dim3
+
+
+            #Number of accesses to register file (for every 2N^3 computation, 3N^2 memory accesses happen, where N is the width of the systolic engine)
+            num_accesses[0]    = GEMM_flop * 3/2 * 1/self.FMA_width * self.precision#= 3 * A*B*C / FMA_width
              
-                GEMM_l2mem = (num_repeat *
-                              self.core.num_bundle * 
-                              (As * Bs * reload_AB + 
-                               Bs * Cs * reload_BC + 
-                               As * Cs * reload_AC) *
-                               self.precision)
-             if self.debug:
-                print("Matrix dimension at Shared Memory: {:,} x {:,} x {:,}".format(X2, X2, X2))
+            #TODO: do we still need these in new hierarchical version?
+            #  if X3 == 0:
+            #    GEMM_smem  = GEMM_rmem
+            #    GEMM_rmem  = 0
+            #  if X2 == 0:
+            #    GEMM_l2mem = GEMM_smem
+            #    GEMM_smem = 0
+            #  if X1 == 0:
+            #    GEMM_gmem  = GEMM_l2mem
+            #    GEMM_l2mem = 0
 
-             #Modeling Register file
-             #number of shared memory accesses through registers
-             #NOTE:For GPU hardware where the register file per SM is larger than shared memory,
-             #restreaming factor should be one.
-             reload_AB = 1
-             reload_BC = 1
-             reload_AC = 1
-             
-             if X2 != 0:
-                Ar = X2
-                Br = X2 
-                Cr = X2
-             else:
-                Ar = As
-                Br = Bs
-                Cr = Cs
-            
-             if X3 > X2 and X2 != 0:
-                X3 = X2
+            #  try:
+            #    GEMM_l2mem = GEMM_smem
+            #    GEMM_smem = 0
+            #  if X1 == 0:
+            #    GEMM_gmem  = GEMM_l2mem
+            #    GEMM_l2mem = 0
 
-             if X3 > 0:
-                if  Bs <= X2:
-                    reload_AB = 1
-                    reload_BC = math.ceil(Ar / X3)
-                    reload_AC = 0 # Results are usually directly written to higher-level 
-                else:
-                    reload_AB = math.ceil(Cr / X3)
-                    reload_BC = math.ceil(Ar / X3)
-                    reload_AC = 0
-            
-                try:
-                    num_repeat  *= As/X2 * Cs/X2 
-                except:
-                    num_repeat  *= 1
-
-                GEMM_smem    = (num_repeat *
-                                self.core.num_bundle *
-                                (Ar * Br * reload_AB + 
-                                 Br * Cr * reload_BC + 
-                                 Ar * Cr * reload_AC) * 
-                                 self.precision)
-
-             if self.debug:
-                print("Matrix dimension at Register Memory: {:,} x {:,} x {:,}".format(X3, X3, X3))
-
-             #number of accesses to register file
-             #TODO: Verify this is true...
-             GEMM_rmem    = GEMM_flop * 2
-          
-
-             if X3 == 0:
-               GEMM_smem  = GEMM_rmem
-               GEMM_rmem  = 0
-             if X2 == 0:
-               GEMM_l2mem = GEMM_smem
-               GEMM_smem = 0
-             if X1 == 0:
-               GEMM_gmem  = GEMM_l2mem
-               GEMM_l2mem = 0
-
-             #Heuristics for other stuff besides multiply and add (like address calculation)
-             #try:
-             #   GEMM_flop = GEMM_flop + As * Cs * (15 + 5 * math.ceil(Bs / X2))
-             #except:
-             #   GEMM_flop = GEMM_flop + As * Cs * 15
-
-
-             if self.debug:
-                print("l2mem: reload_AB: {}, reload_AC: {}, reload_BC: {}\n", reload_AB, reload_AC, reload_BC)
-    
-        return GEMM_flop, GEMM_gmem, GEMM_l2mem, GEMM_smem, GEMM_rmem
+        return GEMM_flop, num_accesses
 
     #Column-Row MM
     def getCf_kp1(self):
@@ -555,6 +495,20 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise_cf_kp1') + 5 * self.O + point_comm
 
 
+        return GEMM_time + reduction_time + point_time
+ 
+    def getCb_kp1(self):
+        #TODO:Add local accumulation of weights at every time step
+        #Pointwise
+        point_flop = ((self.miniB) * (self.G * self.D / self.kp_hidden_dim1) * 5
+                     + (2 * self.D * self.G * self.D / self.kp_hidden_dim1)) # local accumulation of wts
+        #4 refers to the number of pointwise ops (mul + add +tanh + mul) on 
+        #the critical path 
+        point_mem  = (self.precision * self.miniB * 
+                      (self.G * self.D / self.kp_hidden_dim1) * (3 * 3 + 2 * 2)
+                     + (2 * self.precision * self.D * self.G * self.D / self.kp_hidden_dim1) * 3) # local accumulation of wts
+        # 3(3 memory access per operation with two input and one output)
+        # 3(mul +  add + mul) on critical path
         return GEMM_time + reduction_time + point_time
  
     def getCb_kp1(self):
@@ -692,10 +646,14 @@ class TimeCalculation:
 
   
         if self.debug:
-          print("Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
+          gigaByte = 1024 * 1024 * 1024
+          print("Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/1e9), int(point_mem/gigaByte)))
           print("Hidden point_time: {:,}\n".format(point_time))
 
-        return GEMM_time + point_time
+        if validating_GEMM:
+          return GEMM_time
+        else:
+          return GEMM_time + point_time
 
 
    
@@ -714,7 +672,7 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb') + 5 * self.O
    
         if self.debug:
-            print("(gr) Hidden point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
+            print("(gr) Hidden point_flop: {:,}, point_mem: {:,} ".format(int(point_flop/1e9), int(point_mem/1e9)))
             print("Hidden point_time: {:,}\n".format(point_time))
 
         return GEMM_time + point_time
@@ -1427,12 +1385,12 @@ class TimeCalculation:
                           self.kp_embedding_type))
 
           
-            print("Cf: {}, Cb: {}, softmax_f: {}, softmax_b:{}, embedding_f: {}, embedding_b: {}," 
-                   "Rs: {}, Rc:{}, Re: {}\n".format(Cf, 
+            print("Cf: {} Cb: {} softmax_f: {} softmax_b: {} embedding_f: {} embedding_b: {} " 
+                   "Rs: {} Rc: {} Re: {}\n".format(Cf, 
                                                    Cb,
                                                    Sf, 
                                                    Sb, 
-                                                   Ef, 
+                                                   Ef,
                                                    Eb,
                                                    Rs,
                                                    Rc,
@@ -1446,17 +1404,39 @@ class TimeCalculation:
 
         time_fw = g.simulate(fw_roots[0], 0)
         time_bw = g.simulate(bw_roots[g.num_seq - 1], g.lp + 1)
-    
-        self.tot_time = time_fw + time_bw
-        
+       
+        self.tot_time  = time_fw + time_bw
         tot_param = self.tot_param()
-        #print("#Parameters: {:.2f} Billion\n".format(tot_param/1e9))
-    
-
+        
         return self.tot_time, tot_param
 
     def getTime(self):
         return self.tot_time
+
+def callPerf(exp_config, exp_dir, debug):
+    exp_path = os.path.expandvars(os.path.expanduser(exp_config))
+    exp_config = config.parse_config(exp_path)
+
+    #try:
+    #    #print("Removing directory:" + exp_dir)
+    #    shutil.rmtree(exp_dir)
+    #except:
+    #    pass
+    #os.makedirs(exp_dir)
+
+    TC = TimeCalculation(exp_config)
+    TC.debug = debug
+    tot_time, tot_param = TC.calcTime()
+
+    output_file = exp_dir + "/summary.txt"
+    
+    TC.printSysConfig(exp_config, output_file)
+
+    with open(output_file, "a+") as f:
+        f.write("Time: {0:.8f}\n".format(tot_time))
+        f.write("Params (Billion): {0:.8f}\n".format(tot_param/1e9))
+
+ 
 
 @click.command("standalone")        
 @click.option("--exp_config", help="Path to experiment config", required=True)

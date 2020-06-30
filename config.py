@@ -15,53 +15,38 @@ class CoreConfig:
     self.margin_voltage             = core_config_dict['margin_voltage']
     self.operating_area_per_mcu     = core_config_dict['operating_area_per_mcu']
     self.num_mcu_per_bundle         = core_config_dict['num_mcu_per_bundle']
+    self.FMA_width                  = core_config_dict['FMA_width']
+    self.util                       = core_config_dict['util']
 
 class DRAMConfig:
-  def __init__(self, mem_config_dict):
-    self.dynamic_energy_per_bit   = mem_config_dict['dynamic_energy_per_bit']
-    self.static_power_per_bit     = mem_config_dict['static_power_per_bit']
-    self.area_per_bit             = mem_config_dict['area_per_bit']
-    self.stack_capacity           = mem_config_dict['stack_capacity']
-    #self.stack_bw                 = mem_config_dict['stack_bandwidth']
-    self.area_per_stack           = mem_config_dict['area_per_stack']
-    self.latency                  = mem_config_dict['latency']
-    self.mem_ctrl_area            = mem_config_dict['mem_ctrl_area']
-    self.nominal_frequency        = mem_config_dict['nominal_frequency']
-    self.nominal_voltage          = mem_config_dict['nominal_voltage']
-    self.threshold_voltage        = mem_config_dict['threshold_voltage']
-    self.margin_voltage           = mem_config_dict['margin_voltage']
-    self.num_links_per_mm         = mem_config_dict['num_links_per_mm']
-    self.num_links_per_stack      = mem_config_dict['num_links_per_stack']
+  def __init__(self, dram_config_dict):
+    self.dynamic_energy_per_bit   = dram_config_dict['dynamic_energy_per_bit']
+    self.static_power_per_bit     = dram_config_dict['static_power_per_bit']
+    self.area_per_bit             = dram_config_dict['area_per_bit']
+    self.stack_capacity           = dram_config_dict['stack_capacity']
+    self.area_per_stack           = dram_config_dict['area_per_stack']
+    self.latency                  = dram_config_dict['latency']
+    self.mem_ctrl_area            = dram_config_dict['mem_ctrl_area']
+    self.nominal_frequency        = dram_config_dict['nominal_frequency']
+    self.nominal_voltage          = dram_config_dict['nominal_voltage']
+    self.threshold_voltage        = dram_config_dict['threshold_voltage']
+    self.margin_voltage           = dram_config_dict['margin_voltage']
+    self.num_links_per_mm         = dram_config_dict['num_links_per_mm']
+    self.num_links_per_stack      = dram_config_dict['num_links_per_stack']
+    self.max_voltage              = dram_config_dict['max_voltage']
+    self.util                     = dram_config_dict['util']
 
-class L2Config:
-  def __init__(self, l2_config_dict):
-    self.dynamic_energy_per_bit   = l2_config_dict['dynamic_energy_per_bit']
-    self.static_power_per_bit     = l2_config_dict['static_power_per_bit']
-    self.area_per_bit             = l2_config_dict['area_per_bit']
-    self.bank_capacity            = l2_config_dict['bank_capacity']
-    #self.bank_bw                  = l2_config_dict['bank_bandwidth']
-    self.controller_area_per_link = l2_config_dict['controller_area_per_link']
-    self.latency                  = l2_config_dict['latency']
+class SRAMConfig:
+  def __init__(self, sram_config_dict):
+    self.dynamic_energy_per_bit   = sram_config_dict['dynamic_energy_per_bit']
+    self.static_power_per_bit     = sram_config_dict['static_power_per_bit']
+    self.area_per_bit             = sram_config_dict['area_per_bit']
+    self.bank_capacity            = sram_config_dict['bank_capacity']
+    self.controller_area_per_link = sram_config_dict['controller_area_per_link']
+    self.latency                  = sram_config_dict['latency']
+    self.overhead                 = sram_config_dict['overhead']
+    self.util                     = sram_config_dict['util']
 
-class SMConfig:
-  def __init__(self, sm_config_dict):
-    self.dynamic_energy_per_bit   = sm_config_dict['dynamic_energy_per_bit']
-    self.static_power_per_bit     = sm_config_dict['static_power_per_bit']
-    self.area_per_bit             = sm_config_dict['area_per_bit']
-    self.bank_capacity            = sm_config_dict['bank_capacity']
-    #self.bank_bw                  = sm_config_dict['bank_bandwidth']
-    self.controller_area_per_link = sm_config_dict['controller_area_per_link']
-    self.latency                  = sm_config_dict['latency']
-
-class RegConfig:
-  def __init__(self, reg_config_dict):
-    self.dynamic_energy_per_bit   = reg_config_dict['dynamic_energy_per_bit']
-    self.static_power_per_bit     = reg_config_dict['static_power_per_bit']
-    self.area_per_bit             = reg_config_dict['area_per_bit']
-    self.bank_capacity            = reg_config_dict['bank_capacity']
-    #self.bank_bw                  = reg_config_dict['bank_bandwidth']
-    self.controller_area_per_link = reg_config_dict['controller_area_per_link']
-    self.latency                  = reg_config_dict['latency']
 
 class NetworkConfig:
   def __init__(self, net_config_dict):
@@ -77,11 +62,9 @@ class SubNetworkConfig:
     self.nominal_area_per_link    = config_dict['nominal_area_per_link']
     self.threshold_voltage        = config_dict['threshold_voltage']
     self.margin_voltage           = config_dict['margin_voltage']
-    #self.operating_freq           = config_dict['operating_frequency']
-    #self.operating_voltage        = config_dict['operating_voltage']
     self.num_links_per_mm         = config_dict['num_links_per_mm']
+    self.util                     = config_dict['util']
 
-    #self.parallelMap              = ParallelMap(str(config_dict['parallelMap']))
 
 #class ParallelMap:
 #  def __init__(self, par2network):
@@ -100,9 +83,9 @@ class TechConfig:
   def __init__(self, tech_config_dict):
     self.core                   = CoreConfig(tech_config_dict['core'])
     self.DRAM                   = DRAMConfig(tech_config_dict['DRAM'])
-    self.L2                     = L2Config(tech_config_dict['L2'])
-    self.shared_mem             = SMConfig(tech_config_dict['shared_mem'])
-    self.reg_mem                = RegConfig(tech_config_dict['reg_mem'])
+    self.SRAML2                 = SRAMConfig(tech_config_dict['SRAM-L2'])
+    self.SRAML1                 = SRAMConfig(tech_config_dict['SRAM-L1'])
+    self.SRAMR                  = SRAMConfig(tech_config_dict['SRAM-R'])
     self.network                = NetworkConfig(tech_config_dict['network'])
 
 class AreaBreakdownConfig:
@@ -111,13 +94,13 @@ class AreaBreakdownConfig:
     self.core                   = config_dict['core']
     self.DRAM                   = config_dict['DRAM']
     self.L2                     = config_dict['L2']
-    self.shared_mem             = config_dict['shared_mem']
+    self.L1                     = config_dict['L1']
     self.reg_mem                = config_dict['reg_mem']
     self.node_area_budget       = config_dict['node_area_budget']
     self.network                = NetworkAreaConfig(config_dict['network'])
     
     tot_sum                     = (self.core + self.DRAM + self.L2 + 
-                                   self.shared_mem + self.reg_mem + 
+                                   self.L1 + self.reg_mem + 
                                    self.network.inter_node + 
                                    self.network.intra_node)
     #assert (tot_sum == 1), \
@@ -143,12 +126,12 @@ class PowerBreakdownConfig:
     self.core                   = config_dict['core']
     self.DRAM                   = config_dict['DRAM']
     self.L2                     = config_dict['L2']
-    self.shared_mem             = config_dict['shared_mem']
+    self.L1                     = config_dict['L1']
     self.reg_mem                = config_dict['reg_mem']
     self.network                = NetworkPowerConfig(config_dict['network'])
 
     tot_sum                     = (self.core + self.DRAM + self.L2 + 
-                                   self.shared_mem + self.reg_mem + 
+                                   self.L1 + self.reg_mem + 
                                    self.network.inter_node + 
                                    self.network.intra_node)
     #assert (tot_sum == 1), \
@@ -181,25 +164,18 @@ class SystemHierarchyConfig:
     self.par2cross = {'kp1': self.kp1_inter, 'kp2': self.kp2_inter, 'dp': self.dp_inter, 'lp': self.lp_inter}
 
 
-#class ParallelMap:
-#  def __init__(self, config_dict, num_wafers, num_nodes_per_wafer):
-#    self.par2Dev = {}
-#    for i in range(0, num_wafers):
-#        for j in range(0, num_nodes_per_wafer):
-#            parMapStr   = config_dict['w' + str(i)]['n' + str(j)]
-#            parMapList  = [int(x) for x in parMapStr.split(',')]
-#            parMapId    = tuple(i for i in parMapList)
-#            hwId = (i,j)
-#            if parMapId not in self.par2Dev:
-#                self.par2Dev[parMapId] = hwId
-#            else:
-#                print("Duplicate mapping:")
-#                print("parallelMapping: {} has been mapped to {} and {}".
-#                      format(parMapId, hwId, self.par2Dev[parMapId]))
-#                exit(0)
-#  def getPar2Dev():
-#      return self.par2Dev
-#      
+class MemoryConfig:
+  def __init__(self, config_dict):
+    self.type = config_dict['type']
+    self.scope = config_dict['scope']
+
+class MemoryHierarchyConfig:
+  def __init__(self, config_dict):
+    self.num_levels = len(config_dict)
+    self.mem_hr     = [None] * self.num_levels
+    for level in range(0,self.num_levels):
+      m = MemoryConfig(config_dict['l' + str(level)])
+      self.mem_hr[level] =  m
 
 ModelConfig = _namedtuple("model_param", ["batch_size", "vocab_size", 
                           "num_layers", "layer_size", "seq_len", "projection", 
@@ -226,7 +202,8 @@ SchedulingConfig = _namedtuple("scheduling_param", ["auto",
 
 FullConfig = _namedtuple("FullConfig",["model_config", "sw_config",
                          "tech_config", "power_breakdown", "sch_config", 
-                         "area_breakdown", "perimeter_breakdown", "system_config"])
+                         "area_breakdown", "perimeter_breakdown", 
+                         "system_config", "memory_hierarchy"])
 
 def convert(d):
   for key1, val1 in d.items():
@@ -288,9 +265,11 @@ def parse_config(filename):
   area_config       = AreaBreakdownConfig(config_dict['area_breakdown'])
   perimeter_config  = PerimeterBreakdownConfig(config_dict['perimeter_breakdown'])
   system_config     = SystemHierarchyConfig(config_dict['system_hierarchy'])
+  memory_hierarchy_config     = MemoryHierarchyConfig(config_dict['memory_hierarchy'])
 
   return FullConfig(model_config=model_config, sw_config=sw_config, 
                     sch_config=sch_config, tech_config=tech_config, 
                     power_breakdown=power_config, area_breakdown=area_config,
                     perimeter_breakdown=perimeter_config,
-                    system_config=system_config)
+                    system_config=system_config,
+                    memory_hierarchy=memory_hierarchy_config)
