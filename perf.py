@@ -326,12 +326,13 @@ class TimeCalculation:
           tile2time[tile_dims] = GEMM_time
 
        
-       time = min(tile2time, key=tile2time.get)
+       best_tile = min(tile2time, key=tile2time.get)
+       best_time = tile2time[best_tile]
 
        if self.debug:
           print("{} GEMM_time: {:,}\n".format(name, GEMM_time))
 
-       return False, time
+       return False, best_time
     
     def generateTileSpace(self):
         tile_space = []
@@ -1032,7 +1033,7 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-f') + 4 * self.O 
    
         if self.debug:
-            print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
+            print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/1e9), int(point_mem/1e9)))
             print("point_time: {:,}\n".format( point_time))
 
         return GEMM_time + point_time
@@ -1058,7 +1059,7 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-b') + 4 * self.O 
     
         if self.debug:
-            print("(gr) Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
+            print("(gr) Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/1e9), int(point_mem/1e9)))
             print("(gr) Softmax point_time: {:,}\n".format(point_time))
 
 
@@ -1099,7 +1100,7 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-f-kp1') + self.O + point_comm
    
         if self.debug:
-            print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
+            print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/1e9), int(point_mem/1e9)))
             print("Softmax GEMM_time: {:,}, point_time: {:,}\n".format(GEMM_time, point_time))
 
         return GEMM_time + reduction_time + point_time
@@ -1125,7 +1126,7 @@ class TimeCalculation:
         GEMM_time, reduction_time = self.getDistGEMM_b_kp1(self.miniB, self.projection if proj else self.D, self.V, self.kp_softmax_dim1, "softmax_b_kp1")
 
         if self.debug:
-            print("(gr) Softmax point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
+            print("(gr) Softmax point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/1e9), int(point_mem/1e9)))
         
         return reduction_time + GEMM_time + point_time
 
@@ -1165,7 +1166,7 @@ class TimeCalculation:
   
 
         if self.debug:
-            print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/G), int(point_mem/G)))
+            print("Softmax point_flop: {:,}, point_mem: {:,}".format(int(point_flop/1e9), int(point_mem/1e9)))
             print("Softmax GEMM_time: {:,}, point_time: {:,}\n".format(GEMM_time, point_time))
 
         return GEMM_time + point_time + reduction_time
@@ -1192,7 +1193,7 @@ class TimeCalculation:
         GEMM_time, reduction_time = self.getDistGEMM_b_kp2(self.miniB, self.projection if proj else self.D, self.V, self.kp_softmax_dim1, self.kp_softmax_dim2, "softmax_b_kp2")
     
         if self.debug:
-            print("(gr) Softmax point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
+            print("(gr) Softmax point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/1e9), int(point_mem/1e9)))
         
         return reduction_time + GEMM_time + point_time
 
@@ -1202,7 +1203,7 @@ class TimeCalculation:
         #embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         embedding_time = self.roofline(0, embedding_mem, name='embedding_f') + self.O
         if self.debug:
-            print("Embedding_mem: {:,}".format(int(embedding_mem/G)))
+            print("Embedding_mem: {:,}".format(int(embedding_mem/1e9)))
         return embedding_time
 
 
@@ -1215,7 +1216,7 @@ class TimeCalculation:
         embedding_mem_time = self.roofline(0, embedding_mem, name='embedding_b') + self.O
 
         if self.debug:
-            print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/G)))
+            print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/1e9)))
         #return data_transfer_time + embedding_mem_time
         return embedding_mem_time
 
@@ -1232,7 +1233,7 @@ class TimeCalculation:
         #embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         embedding_time = self.roofline(0, embedding_mem, name='embedding_f') + self.O
         if self.debug:
-            print("Embedding_mem: {:,}".format(int(embedding_mem/G)))
+            print("Embedding_mem: {:,}".format(int(embedding_mem/1e9)))
         return embedding_time + reduction_time_act
 
 
@@ -1251,14 +1252,14 @@ class TimeCalculation:
         embedding_mem_time = self.roofline(0, embedding_mem, name='embedding_b') + self.O
 
         if self.debug:
-            print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/G)))
+            print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/1e9)))
         return embedding_mem_time + reduction_time_act
 
     def getEmbedding_f_kp2(self):
         embedding_mem = 2 * ((self.miniB / self.kp_embedding_dim1) * (self.D / self.kp_embedding_dim2) * self.precision)
         embedding_time = self.roofline(0, embedding_mem, name='embedding_f') + self.O
         if self.debug:
-            print("Embedding_mem: {:,}".format(int(embedding_mem/G)))
+            print("Embedding_mem: {:,}".format(int(embedding_mem/1e9)))
         return embedding_time
 
 
@@ -1277,7 +1278,7 @@ class TimeCalculation:
         embedding_mem_time = self.roofline(0, embedding_mem, name='embedding_b') + self.O
 
         if self.debug:
-            print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/G)))
+            print("(gr) Embedding_mem: {:,}".format(int(embedding_mem/1e9)))
         return embedding_mem_time + reduction_time_act
 
     def getInterLayerCommLatency(self, dim1, dim2):
