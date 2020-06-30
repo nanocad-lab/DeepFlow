@@ -4,8 +4,8 @@ import os
 
 import config
 
-core=0.7
-DRAM=0.7
+core=1
+DRAM=1
 L2=1
 shared_mem=1
 reg_mem=1
@@ -16,44 +16,44 @@ def printError(message):
 
 def getHiddenMem(L, Dim1, Dim2, Dim3, S, precision):
     #Activations refer to output activations that need to be stored
-    hidden_act = Dim1 * Dim2 * S * L
-    hidden_wt  = (Dim2 + 1) * Dim3 * L
-    hidden_point = (Dim1 * Dim2 / 2) * 9 * L * S
+    hidden_act = Dim1 * Dim3 * S * L * precision
+    hidden_wt  = (Dim2 + 1) * Dim3 * L * precision
+    hidden_point = (Dim1 * Dim3 / 2) * 9 * L * S * precision
     #3 sigmoids
     #2 tanh
     #3 pointwise multiply
     #1 addition
-    hidden_mem = (hidden_act + hidden_wt + hidden_point) * precision
+    hidden_mem = (hidden_act + hidden_wt + hidden_point)
 
     return hidden_mem, hidden_act, hidden_wt, hidden_point
 
 def getSoftmaxMem(B, S, P, V, precision):
      #activation output from each layer, assuming input ativation are taken 
     #into account in the previous layer
-    softmax_act = B * S * V 
-    softmax_wt = (P + 1) * V
-    softmax_point = 2 * B * S * V + B * S
+    softmax_act = B * S * V * precision 
+    softmax_wt = (P + 1) * V * precision
+    softmax_point = (2 * B * S * V + B * S) * precision
     #NOTE: sigmoid and exp could have been combined
     #1 sigmoids
     #1 exp
     #1 pointwise div
-    softmax_mem = (softmax_act + softmax_wt + softmax_point) * precision
+    softmax_mem = (softmax_act + softmax_wt + softmax_point)
 
     return softmax_mem, softmax_act, softmax_wt, softmax_point
 
 def getProjectionMem(B, S, P, D, precision):
-    projection_act = B * S * P
-    projection_wt = (D + 1) * P
-    projection_point= B * S * P
-    projection_mem = (projection_act + projection_wt + projection_point) * precision
+    projection_act = B * S * P * precision
+    projection_wt = (D + 1) * P * precision
+    projection_point= B * S * P * precision
+    projection_mem = (projection_act + projection_wt + projection_point)
   
     return projection_mem, projection_act, projection_wt, projection_point
 
 def getEmbeddingMem(B, S, V, D, precision):
-    embedding_act = B * S * D
-    embedding_wt = V * D
+    embedding_act = B * S * D * precision
+    embedding_wt = V * D * precision
     embedding_point = 0
-    embedding_mem = (embedding_wt + embedding_act + embedding_point) * precision
+    embedding_mem = (embedding_wt + embedding_act + embedding_point)
 
     return embedding_mem, embedding_act, embedding_wt, embedding_point
 
@@ -106,9 +106,9 @@ def getTotMemReq(exp_config):
 def getMemUsagePerCore(exp_config, **kwargs):
     #Model params
     B                   = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
+    D                   = int(kwargs.get('hidden_dim', exp_config.model_config.layer_size))
     V                   = exp_config.model_config.vocab_size
     L                   = exp_config.model_config.num_layers
-    D                   = exp_config.model_config.layer_size
     projection          = exp_config.model_config.projection 
     S                   = exp_config.model_config.seq_len
     G                   = exp_config.model_config.num_gates
@@ -166,10 +166,10 @@ def getMemUsagePerCore(exp_config, **kwargs):
       projection_mem, projection_act, projection_wt, projection_point = 0, 0, 0 , 0
     #embedding_mem = miniB * S * D * precision + V * D / kp_embedding_dim1
     embedding_mem, embedding_act, embedding_wt, embedding_point =  getEmbeddingMem(
-        B=math.ceil(miniB/(kp_embedding_dim1 if kp_embedding_type==1 else kp_embedding_dim1 * kp_embedding_dim2)), 
+        B=math.ceil(miniB/(kp_embedding_dim1 if kp_embedding_type==2 else 1)), 
         S=S, 
-        V=V, 
-        D=D, 
+        V=math.ceil(V/(1 if kp_embedding_type == 2 else kp_embedding_dim1)), 
+        D=math.ceil(D/(kp_embedding_dim2 if kp_hidden_type == 2 else 1)), 
         precision = precision)
 
     tot_mem = 0
@@ -189,6 +189,7 @@ def getChipArea(exp_config_path, **kwargs):
     exp_config = config.parse_config(exp_path)
     
     batch_size = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
+    hidden_dim = int(kwargs.get('hidden_dim', exp_config.model_config.layer_size))
     dp = int(kwargs.get('dp', exp_config.sch_config.dp))
     lp = int(kwargs.get('lp', exp_config.sch_config.lp))
     #type:-1 no kp
@@ -199,6 +200,7 @@ def getChipArea(exp_config_path, **kwargs):
     kp2 = int(kwargs.get('kp2', 1))
     tot_mem    = getMemUsagePerCore(exp_config, 
                                     batch_size=batch_size, 
+                                    hidden_dim=hidden_dim,
                                     dp=dp, 
                                     lp=lp, 
                                     kp_type=kp_type,

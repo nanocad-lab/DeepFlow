@@ -96,7 +96,7 @@ class Projection():
         par2Dev = {}
         dev2Par = {}
       
-        print("order: {}".format(order))
+        #print("order: {}".format(order))
 
         for wid in range(0, self.num_wafer):
             for xid in range(0, self.wafer_dim):
@@ -508,9 +508,9 @@ class Projection():
 
         ps = self.ps
         
-        print(layout_id)
+        #print(layout_id)
         order = self.order[layout_id]
-        print("Parallelism order: {}({})-----{}({})-----{}({})-----{}({})".format(par[order[0]], ps[order[0]], par[order[1]], ps[order[1]], par[order[2]], ps[order[2]],par[order[3]], ps[order[3]]))
+        #print("Parallelism order: {}({})-----{}({})-----{}({})-----{}({})".format(par[order[0]], ps[order[0]], par[order[1]], ps[order[1]], par[order[2]], ps[order[2]],par[order[3]], ps[order[3]]))
         
         #[wafer-2-wafer, x_edge, x_edge]
         for wid in range(0, self.num_wafer):
@@ -534,14 +534,14 @@ class Projection():
 
    
 def main():
-    for kp1 in [1]: #[1, 16, 32]:
-        for kp2 in [1]: #[1, 16, 32]:
-            for dp in [64]: #[1, 2, 4, 8]:
+    for kp1 in [4]: #[1, 16, 32]:
+        for kp2 in [2]: #[1, 16, 32]:
+            for dp in [1]: #[1, 2, 4, 8]:
                 for lp in [1]: #[2]:
                     print("==========")
                     print("({},{},{},{})".format(kp1, kp2, dp, lp))
                     print("==========")
-                    nw = int(math.ceil(dp * kp1 * kp2 * lp / 1.0))
+                    nw = int(math.ceil(dp * kp1 * kp2 * lp))
                     p = Projection(dp = dp, kp1 = kp1, kp2 = kp2, lp = lp, wafer_dim = 1, num_wafer = nw)
                     for layout_id in range(0, len(p.order)):
                         p.project(layout_id)
