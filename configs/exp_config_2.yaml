@@ -10,8 +10,8 @@ model_param:
     num_add: 8 
 
 arch_param:
-    kernel_launch_overhead: 37e-6
-    precision: 4
+    kernel_launch_overhead: 9e-6 #9us
+    precision: 2
 
 tech_param:
     DRAM_energy_per_bit_trans: 3.6e-12
@@ -25,7 +25,7 @@ tech_param:
     L2_bank_bw: 400 GB/s
     shared_mem_bank_capacity: 32 KB 
     shared_mem_bank_bw: 400 GB/s 
-    line_latency: 16e-7 
+    line_latency: 5e-6 
 
 power_breakdown:
     TDP: 500

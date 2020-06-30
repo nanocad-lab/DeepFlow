@@ -11,19 +11,19 @@ model_param:
     data_scale: 100 
 
 sw_param:
-    kernel_launch_overhead: 37e-6
-    precision: 4
+    kernel_launch_overhead: 9e-6 #9us
+    precision: 2
 
 tech_param:
     core:
         nominal_power_per_mcu: 1.3e-1 #W
-        nominal_flop_rate_per_mcu: 64
+        nominal_flop_rate_per_mcu: 128
         nominal_area_per_mcu: 0.11 #mm^2
         nominal_frequency: 1.33e9 #Hz
         nominal_voltage: 0.8 
         threshold_voltage: 0.2 
         margin_voltage: 0.35
-        operating_area_per_mcu: 1
+        operating_area_per_mcu: 0.11
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
     DRAM:
         dynamic_energy_per_bit: 4.2e-12
@@ -66,19 +66,19 @@ tech_param:
         latency: 0 
     network:
         intra_node:
-          latency: 16e-9 
+          latency: 5e-6 
           nominal_frequency: 3e9
           nominal_voltage: 1
           nominal_energy_per_link: 1e-12
-          nominal_area_per_link: 50e-6 #mm^2
+          nominal_area_per_link: 25e-6 #mm^2
           num_links_per_mm: 400
           threshold_voltage: 0.25
           margin_voltage: 0.45
         inter_node:
-          latency: 16e-7
+          latency: 5e-6
           nominal_frequency: 20e9
           nominal_voltage: 1.2
-          nominal_energy_per_link: 10e-12
+          nominal_energy_per_link: 13e-12
           nominal_area_per_link: 0.045
           num_links_per_mm: 20 #Assuming 4 layers on PCB and 200 um pitch for high speed signalling
           threshold_voltage: 0.35
