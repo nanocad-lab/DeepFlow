@@ -3,7 +3,6 @@ import ruamel.yaml as _yaml
 import math
 from collections import namedtuple as _namedtuple
 
-
 class CoreConfig:
   def __init__(self, core_config_dict):
     self.nominal_power_per_mcu      = core_config_dict['nominal_power_per_mcu']
@@ -16,6 +15,7 @@ class CoreConfig:
     self.operating_area_per_mcu     = core_config_dict['operating_area_per_mcu']
     self.num_mcu_per_bundle         = core_config_dict['num_mcu_per_bundle']
     self.FMA_width                  = core_config_dict['FMA_width']
+    self.dataflow                   = core_config_dict['dataflow']
     self.util                       = core_config_dict['util']
 
 class DRAMConfig:
@@ -65,19 +65,6 @@ class SubNetworkConfig:
     self.num_links_per_mm         = config_dict['num_links_per_mm']
     self.util                     = config_dict['util']
 
-
-#class ParallelMap:
-#  def __init__(self, par2network):
-#    self.data     = False
-#    self.kernel   = False
-#    self.layer    = False
-#    if "data" in par2network:
-#      self.data   = True
-#    if "kernel" in par2network:
-#      self.kernel = True
-#    if "layer" in par2network:
-#      self.layer = True
-#
 
 class TechConfig:
   def __init__(self, tech_config_dict):

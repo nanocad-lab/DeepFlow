@@ -97,6 +97,7 @@ class Core(Base):
       self.tot_area                     = exp_config.area_breakdown.core * self.proc_chip_area_budget
       
       self.FMA_width                    = exp_config.tech_config.core.FMA_width
+      self.dataflow                    = exp_config.tech_config.core.dataflow
       self.nominal_voltage              = exp_config.tech_config.core.nominal_voltage
       self.nominal_freq                 = exp_config.tech_config.core.nominal_frequency
       self.nominal_area_per_mcu         = exp_config.tech_config.core.nominal_area_per_mcu

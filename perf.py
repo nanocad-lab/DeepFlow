@@ -45,7 +45,7 @@ class TimeCalculation:
         self.core               = Core(exp_config)
         self.th                 = self.core.getThroughput()
         self.FMA_width          = self.core.FMA_width
-
+        self.dataflow          = self.core.dataflow
 
         self.memoryHierarchy     = MemoryHierarchy(exp_config)
         self.num_levels          = self.memoryHierarchy.num_levels
@@ -324,10 +324,10 @@ class TimeCalculation:
    #     ADD_time  = self.roofline(ADD_flop, ADD_gmem, name='FMA addition') + self.O
    #     return ADD_time
 
-    def getGEMMTime(self, A, B, C, name):
+    def getGEMMTime(self, dim1, dim2, dim3, name):
        tile2time = {}
        import itertools
-       orderSpace = list(itertools.permutations([A, B, C]))
+       orderSpace = list(itertools.permutations([dim1, dim2, dim3]))
        for order_dims in orderSpace:
           for tile_dims in self.tileSpace:
             GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
@@ -452,8 +452,22 @@ class TimeCalculation:
                 dim3                   = tile3 if tile3 != 0 else dim3
 
 
-            #Number of accesses to register file (for every 2N^3 computation, 3N^2 memory accesses happen, where N is the width of the systolic engine)
-            num_accesses[0]    = GEMM_flop * 3/2 * 1/self.FMA_width * self.precision#= 3 * A*B*C / FMA_width
+            #Number of accesses to level0 (for every 2N^3 computation, 3N^2 memory accesses happen, where N is the width of the systolic engine)
+            reuse = 1
+            if self.dataflow == "none":
+                reuse = 1
+            elif self.dataflow == "best":
+                reuse = max(math.ceil(tile1/self.FMA_width), math.ceil(tile3/self.FMA_width), math.ceil(tile2/self.FMA_width))
+            elif self.dataflow == "Bst": #B stationary
+                reuse = math.ceil(tile1/self.FMA_width)
+            elif self.dataflow == "Ast": #A statinary
+                reuse = math.ceil(tile3/self.FMA_width)
+            elif self.dataflow == "Cst": #C stationary
+                reuse = math.ceil(tile2/self.FMA_width)
+            else:
+                raise NotImplementedError()
+                
+            num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision#= 3 * A*B*C / FMA_width
              
             #TODO: do we still need these in new hierarchical version?
             #  if X3 == 0:
