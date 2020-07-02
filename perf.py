@@ -192,7 +192,7 @@ class TimeCalculation:
 
           
           tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
-          f.write("\n\n=========================================================\n")
+          f.write("\n\n===========================================================\n")
           f.write("Memory Requirement Breakdown per Data Shard Per Model Shard\n")
           f.write("===========================================================\n")
           f.write("Total Memory: {:.1f} GB\n"
@@ -230,6 +230,12 @@ class TimeCalculation:
                    self.kp_projection_dim1, self.kp_projection_dim2))   
 
 
+          f.write("\n\n==============================================================================\n")
+          f.write("Hardware Component Stats\n")
+          f.write("==============================================================================\n")
+          self.core.printStats(f)
+          for i in range(0, self.num_levels):
+              self.memLayer[i].printStats(f)
 
     def roofline(self, flop, mem_access_, name=''):
 
@@ -320,17 +326,20 @@ class TimeCalculation:
 
     def getGEMMTime(self, A, B, C, name):
        tile2time = {}
-       for tile_dims in self.tileSpace:
-          GEMM_flop, mem_access = self.GEMM(A, B, C, tile_dims, name)
-          GEMM_time = self.roofline(GEMM_flop,mem_access, name) + self.O
-          tile2time[tile_dims] = GEMM_time
+       import itertools
+       orderSpace = list(itertools.permutations([A, B, C]))
+       for order_dims in orderSpace:
+          for tile_dims in self.tileSpace:
+            GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
+            GEMM_time = self.roofline(GEMM_flop,mem_access, name) + self.O
+            tile2time[(order_dims, tile_dims)] = GEMM_time
 
        
        best_tile = min(tile2time, key=tile2time.get)
        best_time = tile2time[best_tile]
 
        if self.debug:
-          print("{} GEMM_time: {:,}\n".format(name, GEMM_time))
+          print("{}: Best Time: {:,}, Best Order: {}, Best Tile: {}\n".format(name, best_time, best_tile[0], best_tile[1]))
 
        return False, best_time
     
@@ -406,7 +415,10 @@ class TimeCalculation:
     #This is the main function that captures the memory hierarchy impact
     #on the number of accesses to global memory considering not everything fits in 
     #L2 cache and also captures the effect of shared memory
-    def GEMM(self, dim1_, dim2_, dim3_, tile_dims, name):
+    def GEMM(self, order_dims, tile_dims, name):
+        dim1_ = order_dims[0]
+        dim2_ = order_dims[1]
+        dim3_ = order_dims[2]
         dim1 = util.power2RoundUp(dim1_)
         dim2 = util.power2RoundUp(dim2_)
         dim3 = util.power2RoundUp(dim3_)
@@ -1462,7 +1474,11 @@ def main(exp_config, exp_dir, debug):
     
     TC.printSysConfig(exp_config, output_file)
 
+    
     with open(output_file, "a+") as f:
+        f.write("\n\n==============================================\n")
+        f.write("Performance Results\n")
+        f.write("==============================================\n")
         f.write("Time: {0:.8f}\n".format(tot_time))
         f.write("Params (Billion): {0:.8f}\n".format(tot_param/1e9))
 

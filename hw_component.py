@@ -3,6 +3,7 @@ import numpy as np
 import util
 from topology_hack import Topology
 
+kilo=1024.0
 giga=1024.0*1024.0*1024.0
 
 class System:
@@ -58,7 +59,8 @@ class Memory(Base):
       square_tile = self.getTileDim()
       mu, sigma = square_tile, square_tile
       M = self.size_per_bundle / self.precision
-      for i in range(0, 10):
+      tile_dim_candidates.append((square_tile, square_tile, square_tile))
+      for i in range(0, 3):
           z = -1
           while(z < 0):
             s = [int(abs(i)) for i in np.random.normal(mu, sigma, 2)]      
@@ -84,8 +86,8 @@ class Memory(Base):
       self.size_per_bundle            = 0 if (divisor == 0) else self.size / divisor
       
       if (self.size > 0):
-          #self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
-          self.tile_dim = math.floor(math.sqrt((self.size_per_bundle / self.precision) / 3))
+          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
+          #self.tile_dim = math.floor(math.sqrt((self.size_per_bundle / self.precision) / 3))
  
 
 class Core(Base):
@@ -123,7 +125,6 @@ class Core(Base):
       
       self.calcThroughput()
 
-      #self.printStats()
 
   def calcOperatingVoltageFrequency(self):
       #minimum voltage that meets power constraints
@@ -148,17 +149,17 @@ class Core(Base):
      self.operating_throughput         = self.operating_flop_rate_per_mcu * self.operating_freq * self.num_mcu
      self.throughput                   = self.operating_throughput * util.core
 
-  def printStats(self):
+  def printStats(self, f):
      self.eff_power              = self.num_mcu * self.operating_power_per_mcu
      self.eff_area               = self.num_mcu * self.operating_area_per_mcu
-     print("=============")
-     print("Core")
-     print("=============")
-     print("operating_volatge: {0:.2f}, operating_freq: {1:.2f} (Ghz)".format(self.operating_voltage, self.operating_freq/1e9))
-     print("voltage_lowerbound: {0:.2f}".format(self.threshold_voltage + self.margin_voltage))
-     print("#mcu: {0:5d}, #bundles: {1:5d}".format(self.num_mcu, self.num_bundle))
-     print("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
-     print("eff_power: {0:.2f} (mm2), tot_power: {1:.2f} (mm2), util: {2:.2f}%".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+     f.write("\n\n=============\n")
+     f.write("Core\n")
+     f.write("=============\n")
+     f.write("operating_volatge: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
+     f.write("voltage_lowerbound: {0:.2f}\n".format(self.threshold_voltage + self.margin_voltage))
+     f.write("#mcu: {0:5d}, #bundles: {1:5d}\n".format(self.num_mcu, self.num_bundle))
+     f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
+     f.write("eff_power: {0:.2f} (mm2), tot_power: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 
 
 class MemoryHierarchy(Base):
@@ -227,7 +228,6 @@ class DRAM(Memory):
 
       self.calcSize()
       self.calcTileDim()
-      self.printStats()
 
   def calcOperatingVoltageFrequency(self):
       self.frequency_scaling_factor     = 1 
@@ -267,28 +267,28 @@ class DRAM(Memory):
       self.size                       = self.num_stacks * self.stack_capacity
 
 
-  def printStats(self):
+  def printStats(self, f):
       self.operating_dynamic_energy_per_bit  = self.dynamic_energy_per_bit * (self.operating_voltage / self.nominal_voltage)**2
       self.dynamic_power                     = self.num_links * self.operating_dynamic_energy_per_bit * self.operating_freq
       self.static_power                      = self.static_power_per_byte * self.size
       self.eff_power                         = self.dynamic_power + self.static_power
       self.eff_ctrl_area                     = self.num_stacks * self.mem_ctrl_area #_per_stack
       self.eff_stack_area                    = self.num_stacks * self.area_per_stack
-      print("=============")
-      print("DRAM")
-      print("=============")
-      print("operating_volatge: {0:6.2f}\t\t operating_freq: {1:9.2f} (Ghz)".format(self.operating_voltage, self.operating_freq/1e9))
-      print("voltage_lowerbound: {0:5.2f}\t\t voltage_upperbound: {1:5.2f}".format(self.threshold_voltage + self.margin_voltage, self.max_voltage))
-      print("num_stacks: {0:10d}\t\t\t node_area_limit: {1:5d}\t\t\t chip_area_limit: {2:5d}".format(self.num_stacks, 
-                                                                                          int(self.tot_area // self.area_per_stack),
-                                                                                          int(self.tot_mem_ctrl_area // self.mem_ctrl_area))) 
-      print("num_links: {0:14d}\t\t stack_limit: {1:13d}\t\t perimeter_limit: {2:8d}".format(self.num_links,
-                                                                                     self.perimeter_bound,
-                                                                                     self.num_links_per_stack * self.num_stacks)) 
-      print("stack_bandwidth: {0:9.2f} (GB/s)\t stack_capacity: {1:9.2f} (GB)".format(self.stack_bw/8/giga, self.stack_capacity/giga))
-      print("eff_ctrl_area: {0:11.2f} (mm2)\t tot_ctrl_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_ctrl_area, self.tot_mem_ctrl_area, self.eff_ctrl_area/self.tot_mem_ctrl_area * 100 ))
-      print("eff_stack_area: {0:11.2f} (mm2)\t tot_stack_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_stack_area, self.tot_area, self.eff_stack_area/self.tot_area * 100 ))
-      print("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (mm2)\t tot_power: {3:.2f} (mm2)\t\t util: {4:.2f}%".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+      f.write("\n\n=============\n")
+      f.write("DRAM\n")
+      f.write("=============\n")
+      f.write("operating_volatge: {0:6.2f}\t\t operating_freq: {1:9.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
+      f.write("voltage_lowerbound: {0:5.2f}\t\t voltage_upperbound: {1:5.2f}\n".format(self.threshold_voltage + self.margin_voltage, self.max_voltage))
+      f.write("num_stacks: {0:10d}\t\t\t node_area_limit: {1:5d}\t\t\t chip_area_limit: {2:5d}\n".format(self.num_stacks, 
+                                                                                                         int(self.tot_area // self.area_per_stack),
+                                                                                                         int(self.tot_mem_ctrl_area // self.mem_ctrl_area))) 
+      f.write("num_links: {0:14d}\t\t stack_limit: {1:13d}\t\t perimeter_limit: {2:8d}\n".format(self.num_links,
+                                                                                                 self.perimeter_bound,
+                                                                                                 self.num_links_per_stack * self.num_stacks)) 
+      f.write("stack_bandwidth: {0:9.2f} (GB/s)\t stack_capacity: {1:9.2f} (GB)\n".format(self.stack_bw/8/giga, self.stack_capacity/giga))
+      f.write("eff_ctrl_area: {0:11.2f} (mm2)\t tot_ctrl_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%\n".format(self.eff_ctrl_area, self.tot_mem_ctrl_area, self.eff_ctrl_area/self.tot_mem_ctrl_area * 100 ))
+      f.write("eff_stack_area: {0:11.2f} (mm2)\t tot_stack_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%\n".format(self.eff_stack_area, self.tot_area, self.eff_stack_area/self.tot_area * 100 ))
+      f.write("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (mm2)\t tot_power: {3:.2f} (mm2)\t\t util: {4:.2f}%\n".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 
 
 class SRAM(Memory):
@@ -296,19 +296,20 @@ class SRAM(Memory):
       super().__init__(exp_config)
       self.tot_power                  = power_config * self.TDP
       self.tot_area                   = area_config * self.proc_chip_area_budget
-      self.dynamic_energy_per_byte    = tech_config.dynamic_energy_per_bit * 8
+      self.dynamic_energy_per_bit     = tech_config.dynamic_energy_per_bit
+      self.dynamic_energy_per_byte    = self.dynamic_energy_per_bit * 8
       self.static_power_per_byte      = tech_config.static_power_per_bit * 8
       self.area_per_byte              = tech_config.area_per_bit * 8
       self.bank_capacity              = tech_config.bank_capacity
       self.controller_area_per_link   = tech_config.controller_area_per_link
       self.latency                    = tech_config.latency
-      self.overhead                   = tech_config.overhead #percetage of cells dedicated ti cicuitry overhead for SRAM cells
+      self.overhead                   = tech_config.overhead #percetage of cells dedicated to cicuitry overhead for SRAM cells
       self.cell_percentage            = 1 - self.overhead
       self.util                       = tech_config.util
       self.scope                      = mem_hierarchy_config.scope
       self.type                       = mem_hierarchy_config.type
       self.bank_area                  = self.bank_capacity * self.area_per_byte
-      self.num_banks                  = (self.cell_percentage * self.tot_area) // (self.bank_area + self.cell_percentage * self.core.num_bundle * self.controller_area_per_link) 
+      self.num_banks                  = int(math.floor((self.cell_percentage * self.tot_area) // (self.bank_area + self.cell_percentage * self.core.num_bundle * self.controller_area_per_link)))
 
       self.core                       = Core(self.exp_config)
       
@@ -343,22 +344,18 @@ class SRAM(Memory):
       self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
   
  
-  def printStats(self):
-      self.operating_dynamic_energy_per_bit  = self.dynamic_energy_per_bit * (self.operating_voltage / self.nominal_voltage)**2
+  def printStats(self, f):
+      self.dynamic_power                     = self.dynamic_throughput * self.dynamic_energy_per_byte
       self.eff_power                         = self.dynamic_power + self.static_power
-      self.eff_ctrl_area                     = self.num_banks * self.core.num_bundle * self.controller_area_per_link
-      self.eff_bank_area                     = self.num_banks * self.bank_area / self.cell_percentage
-      print("=============")
-      print("L2")
-      print("=============")
-      print("num_banks: {0:10d}".format(self.num_banks)) 
-      print("num_links: {0:14d}\t\t stack_limit: {1:13d}\t\t perimeter_limit: {2:8d}".format(self.num_links,
-                                                                                     self.perimeter_bound,
-                                                                                     self.num_links_per_stack * self.num_stacks)) 
-      print("stack_bandwidth: {0:9.2f} (GB/s)\t stack_capacity: {1:9.2f} (GB)".format(self.stack_bw/8/giga, self.stack_capacity/giga))
-      print("eff_ctrl_area: {0:11.2f} (mm2)\t tot_ctrl_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_ctrl_area, self.tot_mem_ctrl_area, self.eff_ctrl_area/self.tot_mem_ctrl_area * 100 ))
-      print("eff_stack_area: {0:11.2f} (mm2)\t tot_stack_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%".format(self.eff_stack_area, self.tot_area, self.eff_stack_area/self.tot_area * 100 ))
-      print("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (mm2)\t tot_power: {3:.2f} (mm2)\t\t util: {4:.2f}%".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+      self.ctrl_area                         = self.num_banks * self.core.num_bundle * self.controller_area_per_link
+      self.tot_bank_area                     = self.num_banks * self.bank_area / self.cell_percentage
+      f.write("\n\n=============\n")
+      f.write("{}\n".format(self.type))
+      f.write("=============\n")
+      f.write("num_banks: {0:17d}\n".format(self.num_banks)) 
+      f.write("bank_bandwidth: {0:13.2f} (GB/s)\t bank_capacity: {1:9.2f} (GB)\n".format(self.bank_bw/giga, self.bank_capacity/kilo))
+      f.write("ctrl_area: {0:17.2f} (mm2)\t\t bank_area: {1:11.2f} (mm2)\t tot_area: {2:11.2f}(mm2)\t\t\t util: {3:.2f}%\n".format(self.ctrl_area, self.tot_bank_area, self.tot_area, (self.ctrl_area + self.tot_bank_area)/self.tot_area * 100 ))
+      f.write("dynamic_power: {0:13.2f} (watt)\t\t static_power: {1:11.2f} (watt)\t\t eff_power: {2:15.2f} (watt)\t tot_power: {3:.2f} (watt)\t\t util: {4:.2f}%\n".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 
 
 class Network(Base):
