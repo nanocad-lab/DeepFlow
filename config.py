@@ -3,7 +3,6 @@ import ruamel.yaml as _yaml
 import math
 from collections import namedtuple as _namedtuple
 
-
 class CoreConfig:
   def __init__(self, core_config_dict):
     self.nominal_power_per_mcu      = core_config_dict['nominal_power_per_mcu']
@@ -16,6 +15,7 @@ class CoreConfig:
     self.operating_area_per_mcu     = core_config_dict['operating_area_per_mcu']
     self.num_mcu_per_bundle         = core_config_dict['num_mcu_per_bundle']
     self.FMA_width                  = core_config_dict['FMA_width']
+    self.dataflow                   = core_config_dict['dataflow']
     self.util                       = core_config_dict['util']
 
 class DRAMConfig:
@@ -65,19 +65,6 @@ class SubNetworkConfig:
     self.num_links_per_mm         = config_dict['num_links_per_mm']
     self.util                     = config_dict['util']
 
-
-#class ParallelMap:
-#  def __init__(self, par2network):
-#    self.data     = False
-#    self.kernel   = False
-#    self.layer    = False
-#    if "data" in par2network:
-#      self.data   = True
-#    if "kernel" in par2network:
-#      self.kernel = True
-#    if "layer" in par2network:
-#      self.layer = True
-#
 
 class TechConfig:
   def __init__(self, tech_config_dict):
@@ -163,6 +150,20 @@ class SystemHierarchyConfig:
     self.lp_inter             = config_dict['lp_inter']
     self.par2cross = {'kp1': self.kp1_inter, 'kp2': self.kp2_inter, 'dp': self.dp_inter, 'lp': self.lp_inter}
 
+class TopologyConfig:
+  def __init__(self, config_dict):
+    self.topology = None
+    if config_dict == 'hybrid':
+      NotImplemented()
+    else:
+      self.topology = config_dict
+      
+
+class NetworkTopologyConfig:
+  def __init__(self, config_dict):
+    self.inter = TopologyConfig(config_dict['inter_wafer'])
+    self.intra = TopologyConfig(config_dict['intra_wafer'])
+
 
 class MemoryConfig:
   def __init__(self, config_dict):
@@ -203,7 +204,8 @@ SchedulingConfig = _namedtuple("scheduling_param", ["auto",
 FullConfig = _namedtuple("FullConfig",["model_config", "sw_config",
                          "tech_config", "power_breakdown", "sch_config", 
                          "area_breakdown", "perimeter_breakdown", 
-                         "system_config", "memory_hierarchy"])
+                         "system_config", "memory_hierarchy",
+                         "network_topology"])
 
 def convert(d):
   for key1, val1 in d.items():
@@ -266,10 +268,12 @@ def parse_config(filename):
   perimeter_config  = PerimeterBreakdownConfig(config_dict['perimeter_breakdown'])
   system_config     = SystemHierarchyConfig(config_dict['system_hierarchy'])
   memory_hierarchy_config     = MemoryHierarchyConfig(config_dict['memory_hierarchy'])
+  network_topology_config     = NetworkTopologyConfig(config_dict['network_topology'])
 
   return FullConfig(model_config=model_config, sw_config=sw_config, 
                     sch_config=sch_config, tech_config=tech_config, 
                     power_breakdown=power_config, area_breakdown=area_config,
                     perimeter_breakdown=perimeter_config,
                     system_config=system_config,
-                    memory_hierarchy=memory_hierarchy_config)
+                    memory_hierarchy=memory_hierarchy_config,
+                    network_topology=network_topology_config)
