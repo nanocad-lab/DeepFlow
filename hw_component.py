@@ -60,7 +60,7 @@ class Memory(Base):
       mu, sigma = square_tile, square_tile
       M = self.size_per_bundle / self.precision
       tile_dim_candidates.append((square_tile, square_tile, square_tile))
-      for i in range(0, 3):
+      for i in range(0, 100):
           z = -1
           while(z < 0):
             s = [int(abs(i)) for i in np.random.normal(mu, sigma, 2)]      

@@ -6,6 +6,7 @@ import os
 import sys
 import config
 import shutil
+import itertools
 
 from parallelism import Parallelism
 from topology import Topology
@@ -326,8 +327,7 @@ class TimeCalculation:
 
     def getGEMMTime(self, dim1, dim2, dim3, name):
        tile2time = {}
-       import itertools
-       orderSpace = list(itertools.permutations([dim1, dim2, dim3]))
+       orderSpace = self.generateOrder(dim1, dim2, dim3, name)
        for order_dims in orderSpace:
           for tile_dims in self.tileSpace:
             GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
@@ -343,6 +343,41 @@ class TimeCalculation:
 
        return False, best_time
     
+    def generateOrder(self, dim1, dim2, dim3, name):
+
+        if self.dataflow =="best": # best stationary
+           if dim1 >= max(dim2, dim3):
+              self.dataflow = "wst"
+           elif dim2 >= max(dim1, dim3):
+              self.dataflow = "ost"
+           elif dim3 >= max(dim1, dim2):
+              self.dataflow = "ast"
+
+        order=[]
+        if self.dataflow == "wst": #weight stationary
+            order.append((dim2, dim3, dim1))
+            if dim2 != dim3:
+                order.append((dim3, dim2, dim1))
+        elif self.dataflow == "ast": #activation stationary
+            order.append((dim1, dim2, dim3))
+            if dim2 != dim1:
+                order.append((dim2, dim1, dim3))
+        elif self.dataflow == "ost": #output stationary
+            order.append((dim1, dim3, dim2))
+            if dim1 != dim3:
+                order.append((dim3, dim1, dim2))
+        elif self.dataflow == "none": # not stationary
+            if dim1 != dim2 and dim2 != dim3 and dim1 != dim3:
+                order=list(itertools.permutations([dim1, dim2, dim3]))
+            elif dim1 == dim2 and dim2 != dim3:
+                order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim3, dim1, dim2)]
+            elif dim1 == dim3 and dim2 != dim1:
+                order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim2, dim1, dim3)]
+            elif dim2 == dim3 and dim1 != dim2:
+                order = [(dim1, dim2, dim3), (dim2, dim1, dim3), (dim2, dim3, dim1)]
+
+        return order
+
     def generateTileSpace(self):
         tile_space = []
         tiles = [None] * self.num_levels 
@@ -419,12 +454,12 @@ class TimeCalculation:
         dim1_ = order_dims[0]
         dim2_ = order_dims[1]
         dim3_ = order_dims[2]
-        dim1 = util.power2RoundUp(dim1_)
-        dim2 = util.power2RoundUp(dim2_)
-        dim3 = util.power2RoundUp(dim3_)
-        #dim1 = dim1_
-        #dim2 = dim2_
-        #dim3 = dim3_
+        #dim1 = util.power2RoundUp(dim1_)
+        #dim2 = util.power2RoundUp(dim2_)
+        #dim3 = util.power2RoundUp(dim3_)
+        dim1 = dim1_
+        dim2 = dim2_
+        dim3 = dim3_
 
         GEMM_flop = dim1 * dim3 * (dim2 + dim2 - 1)
         #dim2 multiply
@@ -454,16 +489,19 @@ class TimeCalculation:
 
             #Number of accesses to level0 (for every 2N^3 computation, 3N^2 memory accesses happen, where N is the width of the systolic engine)
             reuse = 1
+            dim1 = dim1_
+            dim2 = dim2_
+            dim3 = dim3_
             if self.dataflow == "none":
                 reuse = 1
             elif self.dataflow == "best":
-                reuse = max(math.ceil(tile1/self.FMA_width), math.ceil(tile3/self.FMA_width), math.ceil(tile2/self.FMA_width))
-            elif self.dataflow == "Bst": #B stationary
-                reuse = math.ceil(tile1/self.FMA_width)
-            elif self.dataflow == "Ast": #A statinary
-                reuse = math.ceil(tile3/self.FMA_width)
-            elif self.dataflow == "Cst": #C stationary
-                reuse = math.ceil(tile2/self.FMA_width)
+                reuse = max(math.ceil(dim1/self.FMA_width), math.ceil(dim3/self.FMA_width), math.ceil(dim2/self.FMA_width))
+            elif self.dataflow == "wst": #wt stationary
+                reuse = math.ceil(dim1/self.FMA_width)
+            elif self.dataflow == "ast": #act statinary
+                reuse = math.ceil(dim3/self.FMA_width)
+            elif self.dataflow == "ost": #output stationary
+                reuse = math.ceil(dim2/self.FMA_width)
             else:
                 raise NotImplementedError()
                 

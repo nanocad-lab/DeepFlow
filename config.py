@@ -150,6 +150,20 @@ class SystemHierarchyConfig:
     self.lp_inter             = config_dict['lp_inter']
     self.par2cross = {'kp1': self.kp1_inter, 'kp2': self.kp2_inter, 'dp': self.dp_inter, 'lp': self.lp_inter}
 
+class TopologyConfig:
+  def __init__(self, config_dict):
+    self.topology = None
+    if config_dict == 'hybrid':
+      NotImplemented()
+    else:
+      self.topology = config_dict
+      
+
+class NetworkTopologyConfig:
+  def __init__(self, config_dict):
+    self.inter = TopologyConfig(config_dict['inter_wafer'])
+    self.intra = TopologyConfig(config_dict['intra_wafer'])
+
 
 class MemoryConfig:
   def __init__(self, config_dict):
@@ -190,7 +204,8 @@ SchedulingConfig = _namedtuple("scheduling_param", ["auto",
 FullConfig = _namedtuple("FullConfig",["model_config", "sw_config",
                          "tech_config", "power_breakdown", "sch_config", 
                          "area_breakdown", "perimeter_breakdown", 
-                         "system_config", "memory_hierarchy"])
+                         "system_config", "memory_hierarchy",
+                         "network_topology"])
 
 def convert(d):
   for key1, val1 in d.items():
@@ -253,10 +268,12 @@ def parse_config(filename):
   perimeter_config  = PerimeterBreakdownConfig(config_dict['perimeter_breakdown'])
   system_config     = SystemHierarchyConfig(config_dict['system_hierarchy'])
   memory_hierarchy_config     = MemoryHierarchyConfig(config_dict['memory_hierarchy'])
+  network_topology_config     = NetworkTopologyConfig(config_dict['network_topology'])
 
   return FullConfig(model_config=model_config, sw_config=sw_config, 
                     sch_config=sch_config, tech_config=tech_config, 
                     power_breakdown=power_config, area_breakdown=area_config,
                     perimeter_breakdown=perimeter_config,
                     system_config=system_config,
-                    memory_hierarchy=memory_hierarchy_config)
+                    memory_hierarchy=memory_hierarchy_config,
+                    network_topology=network_topology_config)
