@@ -492,6 +492,7 @@ class TimeCalculation:
             dim1 = dim1_
             dim2 = dim2_
             dim3 = dim3_
+            
             if self.dataflow == "none":
                 reuse = 1
             elif self.dataflow == "best":
@@ -505,7 +506,8 @@ class TimeCalculation:
             else:
                 raise NotImplementedError()
                 
-            num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision#= 3 * A*B*C / FMA_width
+            num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision
+            #num_accesses[0]    = GEMM_flop * ((2 * reuse + self.FMA_width) / (2 * reuse)) * 1/self.FMA_width * self.precision
              
             #TODO: do we still need these in new hierarchical version?
             #  if X3 == 0:
