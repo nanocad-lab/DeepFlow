@@ -54,13 +54,47 @@ class Memory(Base):
       return self.latency
 
   def getTileDims(self):
+      return self.getPower2TileDims()
+      #return self.getArbitraryTileDims(self):
+  
+  def getPower2TileDims(self):
+      np.random.seed(1)
+      tile_dim_candidates = set()
+      num_candidates = 0 #50
+      M = self.size_per_bundle / self.precision
+      max_power = int(math.floor(math.log2(M)))
+      
+      self.calcTileDim()
+      square_tile = self.getTileDim()
+      
+      tile_dim_candidates.add((square_tile, square_tile, square_tile))
+      tile_dim_candidates.add((square_tile//2, square_tile, square_tile*2))
+      while len(tile_dim_candidates) < num_candidates:
+          z = -1
+          while(z < 0):
+            s = [pow(2, i) for i  in np.random.randint(0, max_power, 2)]
+            z = math.floor((M - s[0] * s[1]) / (s[0] + s[1]))
+            
+            if z <= 0:
+              continue
+            
+            z = int(math.pow(2, math.floor(math.log2(z))))
+            tile_dim = (s[0], s[1], z)
+            tile_dim_candidates.add(tile_dim)
+
+      print(tile_dim_candidates)
+      return list(tile_dim_candidates)
+
+
+  def getArbitraryTileDims(self):
+      np.random.seed(0)
       tile_dim_candidates = []
       self.calcTileDim()
       square_tile = self.getTileDim()
       mu, sigma = square_tile, square_tile
       M = self.size_per_bundle / self.precision
       tile_dim_candidates.append((square_tile, square_tile, square_tile))
-      for i in range(0, 100):
+      for i in range(0, 0):
           z = -1
           while(z < 0):
             s = [int(abs(i)) for i in np.random.normal(mu, sigma, 2)]      

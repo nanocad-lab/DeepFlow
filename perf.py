@@ -240,12 +240,16 @@ class TimeCalculation:
 
     def roofline(self, flop, mem_access_, name=''):
 
+        #print("Roofline: entered {}".format(name))
         mem_access = []
         if isinstance(mem_access_, int):
             mem_access.append(mem_access_)
+        elif isinstance(mem_access_, float):
+            mem_access.append(int(mem_access_))
         elif isinstance(mem_access_, list):
             mem_access = mem_access_
         else:
+            print(mem_access_)
             print("mem_access_ should be inetger or list, wrong input", flush=True)
             sys.exit(0)
              
@@ -288,6 +292,7 @@ class TimeCalculation:
                 print("time: {}".format(time[i]))
                 print()
         
+        #print("Roofline: exited {}".format(name))
         return max_time
 
     
@@ -329,7 +334,15 @@ class TimeCalculation:
        tile2time = {}
        orderSpace = self.generateOrder(dim1, dim2, dim3, name)
        for order_dims in orderSpace:
+          if self.debug:
+            print("===============================================================")
+            print("order: {}".format(order_dims))
+            print("===============================================================")
           for tile_dims in self.tileSpace:
+            if self.debug:
+              print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+              print("tile: {}".format(tile_dims))
+              print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
             GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
             GEMM_time = self.roofline(GEMM_flop,mem_access, name) + self.O
             tile2time[(order_dims, tile_dims)] = GEMM_time
@@ -341,7 +354,7 @@ class TimeCalculation:
        if self.debug:
           print("{}: Best Time: {:,}, Best Order: {}, Best Tile: {}\n".format(name, best_time, best_tile[0], best_tile[1]))
 
-       return False, best_time
+       return best_time, best_tile[0], best_tile[1]
     
     def generateOrder(self, dim1, dim2, dim3, name):
 
@@ -492,6 +505,7 @@ class TimeCalculation:
             dim1 = dim1_
             dim2 = dim2_
             dim3 = dim3_
+            
             if self.dataflow == "none":
                 reuse = 1
             elif self.dataflow == "best":
@@ -504,8 +518,11 @@ class TimeCalculation:
                 reuse = math.ceil(dim2/self.FMA_width)
             else:
                 raise NotImplementedError()
-                
-            num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision#= 3 * A*B*C / FMA_width
+               
+            #TODO: make sure to model underutilized systolic array
+            #TODO: support FMA_width_x and FMA_width_y
+            num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision
+            #num_accesses[0]    = GEMM_flop * ((2 * reuse + self.FMA_width) / (2 * reuse)) * 1/self.FMA_width * self.precision
              
             #TODO: do we still need these in new hierarchical version?
             #  if X3 == 0:
@@ -526,6 +543,7 @@ class TimeCalculation:
             #    GEMM_l2mem = 0
 
         return GEMM_flop, num_accesses
+
 
     #Column-Row MM
     def getCf_kp1(self):
@@ -552,7 +570,7 @@ class TimeCalculation:
         # 4 refers to the number of pointwise ops (mul + add + mul + tanh) on the
         # critical path whose inputs are located across different GPUs
         #NOTE:Assuming all communications can happpen in parallel
-        mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network')
+        mem_transfer = self.roofline(0,  2 * data_size, name="Cf_kp1: memory accesses before and after data transfer over network")
         #2:  one read from the source and one write to the destination memory
         data_transfer =  data_size / self.IBK1 
         point_comm = mem_transfer + data_transfer
@@ -592,7 +610,7 @@ class TimeCalculation:
         # 1(tanh) on critical path
   
         data_size =  4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
-        mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network') 
+        mem_transfer = self.roofline(0,  2 * data_size, name='Cb_kp1: memory accesses before and after data transfer over network') 
         data_transfer =  data_size / self.IBK1
         point_comm = mem_transfer + data_transfer
         #3 refers to the number of pointwise ops (mul + tanh + mul) on
@@ -606,7 +624,7 @@ class TimeCalculation:
         GEMM_time, reduction_time = self.getDistGEMM_b_kp1(self.miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1, "Cb_kp1")
         
         if self.debug:
-            print("(gr) Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
+            print("(gr) Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/1e9), int(point_mem/1e9)))
 
         return GEMM_time + reduction_time + point_time
 
@@ -625,9 +643,9 @@ class TimeCalculation:
         point_flop = (self.miniB/self.kp_hidden_dim1) * (self.G * self.D / self.kp_hidden_dim2) * 5
         #4 refers to the number of pointwise ops (mul + add +tanh + mul) on 
         #the critical path 
-        point_mem  = (self.precision * (self.miniB / self.kp_hidden_dim1) * 
-                     (self.G * self.D / self.kp_hidden_dim2) *
-                     (3 * 3 + 2 * 2 ))
+        point_mem  = int(self.precision * (self.miniB / self.kp_hidden_dim1) * 
+                        (self.G * self.D / self.kp_hidden_dim2) *
+                        (3 * 3 + 2 * 2 ))
         # 3(3 memory access per operation with two input and one output)
         # 3(mul +  add + mul) on critical path
         # 2(2 memory access per operation with one input and one output)
@@ -639,7 +657,7 @@ class TimeCalculation:
         
         point_comm = 0
         if (self.kp_softmax_dim2 > 1):
-          mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network') 
+          mem_transfer = self.roofline(0,  2 * data_size, name='Cf_kp2: memory accesses before and after data transfer over network') 
           data_transfer =  data_size / self.IBK2
           point_comm = mem_transfer + data_transfer
 
@@ -657,7 +675,7 @@ class TimeCalculation:
         #the critical path 
         # kp_hidden_dim2 is for the reduction sum operation after doing outer product
         # for (B,4D)x(4D,2D).This is outerproduct due to the data distribution.
-        point_mem  = ((self.precision * (self.miniB / self.kp_hidden_dim1) * 
+        point_mem  = int((self.precision * (self.miniB / self.kp_hidden_dim1) * 
                                        (self.G * self.D / self.kp_hidden_dim2) *
                                        (3 * 3 + 2 * 2))
                      + (2 * self.precision * self.D * self.G * self.D / self.kp_hidden_dim2) * 3) # local accumulation of wts
@@ -666,14 +684,14 @@ class TimeCalculation:
         # 2(2 memory access per operation with one input and one output)
         # 1(tanh) on critical path
    
-        data_size =  self.miniB * (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision
+        data_size =  int(self.miniB * (self.G * self.D / self.kp_hidden_dim2) * 4 * self.precision)
         #3 refers to the number of pointwise ops (mul + add +tanh + mul) on 
         #3 refers to the number of hops to gather i,f, o and c in each GPU
         #in order to perform (B,4D)x(4D,2D)
 
         point_comm = 0
         if (self.kp_softmax_dim2 > 1):
-          mem_transfer = self.roofline(0,  2 * data_size, name='memory accesses before and after data transfer over network') 
+          mem_transfer = self.roofline(0,  2 * data_size, name='Cb_kp2:memory accesses before and after data transfer over network') 
           data_transfer =  data_size / self.IBK2
           point_comm = mem_transfer + data_transfer
         
@@ -684,23 +702,23 @@ class TimeCalculation:
         GEMM_time, reduction_time = self.getDistGEMM_b_kp2(self.miniB, 2 * self.D, self.G * self.D, self.kp_hidden_dim1,self.kp_hidden_dim2, "Cb_kp2")
       
         if self.debug:
-            print("(gr) Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/G), int(point_mem/G)))
+            print("(gr) Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/1e9), int(point_mem/1e9)))
 
         return GEMM_time + reduction_time + point_time
 
 
 
-    def getCf(self):
+    def getCf(self, m, n, k):
         #Add Biad adds
         """Get LSTM Cell Time on Forward Path"""
-        transpose, GEMM_time = self.getGEMMTime(self.miniB, 2 * self.D, self.G * self.D, "Cf")
+        GEMM_time = self.getGEMMTime(m, k, n, "Cf")
 
         
-        point_flop = self.miniB * self.D * self.G * 5
+        point_flop = m * n * 5
         #1: add bias
-        #5/4: add nonlinearities, there is one more than the number of gates (self.G)
+        #5: add nonlinearities, there is one more than the number of gates (self.G)
         #1: pointwise muliply and add
-        point_mem  = (self.precision * self.miniB * self.D * self.G *
+        point_mem  = (self.precision * m * n *
                      (3 * 3 + 2 * 2 ))
         #3: 3 memory accesses for operands with two inputs and one output
         #2: 1 for bias add + 1 for pointwise mul
@@ -718,14 +736,14 @@ class TimeCalculation:
         if validating_GEMM:
           return GEMM_time
         else:
-          return GEMM_time + point_time
+          return GEMM_time[0] + point_time
 
 
    
     def getCb(self):
         """Get LSTM Cell Time on Backward Path"""
-        grad_act_transpose, grad_act_time = self.getGEMMTime(self. miniB, self.G * self.D, 2 * self.D, "Cb_act") 
-        grad_wt_transpose, grad_wt_time   = self.getGEMMTime(2 * self.D, self.miniB, self.G * self.D, "Cb_wt")
+        grad_act_time,_,_ = self.getGEMMTime(self. miniB, self.G * self.D, 2 * self.D, "Cb_act") 
+        grad_wt_time,_,_   = self.getGEMMTime(2 * self.D, self.miniB, self.G * self.D, "Cb_wt")
 
         
         GEMM_time = grad_act_time + grad_wt_time
@@ -783,7 +801,7 @@ class TimeCalculation:
             factor = (1/p if partial else 1)
             data_transfer = (((self.precision * Dim0 * Dim1)/ib + ll) * factor if p > 1 else 0)
             data_prep_comp = Dim0 * Dim1 * (p-1) * factor
-            data_prep_mem = (3 * self.precision * Dim0 * Dim1) * (p - 1) * factor
+            data_prep_mem = int((3 * self.precision * Dim0 * Dim1) * (p - 1) * factor)
             data_prep = self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime')
         else:
             #Assuming point-2-point link between consecutive data partitions
@@ -794,19 +812,21 @@ class TimeCalculation:
             #data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) * 
             #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
             factor = (1 if partial or not allReduce else 2)
-            mem_access  = self.roofline(0, 2 * self.precision * Dim0 * Dim1 / p, name='memory accesses before and after data transfer over network')
+            mem_access  = self.roofline(0, int(2 * self.precision * Dim0 * Dim1 / p), name='Reduction: memory accesses before and after data transfer over network')
             data_transfer  = float("inf") if (ib == 0) else ((((self.precision * Dim0 * Dim1) / p) / ib) + mem_access + ll) * factor * (p - 1)
             #dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
             
             #First round accumlates the updates as going around the ring
             data_prep_comp = (Dim0 * Dim1) / p
-            data_prep_mem  = (3 * self.precision * Dim0 * Dim1 / p)
+            data_prep_mem  = int(3 * self.precision * Dim0 * Dim1 / p)
             data_prep = ((self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime') + self.O) * (p - 1))
 
             
             #print("R1: {}, factor: {}\n".format(dt,factor))
         if self.debug:
-            print("(gr) allReduce_flop: {:,}, allReduce_mem: {:,}".format(int(data_prep_comp/G), int(data_prep_mem/G)))
+            print("Bandwidth: {:,} GB/s".format(ib/(1024*1024*1024)))
+            print("data_transfer_time: {:,}, data_prep_time: {:,}".format(data_transfer, (data_prep if allReduce else 0)))
+            print("(gr) allReduce_flop: {:,}, allReduce_mem: {:,}".format(int(data_prep_comp/1e9), int(data_prep_mem/1e9)))
 
         return data_transfer + (data_prep if allReduce else 0)
     
@@ -880,7 +900,7 @@ class TimeCalculation:
         return grad_time
 
     def getDistGEMM_f_kp1(self, m, k, n, dim1, name):
-        transpose, GEMM_time = self.getGEMMTime(m , k/dim1, n , name)
+        GEMM_time = self.getGEMMTime(m , k//dim1, n , name)
         
         #Sum-Reduce within each row for use in the next time step
         reduction_time = self.getR(Dim0 = m, 
@@ -890,7 +910,11 @@ class TimeCalculation:
                                    ll = self.LLK1,
                                    partial = True,
                                    allReduce = True)
-        return GEMM_time, reduction_time
+        if validating_GEMM:
+          print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
+          return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
+        else:
+          return GEMM_time[0], reduction_time
 
 
     def getDistGEMM_b_kp1(self, m, k, n, dim1, name):
@@ -906,9 +930,9 @@ class TimeCalculation:
                                    allReduce = False)
 
         #Multiply full grad_activation with shards of weights
-        grad_wt_transpose,  grad_wt_time  = self.getGEMMTime(k, m / dim1, n, name + "wt")
+        grad_wt_time,_,_  = self.getGEMMTime(k, (m // dim1), n, name + "wt")
         #Multiply full grad-activation with shards of activations 
-        grad_act_transpose, grad_act_time = self.getGEMMTime(m, n / dim1, k, name + "act")
+        grad_act_time,_,_ = self.getGEMMTime(m, (n // dim1), k, name + "act")
 
 
         GEMM_time = grad_wt_time + grad_act_time
@@ -916,15 +940,19 @@ class TimeCalculation:
         return GEMM_time, reduction_time
 
     def getDistGEMM_f_kp2(self, m, k, n, dim1, dim2, name):
-        transpose, GEMM_time = self.getGEMMTime(m / dim1, k, n / dim2, name)
-        reduction_time = self.getR(Dim0 = m / dim1, 
+        GEMM_time = self.getGEMMTime(m // dim1, k, n // dim2, name)
+        reduction_time = self.getR(Dim0 = m // dim1, 
                                    Dim1 = n,
                                    p = dim2,
                                    ib = self.IBK2,
                                    ll = self.LLK2,
                                    partial = False,
                                    allReduce = False)
-        return GEMM_time, reduction_time
+        if validating_GEMM:
+          print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
+          return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
+        else:
+          return GEMM_time[0], reduction_time
 
     def getDistGEMM_b_kp2(self, m, k, n, dim1, dim2, name):
         ######################################################################################
@@ -970,9 +998,9 @@ class TimeCalculation:
         reduction_time = reduction_time_wt1 + reduction_time_wt2 + reduction_time_act1 +reduction_time_act2
 
         #Multiply full grad_activation with shards of weights
-        grad_wt_transpose,  grad_wt_time  = self.getGEMMTime(k / dim1, m, n / dim2, name + "wt")
+        grad_wt_time,_,_  = self.getGEMMTime(k / dim1, m, n / dim2, name + "wt")
         #Multiply full grad-activation with shards of activations 
-        grad_act_transpose, grad_act_time = self.getGEMMTime(m / dim1, n, k / dim2, name + "act")
+        grad_act_time,_,_ = self.getGEMMTime(m / dim1, n, k / dim2, name + "act")
 
         GEMM_time = grad_wt_time + grad_act_time
 
@@ -1033,12 +1061,12 @@ class TimeCalculation:
     
     
     def getProjection_f(self):
-        transpose, GEMM_time = self.getGEMMTime(self.miniB, self.D, self.projection, "projection")
+        GEMM_time,_,_ = self.getGEMMTime(self.miniB, self.D, self.projection, "projection")
         return GEMM_time
 
     def getProjection_b(self):
-        grad_wt_transpose,  grad_wt_time  = self.getGEMMTime(self.projection, self.miniB, self.D, "projection_b_wt")
-        grad_act_transpose, grad_act_time = self.getGEMMTime(self.miniB, self.projection, self.D, "projection_b_act")
+        grad_wt_time,_,_  = self.getGEMMTime(self.projection, self.miniB, self.D, "projection_b_wt")
+        grad_act_time,_,_ = self.getGEMMTime(self.miniB, self.projection, self.D, "projection_b_act")
 
         GEMM_time = grad_wt_time + grad_act_time
         return GEMM_time
@@ -1078,7 +1106,7 @@ class TimeCalculation:
         return GEMM_time + reduction_time
 
     def getSoftmax_f(self):
-        transpose, GEMM_time = self.getGEMMTime(self.miniB, (self.projection if proj else self.D), self.V, "softmax_f")
+        GEMM_time,_,_ = self.getGEMMTime(self.miniB, (self.projection if proj else self.D), self.V, "softmax_f")
 
         #Final matrix after GEMM has (B, V) dimensionality
         #We get exponential on each of the elements in a row
@@ -1104,8 +1132,8 @@ class TimeCalculation:
 
     #FIXME: where is the reduction time?
     def getSoftmax_b(self):
-        grad_wt_transpose,  grad_wt_time  = self.getGEMMTime((self.projection if proj else self.D), self.miniB, self.V, "softmax_b_wt")
-        grad_act_transpose, grad_act_time = self.getGEMMTime(self.miniB, self.V, (self.projection if proj else self.D), "softmax_b_act")
+        grad_wt_time,_,_  = self.getGEMMTime((self.projection if proj else self.D), self.miniB, self.V, "softmax_b_wt")
+        grad_act_time,_,_ = self.getGEMMTime(self.miniB, self.V, (self.projection if proj else self.D), "softmax_b_act")
 
         GEMM_time = grad_wt_time + grad_act_time
         point_flop = self.miniB * self.V * 5
@@ -1383,7 +1411,7 @@ class TimeCalculation:
         self.readjust_type()
 
         if self.kp_hidden_type == -1:
-            Cf = self.getCf()
+            Cf = self.getCf(m = B, k = 2*D,  n = G*D)
             Cb = self.getCb()
             Tf = self.getInterLayerCommLatency(B, D) 
         elif self.kp_hidden_type == 1: #CR
@@ -1477,7 +1505,6 @@ class TimeCalculation:
 
     def getTime(self):
         return self.tot_time
-
 def callPerf(exp_config, exp_dir, debug):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
@@ -1507,25 +1534,43 @@ def callPerf(exp_config, exp_dir, debug):
 @click.option("--exp_config", help="Path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
-def main(exp_config, exp_dir, debug):
+@click.option("--m", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
+@click.option("--n", help="output dimension", default=32768, type=int, required=False) #only use for GEMM validation
+@click.option("--k", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation
+@click.option("--t", help="parallelism strategy (RC or CR)", default='None', type=str, required=False) #only use for GEMM validation
+@click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=1, type=int, required=False) #only use for GEMM validation
+@click.option("--kp2", help="RC:parallelism along output dimension", default=1, type=int, required=False) #only use for GEMM validation
+def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
+    output_file = exp_dir + "/summary.txt"
 
-    #try:
-    #    #print("Removing directory:" + exp_dir)
-    #    shutil.rmtree(exp_dir)
-    #except:
-    #    pass
-    #os.makedirs(exp_dir)
 
     TC = TimeCalculation(exp_config)
     TC.debug = debug
+
+    #Report GEMM time on fw path
+    if validating_GEMM:
+        
+        if kp1 == 1 and kp2 ==1: #no parallelism
+          gemm_time = TC.getCf(m, k, n)
+        elif t == 'CR':
+          gemm_time = TC.getDistGEMM_f_kp1(m, k, n, kp1, "Cf_CR")
+        elif t == 'RC':
+          gemm_time = TC.getDistGEMM_f_kp2(m, k, n, kp1, kp2, "Cf_RC")
+        else:
+          print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
+          sys.exit()
+          
+        with open(output_file, "w") as f:
+          f.write("Best Order: {}\n".format(gemm_time[1]))
+          f.write("Best Tile: {}\n".format(gemm_time[2]))
+          f.write("Time: {}\n".format(gemm_time[0]))
+        return
+
+
     tot_time, tot_param = TC.calcTime()
-
-    output_file = exp_dir + "/summary.txt"
-    
     TC.printSysConfig(exp_config, output_file)
-
     
     with open(output_file, "a+") as f:
         f.write("\n\n==============================================\n")
