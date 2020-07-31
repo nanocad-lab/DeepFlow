@@ -217,9 +217,7 @@ def getChipArea(exp_config_path, **kwargs):
     return chip_area_budget
 
 def power2RoundUp(x):
-  #TODO: This does not sound like an ideal option
-  #Ideally we want to round up to a value which is a multiply of factor of 2 and a number
-  #y = math.floor(math.pow(2,(math.ceil(math.log(x,2)))))
+  #round up to a value which is a multiply of power of 2 and an integer number (like 16*3)
   log_power = math.ceil(math.log(x,2))
   power_2   = [2**p for p in range(0, log_power)]
   min_dist  = x
