@@ -37,8 +37,10 @@ def all_gather(c, kern_para_a, kern_para_b, num_devices):
                     #tf.print("{}{} ::: {}{}" .format(j, (j-k+2*kern_para_b-1)%kern_para_b, (j-1)%kern_para_b, (j-k+2*kern_para_b-1)%kern_para_b))
 
         for j in range(kern_para_b):
-            c_new[i][j] = (tf.concat([tmp[i][j]],axis=0))
-        return c_new#, ret_val
+            with tf.device('/device:gpu:{}'.format((i*kern_para_b + j)%num_devices)):
+                c_new[i][j] = (tf.concat([tmp[i][j]],axis=1))
+        return c_new
+        #return tmp
 
 @tf.function
 def RC(m, k, n, kern_para_a, kern_para_b, num_devices, a_shards, b_shards):
