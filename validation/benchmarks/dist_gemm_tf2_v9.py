@@ -25,16 +25,22 @@ def all_gather(c, kern_para_a, kern_para_b, num_devices):
         tmp[i] = [None] * kern_para_b
         c_new[i] = [None] * kern_para_b
         for j in range(kern_para_b):
+            tmp[i][j] = [None] * kern_para_b
             with tf.device('/device:gpu:{}'.format((i*kern_para_b + j)%num_devices)):
-                tmp[i][j] = tf.identity(c[i][(j)%kern_para_b])
-                c_new[i][j] = c[i][j]
-        for j in range(kern_para_b-1):
-            with tf.device('/device:gpu:{}'.format((i*kern_para_b + j)%num_devices)):
-                tmp[i][j] = tf.identity(tmp[i][(j-1)%kern_para_b])
-                c_new[i][j] = (tf.concat([c_new[i][j], tmp[i][j]],axis=1))
-                #ret_val = tf.Variable(i*j)
+                tmp[i][j][j] = tf.identity(c[i][j])
+                #c_new[i][j] = c[i][j]
 
-        return c_new#, ret_val
+        for k in range(kern_para_b - 1):
+            for j in range(kern_para_b):
+                with tf.device('/device:gpu:{}'.format((i*kern_para_b + j)%num_devices)):
+                    tmp[i][j][(j-k+2*kern_para_b-1)%kern_para_b] = tf.identity(tmp[i][(j-1)%kern_para_b][(j-k+2*kern_para_b-1)%kern_para_b])
+                    #tf.print("{}{} ::: {}{}" .format(j, (j-k+2*kern_para_b-1)%kern_para_b, (j-1)%kern_para_b, (j-k+2*kern_para_b-1)%kern_para_b))
+
+        for j in range(kern_para_b):
+            with tf.device('/device:gpu:{}'.format((i*kern_para_b + j)%num_devices)):
+                c_new[i][j] = (tf.concat([tmp[i][j]],axis=1))
+        return c_new
+        #return tmp
 
 @tf.function
 def RC(m, k, n, kern_para_a, kern_para_b, num_devices, a_shards, b_shards):
