@@ -13,18 +13,18 @@ from tensorflow.keras.mixed_precision import experimental as mixed_precision
 #tf.debugging.set_log_device_placement(True)
 
 vocab_size = 1000
-seq_len = 10
+seq_len = 20
 batch_size = 1024
 hidden_size = 1024
-epochs = 1
+epochs = 5
 
 def prepare_data():
   # Load data
   (x_train, _), (x_test,_) = imdb.load_data(num_words=vocab_size)
 
   # Pad sequences
-  x_train = sequence.pad_sequences(x_train, maxlen=seq_len+1)[:batch_size]
-  x_test = sequence.pad_sequences(x_test, maxlen=seq_len+1)[:batch_size]
+  x_train = sequence.pad_sequences(x_train, maxlen=seq_len+1)
+  x_test = sequence.pad_sequences(x_test, maxlen=seq_len+1)
   num_seq = len(x_train)
 
   print("num_seq: {}".format(num_seq))
