@@ -16,10 +16,8 @@ from hw_component import Core, MemoryHierarchy, Network
 from model import Model
 
 algByte=False #algorithmic ops false
-proj=False #consider projection layer, turn off for validation
-tensorflow_overhead=750e-6 #0.75 u-seconds
-validating_GEMM=True #If you want to validate GEMM, turn on this variable and look at the Cf value in the debug model, last line
-
+proj=False #consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
+validating_v100=True
 
 class TimeCalculation:
     def __init__(self, exp_config):
@@ -93,6 +91,7 @@ class TimeCalculation:
         self.IBL, self.LLL      = ((derated_inter_throughput, inter_latency) if par2cross["lp"] else 
                                    (derated_intra_throughput, intra_latency)) 
         
+
         #Scheduling Parameters
         par                     = Parallelism(exp_config)
         par.findParallelStrategy()
@@ -112,6 +111,8 @@ class TimeCalculation:
         self.kp_embedding_type  = par.kp_embedding_type #1: CR, 2: RC
         self.kp_projection_type = par.kp_projection_type #1: CR, 2: RC
 
+
+
         #Define miniBatch size
         self.miniB              = math.ceil(self.B / self.dp)
 
@@ -120,7 +121,30 @@ class TimeCalculation:
         self.tot_mem            = 0
         self.tot_time           = 0
         self.debug              = False
-
+        self.validating_GEMM    = False
+    
+    def updateParams(self, debug, m, n, k, t, kp1, kp2, gemm):
+        self.debug = debug
+        self.validating_GEMM = gemm
+        self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
+        self.kp_hidden_dim2 = kp2 if kp2 != None else self.kp_hidden_dim2
+        self.kp_hidden_type = (2 if t == 'RC' else (1 if t == 'CR' else self.kp_hidden_type))
+        #TODO: decide if we want kp1, kp2 to control other layers besides hidden layer
+        #add ko_hidden_softmax, kp_hidden_embedding, etc...
+    
+        #TODO: need to change all equations to be a function of m,n and k
+        #self.D              = n//4
+        
+        print("kp1: {}".format(self.kp_hidden_dim1))
+        print("kp2: {}".format(self.kp_hidden_dim2))
+        #TODO: It is a hacky way of capturing assymetry across links within V100
+        #move this to network topology and distinguish between inter and intra network
+        if validating_v100:
+          self.IBK1 = util.scale_down(self.IBK1, self.kp_hidden_dim1, "kp1")
+          self.IBK2 = util.scale_down(self.IBK2, self.kp_hidden_dim2, "kp2")
+          self.IBD  = util.scale_down(self.IBD, self.dp, "dp")
+          self.IBL  = util.scale_down(self.IBL, self.lp, "lp")
+             
     #Number of parameters
     def tot_param(self):
         embedding = self.V * self.D
@@ -222,11 +246,10 @@ class TimeCalculation:
           f.write("\n\n====================\n")
           f.write("Parallelism Strategy\n")
           f.write("====================\n")
-          f.write("dp: {}, lp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
+          f.write("dp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
                   "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
                   "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
-                  .format(self.dp,
-                   self.lp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
+                  .format(self.dp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
                    self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
                    self.kp_projection_dim1, self.kp_projection_dim2))   
 
@@ -437,14 +460,9 @@ class TimeCalculation:
         reload_C = 1
 
         if tile1 > 0 and tile2 > 0 and tile3 > 0:
-           if  dim2 <= tile2:
-               reload_A = 1
-               reload_B = math.ceil(dim1 / tile1)
-               reload_C = 1
-           else:
-               reload_A = math.ceil(dim3 / tile3)
-               reload_B = math.ceil(dim1 / tile1)
-               reload_C = 1
+           reload_A = math.ceil(dim3 / tile3)
+           reload_B = math.ceil(dim1 / tile1)
+           reload_C = math.ceil(dim2 / tile2)
            
          
         num_mem = num_repeat * (dim1 * dim2 * reload_A + dim2 * dim3 * reload_B + dim1 * dim3 * reload_C) * self.precision
@@ -733,7 +751,7 @@ class TimeCalculation:
           print("Hidden point_flop: {:,}, point_mem: {:,}\n".format(int(point_flop/1e9), int(point_mem/gigaByte)))
           print("Hidden point_time: {:,}\n".format(point_time))
 
-        if validating_GEMM:
+        if self.validating_GEMM:
           return GEMM_time
         else:
           return GEMM_time[0] + point_time
@@ -755,7 +773,7 @@ class TimeCalculation:
         point_time = self.roofline(point_flop, point_mem, name='pointwise_Cb') + 5 * self.O
    
         if self.debug:
-            print("(gr) Hidden point_flop: {:,}, point_mem: {:,} ".format(int(point_flop/1e9), int(point_mem/1e9)))
+            print("(gr) Hidden/ point_flop: {:,}, point_mem: {:,} ".format(int(point_flop/1e9), int(point_mem/1e9)))
             print("Hidden point_time: {:,}\n".format(point_time))
 
         return GEMM_time + point_time
@@ -820,15 +838,21 @@ class TimeCalculation:
             data_prep_comp = (Dim0 * Dim1) / p
             data_prep_mem  = int(3 * self.precision * Dim0 * Dim1 / p)
             data_prep = ((self.roofline(data_prep_comp, data_prep_mem, name='R-prepTime') + self.O) * (p - 1))
+            
+            #all-gather-concat
+
+            data_concat_mem = 3 * Dim0 * Dim1 * self.precision
+            concat_time = ((self.roofline(0, data_concat_mem, name='all-gather-concat') + self.O))
 
             
             #print("R1: {}, factor: {}\n".format(dt,factor))
         if self.debug:
             print("Bandwidth: {:,} GB/s".format(ib/(1024*1024*1024)))
-            print("data_transfer_time: {:,}, data_prep_time: {:,}".format(data_transfer, (data_prep if allReduce else 0)))
-            print("(gr) allReduce_flop: {:,}, allReduce_mem: {:,}".format(int(data_prep_comp/1e9), int(data_prep_mem/1e9)))
+            print("data_transfer_time: {:,}, data_prep_time: {:,}, concat_time: {:,}".format(data_transfer, (data_prep if allReduce else 0), (concat_time if not allReduce else 0)))
+            print("(data_prep) allReduce_flop: {:,}, allReduce_mem: {:,}".format(int(data_prep_comp), int(data_prep_mem)))
+            print("(data_transfer) {:,}".format(int(self.precision * Dim0 * Dim1 / (p))))
 
-        return data_transfer + (data_prep if allReduce else 0)
+        return data_transfer + (data_prep if allReduce else 0) + (concat_time if not allReduce else 0)
     
     def gradClipping(self, Dim0 = None, Dim1 = None, name = None):
         if (Dim0 == None):
@@ -906,11 +930,11 @@ class TimeCalculation:
         reduction_time = self.getR(Dim0 = m, 
                                    Dim1 = n,
                                    p = dim1,
-                                   ib = self.IBK1,
+                                   ib = ib,
                                    ll = self.LLK1,
                                    partial = True,
                                    allReduce = True)
-        if validating_GEMM:
+        if self.validating_GEMM:
           print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
           return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
         else:
@@ -948,7 +972,7 @@ class TimeCalculation:
                                    ll = self.LLK2,
                                    partial = False,
                                    allReduce = False)
-        if validating_GEMM:
+        if self.validating_GEMM:
           print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
           return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
         else:
@@ -1528,8 +1552,6 @@ def callPerf(exp_config, exp_dir, debug):
         f.write("Time: {0:.8f}\n".format(tot_time))
         f.write("Params (Billion): {0:.8f}\n".format(tot_param/1e9))
 
- 
-
 @click.command("standalone")        
 @click.option("--exp_config", help="Path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
@@ -1538,19 +1560,20 @@ def callPerf(exp_config, exp_dir, debug):
 @click.option("--n", help="output dimension", default=32768, type=int, required=False) #only use for GEMM validation
 @click.option("--k", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation
 @click.option("--t", help="parallelism strategy (RC or CR)", default='None', type=str, required=False) #only use for GEMM validation
-@click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=1, type=int, required=False) #only use for GEMM validation
-@click.option("--kp2", help="RC:parallelism along output dimension", default=1, type=int, required=False) #only use for GEMM validation
-def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2):
+@click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--kp2", help="RC:parallelism along output dimension", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False) #only use for GEMM validation
+def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
     output_file = exp_dir + "/summary.txt"
 
 
     TC = TimeCalculation(exp_config)
-    TC.debug = debug
+    TC.updateParams(debug, m, n, k, t, kp1, kp2, gemm)
 
     #Report GEMM time on fw path
-    if validating_GEMM:
+    if TC.validating_GEMM:
         
         if kp1 == 1 and kp2 ==1: #no parallelism
           gemm_time = TC.getCf(m, k, n)
@@ -1567,7 +1590,6 @@ def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2):
           f.write("Best Tile: {}\n".format(gemm_time[2]))
           f.write("Time: {}\n".format(gemm_time[0]))
         return
-
 
     tot_time, tot_param = TC.calcTime()
     TC.printSysConfig(exp_config, output_file)
