@@ -49,7 +49,7 @@ def file_to_word_ids(filename, window_len=20, vocab_size=40000, start_char=1, oo
 
         indexed_data.append(tokens)
 
-    indexed_data = np.array(indexed_data)
+    indexed_data = np.array(indexed_data, dtype=np.int32)
     return indexed_data
 
 
@@ -120,7 +120,7 @@ class BatchGenerator(object):
             self.id = 0
           tmp_x = self.data[self.id : self.id + self.batch_size]
           tmp_y = [s[1:] for s in tmp_x]  
-          x      = np.array([s[:-1] for s in tmp_x], dtype=int)
+          x      = np.array([s[:-1] for s in tmp_x], dtype=np.int32)
           for i, s  in enumerate(tmp_y):
             y[i,:,:] = to_categorical(s, num_classes=self.vocab_size)
 

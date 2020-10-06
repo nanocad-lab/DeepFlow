@@ -10,14 +10,14 @@ import tensorflow as tf
 import time as _time
 import timeit
 
+tf.debugging.set_log_device_placement(True)
+v = tf.Variable(1)
+
 @tf.function
 def matmul(a, b, gid):
   with tf.device('/GPU:{}'.format(gid)):
     return tf.matmul(a,b)
 
-tf.debugging.set_log_device_placement(True)
-
-@tf.function
 def all_gather(c, kern_para_a, kern_para_b, num_devices):
     tmp = [None] * kern_para_a
     c_new = [None] * kern_para_a
@@ -39,48 +39,30 @@ def all_gather(c, kern_para_a, kern_para_b, num_devices):
         for j in range(kern_para_b):
             with tf.device('/device:gpu:{}'.format((i*kern_para_b + j)%num_devices)):
                 c_new[i][j] = (tf.concat([tmp[i][j]],axis=1))
-        return c_new
-        #return tmp
+    return c_new
 
 @tf.function
 def RC(m, k, n, kern_para_a, kern_para_b, num_devices, a_shards, b_shards):
         c = [None] * kern_para_a
-        c_final = [None] * kern_para_a
-        c_final_dist = [None] * kern_para_a
         for i in range(kern_para_a):
             c[i] = [None] * kern_para_b
-            #c_final_dist[i] = [None] * kern_para_b
             for j in range(kern_para_b):
                 gid = i * kern_para_b + j
                 with tf.device('/device:gpu:{}'.format(gid%num_devices)):
                     c[i][j] = tf.matmul(a_shards[i][j], b_shards[i][j])
-                #ret_val = tf.constant(i*j)
-            #with tf.device('/device:gpu:{}'.format((i * kern_para_b)%num_devices)):
-            #    c_final[i] = tf.concat(c[i],axis=1)
+        c_new = all_gather(c, kern_para_a, kern_para_b, num_devices)
+        return c_new
 
-            #for j in range(kern_para_b):
-            #    gid = i * kern_para_b + j
-            #    with tf.device('/device:gpu:{}'.format(gid%num_devices)):
-            #        #c_final_dist[i][j].assign(c_final[i])
-            #        c[i][j].assign(c_final[i])
-            #        ret_val = tf.constant(i+1)
-        #c_new, ret_val = all_gather(c, kern_para_a, kern_para_b, num_devices)
-        if kern_para_b == 1:
-            #if ret_val > 0:
-            #    tf.print("Time Taken: {}" .format(tf.timestamp()))
-            return c
-        else:
-            c_new = all_gather(c, kern_para_a, kern_para_b, num_devices)
-            return c_new
-            #c_new = c
-        #if c_new[0][0] is None: 
-        #if ret_val>0:
-        #    tf.print("Time taken: {}" .format(tf.timestamp()))
-            #tot_time = tf.timestamp() - start
-        #else:
-        #    tf.print("Time taken now: {}" .format(tf.timestamp()))
-
+#@tf.function
+def Col(m, k, n, kern_para_a, kern_para_b, num_devices, a_shards, b_shards):
+        c = [None] * kern_para_a
+        #v.assign_add(1)
+        for i in range(kern_para_a):
+            with tf.device('/device:gpu:{}'.format(i%num_devices)):
+                c[i] = tf.matmul(a_shards[i][0], b_shards[i][0])
+            
         return c
+
 
 @tf.function
 def CR(m, k, n, kern_para_a, num_devices, a_shards, b_shards):
@@ -104,9 +86,9 @@ def main():
     parser.add_argument('-kp1', '--kern_para_a', type=int, required=False, default=1, help="for RC: parallelism along input dimension; for CR: parallelism along the inner dimension")
     parser.add_argument('-kp2', '--kern_para_b', type=int, required=False, default=1, help="for RC: parallelism along the outpiut dimension; for CR: NA")
     parser.add_argument('-N', '--num_gpus', type=int, required=False, default=1, help="Number of GPUs available for parallelization")
-    parser.add_argument('-m', '--input_dim', type=int, required=False, default=16384, help="input dimension")
-    parser.add_argument('-n', '--output_dim', type=int, required=False, default=16384, help="output dimension")
-    parser.add_argument('-k', '--inner_dim', type=int, required=False, default=16384, help="inner dimension")
+    parser.add_argument('-m', '--input_dim', type=int, required=False, default=32768, help="input dimension")
+    parser.add_argument('-n', '--output_dim', type=int, required=False, default=32768, help="output dimension")
+    parser.add_argument('-k', '--inner_dim', type=int, required=False, default=32768, help="inner dimension")
 
     args = parser.parse_args()
 
@@ -136,6 +118,9 @@ def main():
 
       a_dim = (m//kern_para_a, k)
       w_dim = (k, n//kern_para_b)
+
+      print("a_dim: {}".format(a_dim))
+      print("b_dim: {}".format(w_dim))
 
       for i in range(kern_para_a):
         activs[i] = [None] * kern_para_b
@@ -172,15 +157,13 @@ def main():
     #Measure time
 
 
-    for i in range(10):
+    for i in range(100):
        start = _time.perf_counter()
-       #if kern_para_a == 1 and kern_para_b == 1:
-       #    c_final = matmul(activs, weights, 0)
        if op_type == "RC":
-           c_final = RC(m, k, n, kern_para_a, kern_para_b, num_devices, activs, weights)
-           #print("Ret Val: {}" .format(c_final))
-           #if ret_val:
-           #  _ = ret_val.numpy()
+           if kern_para_b == 1:
+              Col(m, k, n, kern_para_a, kern_para_b, num_devices, activs, weights)
+           elif kern_para_b > 1:
+              c_final = RC(m, k, n, kern_para_a, kern_para_b, num_devices, activs, weights)
 
        elif op_type == "CR":
            c_final = CR(m, k, n, kern_para_a, num_devices, activs, weights)
