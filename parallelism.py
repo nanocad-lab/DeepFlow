@@ -30,6 +30,7 @@ class Parallelism():
         else:
             print("Scheduling types supported are None/False/greedy/dynamic")
             return NotImplemented
+
     
     def dynamic(self):
         print("Dynamic Programming Scheduling Not Implemented yet!")

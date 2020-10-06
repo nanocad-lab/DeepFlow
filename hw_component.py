@@ -60,7 +60,7 @@ class Memory(Base):
   def getPower2TileDims(self):
       np.random.seed(1)
       tile_dim_candidates = set()
-      num_candidates = 0 #50
+      num_candidates = 20 #20 #50
       M = self.size_per_bundle / self.precision
       max_power = int(math.floor(math.log2(M)))
       
@@ -138,6 +138,7 @@ class Core(Base):
       #TODO: Define it as a function of precision
       self.nominal_flop_rate_per_mcu    = exp_config.tech_config.core.nominal_flop_rate_per_mcu
       self.nominal_power_per_mcu        = exp_config.tech_config.core.nominal_power_per_mcu
+      self.util                         = exp_config.tech_config.core.util
       
 
       #self.operating_voltage            = exp_config.tech_config.core.operating_voltage
@@ -232,6 +233,7 @@ class DRAM(Memory):
       self.area_per_stack             = exp_config.tech_config.DRAM.area_per_stack
       self.latency                    = exp_config.tech_config.DRAM.latency
       self.scope                      = mem_config.scope
+      self.util                       = exp_config.tech_config.DRAM.util
       self.nominal_freq               = exp_config.tech_config.DRAM.nominal_frequency
       self.nominal_voltage            = exp_config.tech_config.DRAM.nominal_voltage
       self.threshold_voltage          = exp_config.tech_config.DRAM.threshold_voltage
@@ -293,7 +295,7 @@ class DRAM(Memory):
   def calcThroughput(self):
       self.dynamic_throughput         = 0 if (self.size == 0) else self.num_links * self.operating_freq / 8
       self.stack_bw                   = 0 if self.num_stacks == 0 else self.dynamic_throughput  / self.num_stacks
-      self.throughput                 = self.dynamic_throughput * util.DRAM
+      self.throughput                 = self.dynamic_throughput * self.util
   
   def calcSize(self):
       #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
@@ -432,6 +434,7 @@ class SubNetwork(Base):
       self.threshold_voltage          = net_config.threshold_voltage
       self.margin_voltage             = net_config.margin_voltage
       self.num_links_per_mm           = net_config.num_links_per_mm
+      self.util                       = net_config.util
       self.inter                      = True if netLevel == 'inter' else False
       self.intra                      = True if netLevel == 'intra' else False
 
@@ -481,5 +484,5 @@ class SubNetwork(Base):
       #4 edges comes out of each node on wafer since we assume a mesh topology
       #1 edges for cross-wafer as each node is connected to only one node on the other wafer (mesh extension)
       degree = 4 if self.intra else 1
-      throughput                      = (self.num_links * self.operating_freq)/(8 * degree) 
+      throughput                      = (self.num_links * self.operating_freq * self.util)/(8 * degree)
       return throughput

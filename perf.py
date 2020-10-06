@@ -123,7 +123,18 @@ class TimeCalculation:
         self.debug              = False
         self.validating_GEMM    = False
     
-    def updateParams(self, debug, m, n, k, t, kp1, kp2, gemm):
+    def updateParams(self, debug, m, n, k, t, kp1, kp2, gemm,
+                      batch_size, hidden_dim, seq_len, vocab_size, num_layer):
+
+        self.B = batch_size
+        self.D = hidden_dim
+        self.S = seq_len
+        self.V = vocab_size
+        self.L = num_layer
+        
+        #Define miniBatch size
+        self.miniB              = math.ceil(self.B / self.dp)
+        
         self.debug = debug
         self.validating_GEMM = gemm
         self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
@@ -1563,14 +1574,20 @@ def callPerf(exp_config, exp_dir, debug):
 @click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=None, type=int, required=False) #only use for GEMM validation
 @click.option("--kp2", help="RC:parallelism along output dimension", default=None, type=int, required=False) #only use for GEMM validation
 @click.option("--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False) #only use for GEMM validation
-def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm):
+@click.option("--batch_size", help="Total Batch Size", default=4096, type=int, required=False)
+@click.option("--hidden_dim", help="Hidden Dimension per LSTM layer", default=19968, type=int, required=False)
+@click.option("--seq_len", help="Number of times to unroll LSTM", default=20, type=int, required=False)
+@click.option("--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False)
+@click.option("--num_layer", help="number of lstm layers", default=2, type=int, required=False)
+def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
     output_file = exp_dir + "/summary.txt"
 
 
     TC = TimeCalculation(exp_config)
-    TC.updateParams(debug, m, n, k, t, kp1, kp2, gemm)
+    TC.updateParams(debug, m, n, k, t, kp1, kp2, gemm, 
+                    batch_size, hidden_dim, seq_len, vocab_size, num_layer)
 
     #Report GEMM time on fw path
     if TC.validating_GEMM:

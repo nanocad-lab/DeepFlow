@@ -229,3 +229,17 @@ def power2RoundUp(x):
       min_val = a * i
       min_dist = dist
   return min_val
+
+#TODO: move this topology
+#this only works if all connections are inter-wafer like V100
+def scale_down(ib, dim, name):
+  bw = -1
+  if dim <= 4:
+    bw = ib / 2
+  elif dim <= 8:
+    bw = ib / 5
+  else:
+    NotImplemented()
+    exit(0)
+  print('{} Bandwidth: {}'.format(name, bw/(1024*1024*1024)))
+  return bw

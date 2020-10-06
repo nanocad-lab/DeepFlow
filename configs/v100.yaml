@@ -1,10 +1,10 @@
 model_param:
-    batch_size: 32768
-    vocab_size: 800000
-    num_layers: 2
-    layer_size: 8192
+    batch_size: 64
+    vocab_size: 40000
+    num_layers: 1
+    layer_size: 4096
     projection: 2048
-    seq_len: 20
+    seq_len: 10
     num_gates: 4
     num_non_linear: 5
     num_add: 8
@@ -24,7 +24,7 @@ tech_param:
         threshold_voltage: 0.2 
         margin_voltage: 0.35
         operating_area_per_mcu: 0.11
-        num_mcu_per_bundle: 8   #a bundle can be thought of as an SM, number of tensorcores per SM
+        num_mcu_per_bundle: 8 #a bundle can be thought of as an SM, number of tensorcores per SM
         FMA_width: 4            #tensorcore width
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
         util: 1 #util should be 0.75 (12/16) for tensorcore
@@ -94,7 +94,7 @@ tech_param:
           num_links_per_mm: 20 #Assuming 4 layers on PCB and 200 um pitch for high speed signalling
           threshold_voltage: 0.35
           margin_voltage: 0.5
-          util: 1
+          util: 0.96
 area_breakdown:
     node_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
@@ -116,7 +116,7 @@ power_breakdown:
     reg_mem: 0.0055
     network:
       intra_node: 0.0
-      inter_node: 0.056
+      inter_node: 0.00935
 
 perimeter_breakdown:
     DRAM: 0.5
@@ -134,7 +134,7 @@ system_hierarchy:
     lp_inter: False
 
 network_topology:
-    inter_wafer: "crossbar" #mesh, torus, crossbar, custom, hierarchical
+    inter_wafer: "hic" #mesh, torus, crossbar, custom, hierarchical
     intra_wafer: "none"
 
 memory_hierarchy:
