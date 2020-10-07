@@ -195,7 +195,7 @@ class Core(Base):
      f.write("voltage_lowerbound: {0:.2f}\n".format(self.threshold_voltage + self.margin_voltage))
      f.write("#mcu: {0:5d}, #bundles: {1:5d}\n".format(self.num_mcu, self.num_bundle))
      f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
-     f.write("eff_power: {0:.2f} (mm2), tot_power: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+     f.write("eff_power: {0:.2f} (watt), tot_power: {1:.2f} (watt), util: {2:.2f}%\n".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 
 
 class MemoryHierarchy(Base):
@@ -325,7 +325,7 @@ class DRAM(Memory):
       f.write("stack_bandwidth: {0:9.2f} (GB/s)\t stack_capacity: {1:9.2f} (GB)\n".format(self.stack_bw/8/giga, self.stack_capacity/giga))
       f.write("eff_ctrl_area: {0:11.2f} (mm2)\t tot_ctrl_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%\n".format(self.eff_ctrl_area, self.tot_mem_ctrl_area, self.eff_ctrl_area/self.tot_mem_ctrl_area * 100 ))
       f.write("eff_stack_area: {0:11.2f} (mm2)\t tot_stack_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%\n".format(self.eff_stack_area, self.tot_area, self.eff_stack_area/self.tot_area * 100 ))
-      f.write("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (mm2)\t tot_power: {3:.2f} (mm2)\t\t util: {4:.2f}%\n".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+      f.write("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (watt)\t tot_power: {3:.2f} (watt)\t\t util: {4:.2f}%\n".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 
 
 class SRAM(Memory):
