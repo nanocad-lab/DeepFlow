@@ -189,7 +189,7 @@ class TimeCalculation:
                   f.write("L{:} Bandwidth: {:.1f} TB/s\n".format(i, mem_bw/(teraByte)))
 
               if mem_size < 1e3 * megaByte:
-                  f.write("L{:} Size: {:.1f} MB\n".format(i, mem_size/(megaByte)))
+                  f.write("L{:} Size: {:.10f} MB\n".format(i, mem_size/(megaByte)))
               elif mem_size < 1e3 * gigaByte:
                   f.write("L{:} Size: {:.1f} GB\n".format(i, mem_size/(gigaByte)))
               else:
@@ -319,6 +319,7 @@ class TimeCalculation:
         
         if self.debug:
             print('{}: {}'.format(name, max_time))
+            print('GEMM flops: {:,}'.format(flop))
             for i in range(0, num_level):
                 print("L{}".format(i))
                 print("inflection_point: {:.2f}".format(inflection_point[i]))
@@ -473,7 +474,8 @@ class TimeCalculation:
         if tile1 > 0 and tile2 > 0 and tile3 > 0:
            reload_A = math.ceil(dim3 / tile3)
            reload_B = math.ceil(dim1 / tile1)
-           reload_C = math.ceil(dim2 / tile2)
+           #do not access the slow memory on every write,acculmuate in fast memory 
+           reload_C = (1 if level > 1 else math.ceil(dim2 / tile2))
            
          
         num_mem = num_repeat * (dim1 * dim2 * reload_A + dim2 * dim3 * reload_B + dim1 * dim3 * reload_C) * self.precision
@@ -1531,7 +1533,7 @@ class TimeCalculation:
         bw_roots = g.construct_bwd_graph()
 
         time_fw = g.simulate(fw_roots[0], 0)
-        time_bw = g.simulate(bw_roots[g.num_seq - 1], g.lp + 1)
+        time_bw = g.simulate(bw_roots[g.num_seq - 1], g.lp - 1)
        
         self.tot_time  = time_fw + time_bw
         tot_param = self.tot_param()

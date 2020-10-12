@@ -36,7 +36,10 @@ class Graph:
     self.num_seq = num_seq
     self.num_layer = num_layer
     self.lp = lp
-    self.layer_per_device = math.ceil(num_layer / lp)
+    hlp = lp
+    if lp > 2:
+      hlp = lp - 2
+    self.layer_per_device = math.ceil(num_layer / hlp)
     self.Ef = Ef
     self.Cf = Cf
     self.Sf = Sf
@@ -58,12 +61,12 @@ class Graph:
     #Create Nodes
     for i in range(0, self.num_seq):
       embedding_node.append(Node("embedding", i, 0, self.Ef))
-      softmax_node.append(Node("softmax", i, self.lp + 1, self.Sf))
+      softmax_node.append(Node("softmax", i, self.lp - 1, self.Sf))
     
     for i in range(0, self.num_layer):
       rnn_node.append([])
       for j in range(0, self.num_seq):
-        rnn_node[i].append(Node("lstm_cell", i * self.num_seq + j, int(i // self.layer_per_device) + 1, self.Cf))
+        rnn_node[i].append(Node("lstm_cell", i * self.num_seq + j, (0 if self.lp == 1 else int(i // self.layer_per_device) + 1), self.Cf))
 
 
     #Create Edges
@@ -81,12 +84,12 @@ class Graph:
         
     #Edges across layers
     for i in range(0, self.num_seq):
-      E2H_edge.append(Edge("E2H_edge", i, 0, self.Tf))
-      H2S_edge.append(Edge("H2S_edge", i, self.lp, self.Tf))
+      E2H_edge.append(Edge("E2H_edge", i, (-1 if self.lp == 1 else 0), self.Tf))
+      H2S_edge.append(Edge("H2S_edge", i, self.lp-2, self.Tf))
     
     for i in range(0, self.num_layer-1):
       rnn_edge_cross.append([])
-      cross_edge = True if (i+1) % self.layer_per_device == 0 else False
+      cross_edge = True if (i+1) % self.layer_per_device == 0 and self.lp > 1 else False
       for j in range(0, self.num_seq):
         rnn_edge_cross[i].append(Edge("cross_edge", 
                                         i * self.num_seq + j, 
@@ -148,12 +151,12 @@ class Graph:
     #Create Nodes
     for i in range(0, self.num_seq):
       embedding_node.append(Node("embedding", i, 0, self.Eb))
-      softmax_node.append(Node("softmax", i, self.lp + 1, self.Sb))
+      softmax_node.append(Node("softmax", i, self.lp - 1, self.Sb))
     
     for i in range(0, self.num_layer):
       rnn_node.append([])
       for j in range(0, self.num_seq):
-        rnn_node[i].append(Node("lstm_cell", i * self.num_seq + j, int (i // self.layer_per_device) + 1, self.Cb))
+        rnn_node[i].append(Node("lstm_cell", i * self.num_seq + j, (0 if self.lp ==1 else int (i // self.layer_per_device) + 1), self.Cb))
 
 
     #Create Edges
@@ -171,12 +174,12 @@ class Graph:
         
     #Edges across layers
     for i in range(0, self.num_seq):
-      H2E_edge.append(Edge("H2E_edge", i, 0, self.Tf))
-      S2H_edge.append(Edge("S2H_edge", i, self.lp, self.Tf))
+      H2E_edge.append(Edge("H2E_edge", i, (-1 if self.lp == 1 else 0), self.Tf))
+      S2H_edge.append(Edge("S2H_edge", i, self.lp-2, self.Tf))
     
     for i in range(0, self.num_layer-1):
       rnn_edge_cross.append([])
-      cross_edge = True if (i+1) % self.layer_per_device == 0 else False
+      cross_edge = True if (i+1) % self.layer_per_device == 0 and self.lp > 1 else False
       for j in range(0, self.num_seq):
         rnn_edge_cross[i].append(Edge("cross_edge", 
                                         i * self.num_seq + j, 
@@ -203,12 +206,12 @@ class Graph:
     #All-Reduce Edges
     R_edge = []
 
-    R_edge.append(Edge("Reduce_Embedding", 0, self.lp + 1, self.Re))
+    R_edge.append(Edge("Reduce_Embedding", 0, self.lp - 1, self.Re))
 
     for i in range(0, self.num_layer):
-      R_edge.append(Edge("Reduce_H", i, int(i // self.layer_per_device) + self.lp + 2, self.Rc))
+      R_edge.append(Edge("Reduce_H", i, (0 if self.lp == 1 else int(i // self.layer_per_device) + self.lp) , self.Rc))
     
-    R_edge.append(Edge("Reduce_Softmax", 0, 2 * self.lp + 2, self.Rs))
+    R_edge.append(Edge("Reduce_Softmax", 0, 2 * self.lp - 2, self.Rs))
 
     #Attach Nodes to Edges Horizontally
     for j in range(0, self.num_layer):
@@ -259,8 +262,9 @@ class Graph:
     #  ready_list.append(r)
     ready_list.append(root)
 
-    GPU_list = [True for i in range(0, self.lp + 2)]
-    link_list = [True for i in range(0, 2 * self.lp + 3)]
+
+    GPU_list = [True for i in range(0, self.lp)]
+    link_list = [True for i in range(0, 2 * self.lp - 1)]
     
     heappush(event_queue, (root.duration, counter, root))
     ready_list.remove(root)
