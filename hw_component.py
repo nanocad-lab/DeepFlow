@@ -34,12 +34,13 @@ class Base:
     return real_roots[0]
 
 class Memory(Base):
-  def __init__(self, exp_config):
+  def __init__(self, exp_config, level):
       super().__init__(exp_config)
       self.size                     = -1
       self.tile_dim                 = -1
       self.latency                  = -1
       self.core                     = Core(self.exp_config)
+      self.level                    = level
 
   def getSize(self):
       assert(self.size != -1)
@@ -60,7 +61,7 @@ class Memory(Base):
   def getPower2TileDims(self):
       np.random.seed(1)
       tile_dim_candidates = set()
-      num_candidates = 20 #20 #50
+      num_candidates = 20  #50
       M = self.size_per_bundle / self.precision
       max_power = int(math.floor(math.log2(M)))
       
@@ -73,7 +74,13 @@ class Memory(Base):
           z = -1
           while(z < 0):
             s = [pow(2, i) for i  in np.random.randint(0, max_power, 2)]
-            z = math.floor((M - s[0] * s[1]) / (s[0] + s[1]))
+            #store goes through cache at level 0 and 1 (register and shared memory)
+            assert(self.level >= 0 and self.level <= 3)
+            if self.level <= 1:
+              z = math.floor((M - s[0] * s[1]) / (s[0] + s[1]))
+            else:
+            #store bypasses cache, directly goes to memory 
+              z = math.floor((M - s[0] * s[1]) / s[1])
             
             if z <= 0:
               continue
@@ -120,7 +127,7 @@ class Memory(Base):
       self.size_per_bundle            = 0 if (divisor == 0) else self.size / divisor
       
       if (self.size > 0):
-          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 3), 2))))
+          self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 2), 2))))
           #self.tile_dim = math.floor(math.sqrt((self.size_per_bundle / self.precision) / 3))
  
 
@@ -208,20 +215,20 @@ class MemoryHierarchy(Base):
         mem_config = exp_config.memory_hierarchy.mem_hr[level]
 
         if mem_config.type == 'DRAM':
-          self.memLayer[level] = DRAM(exp_config, mem_config)
+          self.memLayer[level] = DRAM(exp_config, mem_config, level)
         elif mem_config.type == 'SRAM-R':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.reg_mem, exp_config.area_breakdown.reg_mem, exp_config.tech_config.SRAMR, mem_config)
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.reg_mem, exp_config.area_breakdown.reg_mem, exp_config.tech_config.SRAMR, mem_config, level)
         elif mem_config.type == 'SRAM-L1':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L1, exp_config.area_breakdown.L1, exp_config.tech_config.SRAML1, mem_config)
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L1, exp_config.area_breakdown.L1, exp_config.tech_config.SRAML1, mem_config, level)
         elif mem_config.type == 'SRAM-L2':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L2, exp_config.area_breakdown.L2, exp_config.tech_config.SRAML2, mem_config)
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L2, exp_config.area_breakdown.L2, exp_config.tech_config.SRAML2, mem_config, level)
         else:
           NotImplemented()
       
 
 class DRAM(Memory):
-  def __init__(self, exp_config, mem_config):
-      super().__init__(exp_config)
+  def __init__(self, exp_config, mem_config, level):
+      super().__init__(exp_config, level)
       self.tot_power                  = exp_config.power_breakdown.DRAM * self.TDP
       self.tot_area                   = exp_config.area_breakdown.node_area_budget - self.proc_chip_area_budget
       self.tot_mem_ctrl_area          = self.proc_chip_area_budget * exp_config.area_breakdown.DRAM
@@ -329,8 +336,8 @@ class DRAM(Memory):
 
 
 class SRAM(Memory):
-  def __init__(self, exp_config, power_config, area_config, tech_config, mem_hierarchy_config):
-      super().__init__(exp_config)
+  def __init__(self, exp_config, power_config, area_config, tech_config, mem_hierarchy_config, level):
+      super().__init__(exp_config, level)
       self.tot_power                  = power_config * self.TDP
       self.tot_area                   = area_config * self.proc_chip_area_budget
       self.dynamic_energy_per_bit     = tech_config.dynamic_energy_per_bit
