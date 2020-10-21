@@ -13,7 +13,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 from tensorflow.keras.callbacks import ModelCheckpoint
 import datetime
-
+from statistics import mean
 
 
 #tf.debugging.set_log_device_placement(True)
@@ -128,6 +128,18 @@ class BatchGenerator(object):
           yield x, y
 
 
+class TimeHistory(tf.keras.callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self.times = []
+
+    def on_epoch_begin(self, batch, logs={}):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, batch, logs={}):
+        self.times.append(time.time() - self.epoch_time_start)
+
+
+
 def build_model(batch_size, hidden_size, window_len, vocab_size, num_hidden_layers):
     print("=================================================================")
     print("Building Model")
@@ -231,7 +243,10 @@ def main():
       print("================")
       print("Training...")
       print("================")
-      train_history  = model.fit(x=train_dataset, steps_per_epoch=bpe, epochs=num_epoch, shuffle=False) #, callbacks=[tb_callback])
+      time_callback = TimeHistory()
+      train_history  = model.fit(x=train_dataset, steps_per_epoch=bpe, epochs=num_epoch, shuffle=False, callbacks=[time_callback])
+      print("Time: {}".format(time_callback.times))
+      print("Avg: {}".format(mean(time_callback.times[1:])))
 
       #train_history = model.fit(x = train_data_generator.generate(), steps_per_epoch=bpe, 
       #                          epochs=num_epoch, shuffle=False)

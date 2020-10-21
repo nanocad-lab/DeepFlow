@@ -190,7 +190,7 @@ class Core(Base):
 
   def calcThroughput(self):
      self.operating_throughput         = self.operating_flop_rate_per_mcu * self.operating_freq * self.num_mcu
-     self.throughput                   = self.operating_throughput * util.core
+     self.throughput                   = self.operating_throughput * self.util
 
   def printStats(self, f):
      self.eff_power              = self.num_mcu * self.operating_power_per_mcu
@@ -383,7 +383,7 @@ class SRAM(Memory):
 
   def calcThroughput(self):
       self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
-      self.throughput                 = self.dynamic_throughput * util.L2
+      self.throughput                 = self.dynamic_throughput * self.util
 
       self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
   

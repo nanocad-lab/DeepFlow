@@ -50,7 +50,9 @@ class TimeCalculation:
         self.num_levels          = self.memoryHierarchy.num_levels
         self.memLayer            = self.memoryHierarchy.memLayer
         self.tileSpace           = self.generateTileSpace()
-       
+      
+        self.H2Dbw               = 12.4*1024*1024*1024 
+
         #System Parameters
         self.num_wafer          = exp_config.system_config.num_wafers
         self.num_workers        = exp_config.system_config.num_workers
@@ -1331,9 +1333,10 @@ class TimeCalculation:
         embedding_mem = 2 * (self.miniB * self.D * self.precision)
         #embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         embedding_time = self.roofline(0, embedding_mem, name='embedding_f') + self.O
+        embedding_transfer_time = 2 * self.miniB * self.D * self.precision / self.H2Dbw
         if self.debug:
             print("Embedding_mem: {:,}".format(int(embedding_mem/1e9)))
-        return embedding_time
+        return embedding_time + embedding_transfer_time
 
 
     def getEmbedding_b(self):
