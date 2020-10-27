@@ -125,7 +125,7 @@ class TimeCalculation:
         self.debug              = False
         self.validating_GEMM    = False
     
-    def updateParams(self, debug, m, n, k, t, kp1, kp2, gemm,
+    def updateParams(self, debug, m, n, k, t, kp1, kp2, dp, lp, gemm,
                       batch_size, hidden_dim, seq_len, vocab_size, num_layer):
 
         self.B = batch_size
@@ -135,16 +135,30 @@ class TimeCalculation:
         self.L = num_layer
         
         #Define miniBatch size
+        self.dp = dp if dp != None else self.dp
         self.miniB              = math.ceil(self.B / self.dp)
         
         self.debug = debug
         self.validating_GEMM = gemm
+        self.lp = lp if lp != None else self.lp
+        self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
         self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
         self.kp_hidden_dim2 = kp2 if kp2 != None else self.kp_hidden_dim2
         self.kp_hidden_type = (2 if t == 'RC' else (1 if t == 'CR' else self.kp_hidden_type))
+        
         #TODO: decide if we want kp1, kp2 to control other layers besides hidden layer
-        #add ko_hidden_softmax, kp_hidden_embedding, etc...
+        self.kp_softmax_dim1 = kp1 if kp1 != None else self.kp_softmax_dim1
+        self.kp_softmax_dim2 = kp2 if kp2 != None else self.kp_softmax_dim2
+        self.kp_softmax_type = (2 if t == 'RC' else (1 if t == 'CR' else self.kp_softmax_type))
     
+        self.kp_embedding_dim1 = kp1 if kp1 != None else self.kp_embedding_dim1
+        self.kp_embedding_dim2 = kp2 if kp2 != None else self.kp_embedding_dim2
+        self.kp_embedding_type = (2 if t == 'RC' else (1 if t == 'CR' else self.kp_embedding_type))
+        
+        self.kp_projection_dim1 = kp1 if kp1 != None else self.kp_projection_dim1
+        self.kp_projection_dim2 = kp2 if kp2 != None else self.kp_projection_dim2
+        self.kp_projection_type = (2 if t == 'RC' else (1 if t == 'CR' else self.kp_projection_type))
+        
         #TODO: need to change all equations to be a function of m,n and k
         #self.D              = n//4
         
@@ -180,7 +194,7 @@ class TimeCalculation:
           f.write("Hardware Configuration\n")
           f.write("==========================\n")
 
-          f.write("Throughput: {:.1f} Tflops\n".format(self.core.operating_throughput/1e12))
+          f.write("Throughput: {:.5f} Tflops\n".format(self.core.operating_throughput/1e12))
           for i in range(self.num_levels-1, -1, -1):
               mem_bw    = self.memLayer[i].dynamic_throughput
               mem_size  = self.memLayer[i].size
@@ -201,7 +215,17 @@ class TimeCalculation:
           f.write("Inter-node Bandwidth: {:.1f} GB/s\n".format(self.network.inter_network.throughput/(gigaByte)))
           
           M = self.memLayer[self.num_levels - 1].size
-          tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config)
+          tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getTotMemReq(exp_config, 
+                                                                                                                          batch_size = self.B,
+                                                                                                                          hidden_dim = self.D,
+                                                                                                                          vocab_size = self.V,
+                                                                                                                          seq_len = self.S,
+                                                                                                                          num_layer = self.L,
+                                                                                                                          dp = self.dp,
+                                                                                                                          lp = self.lp,
+                                                                                                                          kp1 = self.kp_hidden_dim1,
+                                                                                                                          kp2 = self.kp_hidden_dim2,
+                                                                                                                          kp_type = self.kp_hidden_type)
           f.write("\n\n===========================================\n")
           f.write("Memory Requirement Breakdown per Data Shard\n")
           f.write("===========================================\n")
@@ -229,7 +253,17 @@ class TimeCalculation:
           f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard / Memory capacity per node): {:.1f}\n".format(float("inf") if M==0 else tot_mem/M))
 
           
-          tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem = util.getMemUsagePerCore(exp_config)
+          tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem = util.getMemUsagePerCore(exp_config,
+                                                                                                                                batch_size = self.B,
+                                                                                                                                hidden_dim = self.D,
+                                                                                                                                vocab_size = self.V,
+                                                                                                                                seq_len = self.S,
+                                                                                                                                num_layer = self.L,
+                                                                                                                                dp = self.dp,
+                                                                                                                                lp = self.lp,
+                                                                                                                                kp1 = self.kp_hidden_dim1,
+                                                                                                                                kp2 = self.kp_hidden_dim2,
+                                                                                                                                kp_type = self.kp_hidden_type)
           f.write("\n\n===========================================================\n")
           f.write("Memory Requirement Breakdown per Data Shard Per Model Shard\n")
           f.write("===========================================================\n")
@@ -260,10 +294,10 @@ class TimeCalculation:
           f.write("Parallelism Strategy\n")
           f.write("====================\n")
           f.write("dp: {}, lp: {}, kp_hidden_dim1: {}, kp_hidden_dim2: {}," 
-                  "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding: {}," 
+                  "kp_softmax_dim1: {}, kp_softmax_dim2: {}, kp_embedding1: {}, kp_embedding2: {}," 
                   "kp_projection_dim1: {}, kp_proejction_dim2: {}\n"
                   .format(self.dp, self.lp, self.kp_hidden_dim1, self.kp_hidden_dim2, 
-                   self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, 
+                   self.kp_softmax_dim1, self.kp_softmax_dim2, self.kp_embedding_dim1, self.kp_embedding_dim2,
                    self.kp_projection_dim1, self.kp_projection_dim2))   
 
 
@@ -945,7 +979,7 @@ class TimeCalculation:
         reduction_time = self.getR(Dim0 = m, 
                                    Dim1 = n,
                                    p = dim1,
-                                   ib = ib,
+                                   ib = self.IBK1,
                                    ll = self.LLK1,
                                    partial = True,
                                    allReduce = True)
@@ -1584,14 +1618,17 @@ def callPerf(exp_config, exp_dir, debug):
 @click.option("--seq_len", help="Number of times to unroll LSTM", default=20, type=int, required=False)
 @click.option("--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False)
 @click.option("--num_layer", help="number of lstm layers", default=2, type=int, required=False)
-def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer):
+@click.option("--dp", help="data parallelism", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--lp", help="layer parallelism", default=None, type=int, required=False) #only use for GEMM validation
+
+def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer, dp, lp):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
     output_file = exp_dir + "/summary.txt"
 
 
     TC = TimeCalculation(exp_config)
-    TC.updateParams(debug, m, n, k, t, kp1, kp2, gemm, 
+    TC.updateParams(debug, m, n, k, t, kp1, kp2, dp, lp, gemm, 
                     batch_size, hidden_dim, seq_len, vocab_size, num_layer)
 
     #Report GEMM time on fw path

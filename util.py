@@ -57,20 +57,20 @@ def getEmbeddingMem(B, S, V, D, precision):
 
     return embedding_mem, embedding_act, embedding_wt, embedding_point
 
-def getTotMemReq(exp_config):
+def getTotMemReq(exp_config, **kwargs):
     #Model Params
-    B          = exp_config.model_config.batch_size
-    V          = exp_config.model_config.vocab_size
-    L          = exp_config.model_config.num_layers
-    D          = exp_config.model_config.layer_size
-    projection = exp_config.model_config.projection
-    S          = exp_config.model_config.seq_len
-    G          = exp_config.model_config.num_gates
-    precision  = exp_config.sw_config.precision
-    
+    B                   = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
+    D                   = int(kwargs.get('hidden_dim', exp_config.model_config.layer_size))
+    V                   = int(kwargs.get('vocab_size', exp_config.model_config.vocab_size))
+    L                   = int(kwargs.get('num_layer', exp_config.model_config.num_layers))
+    projection          = exp_config.model_config.projection 
+    S                   = int(kwargs.get('seq_len', exp_config.model_config.seq_len))
+    G                   = exp_config.model_config.num_gates
+    precision           = exp_config.sw_config.precision
+   
     #MiniBatch
-    dp         = exp_config.sch_config.dp
-    miniB      = math.ceil(B / dp)
+    dp                  = int(kwargs.get('dp', exp_config.sch_config.dp))
+    miniB               = math.ceil(B / dp)
 
     hidden_mem, hidden_act, hidden_wt, hidden_point =  getHiddenMem(L=L, 
                                                        Dim1 = miniB, 
@@ -83,11 +83,15 @@ def getTotMemReq(exp_config):
                                                            P=(projection if proj else D), 
                                                            V=V, 
                                                            precision = precision)
-    projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(B=miniB, 
-                                                                       S=S, 
-                                                                       P=projection, 
-                                                                       D=D, 
-                                                                       precision = precision)
+    if proj:
+      projection_mem, projection_act, projection_wt, projection_point =  getProjectionMem(B=miniB, 
+                                                                         S=S, 
+                                                                         P=projection, 
+                                                                         D=D, 
+                                                                         precision = precision)
+    else:
+      projection_mem, projection_act, projection_wt, projection_point = 0, 0, 0 , 0
+    
     embedding_mem, embedding_act, embedding_wt, embedding_point =  getEmbeddingMem(B=miniB, 
                                                                    S=S, 
                                                                    V=V, 
@@ -96,9 +100,9 @@ def getTotMemReq(exp_config):
     
     tot_mem = hidden_mem + softmax_mem + embedding_mem + projection_mem
     
-    wt_mem = (hidden_wt + softmax_wt + projection_wt + embedding_wt) * precision
-    act_mem = (hidden_act + softmax_act + projection_act + embedding_act) * precision
-    point_mem = (hidden_point + softmax_point + projection_point + embedding_point) * precision
+    wt_mem = (hidden_wt + softmax_wt + projection_wt + embedding_wt)
+    act_mem = (hidden_act + softmax_act + projection_act + embedding_act)
+    point_mem = (hidden_point + softmax_point + projection_point + embedding_point)
 
     return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem
 
@@ -107,10 +111,10 @@ def getMemUsagePerCore(exp_config, **kwargs):
     #Model params
     B                   = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
     D                   = int(kwargs.get('hidden_dim', exp_config.model_config.layer_size))
-    V                   = exp_config.model_config.vocab_size
-    L                   = exp_config.model_config.num_layers
+    V                   = int(kwargs.get('vocab_size', exp_config.model_config.vocab_size))
+    L                   = int(kwargs.get('num_layer', exp_config.model_config.num_layers))
     projection          = exp_config.model_config.projection 
-    S                   = exp_config.model_config.seq_len
+    S                   = int(kwargs.get('seq_len', exp_config.model_config.seq_len))
     G                   = exp_config.model_config.num_gates
     precision           = exp_config.sw_config.precision
 
@@ -139,7 +143,7 @@ def getMemUsagePerCore(exp_config, **kwargs):
     hlp = lp
     if lp > 2:
       hlp = hlp - 2
-    hidden_mem, hidden_act, hidden_wt, point_act =  getHiddenMem(L=L/hlp, 
+    hidden_mem, hidden_act, hidden_wt, hidden_point =  getHiddenMem(L=L/hlp, 
         Dim1 = math.ceil(miniB / (kp_hidden_dim1 if kp_hidden_type == 2 else  1)), 
         Dim2 = math.ceil(2 * D / (1 if kp_hidden_type == 2 else kp_hidden_dim1)),  
         Dim3 = math.ceil(D * G / (kp_hidden_dim2 if kp_hidden_type == 2 else 1)), 
@@ -180,8 +184,12 @@ def getMemUsagePerCore(exp_config, **kwargs):
       tot_mem = max(hidden_mem, embedding_mem, (softmax_mem + projection_mem if proj else 0))
     else:
       NotImplemented
+    
+    wt_mem = (hidden_wt + softmax_wt + projection_wt + embedding_wt)
+    act_mem = (hidden_act + softmax_act + projection_act + embedding_act)
+    point_mem = (hidden_point + softmax_point + projection_point + embedding_point)
 
-    return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem
+    return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem
 
 def getChipArea(exp_config_path, **kwargs):
 
@@ -230,7 +238,7 @@ def power2RoundUp(x):
       min_dist = dist
   return min_val
 
-#TODO: move this topology
+#TODO: move this to topology.py
 #this only works if all connections are inter-wafer like V100
 def scale_down(ib, dim, name):
   bw = -1
@@ -238,8 +246,12 @@ def scale_down(ib, dim, name):
     bw = ib / 2
   elif dim <= 8:
     bw = ib / 5
-  else:
-    NotImplemented()
-    exit(0)
+  else: #beyond DGX box
+    #TODO: modify to account for different network topology
+    #assuming a tree beyind DGX box, PCIe is normally 12 GB/s which is half of ib to begin with
+    #and then divide by another 2 to account for two parallel traversal over the network 
+    #one from 7->8 and one from 15->0
+    bw = ib / 4
+
   print('{} Bandwidth: {}'.format(name, bw/(1024*1024*1024)))
   return bw
