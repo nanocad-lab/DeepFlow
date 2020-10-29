@@ -329,7 +329,7 @@ class DRAM(Memory):
       f.write("num_links: {0:14d}\t\t stack_limit: {1:13d}\t\t perimeter_limit: {2:8d}\n".format(self.num_links,
                                                                                                  self.perimeter_bound,
                                                                                                  self.num_links_per_stack * self.num_stacks)) 
-      f.write("stack_bandwidth: {0:9.2f} (GB/s)\t stack_capacity: {1:9.2f} (GB)\n".format(self.stack_bw/8/giga, self.stack_capacity/giga))
+      f.write("stack_bandwidth: {0:9.2f} (GB/s)\t stack_capacity: {1:9.2f} (GB)\n".format(self.stack_bw/giga, self.stack_capacity/giga))
       f.write("eff_ctrl_area: {0:11.2f} (mm2)\t tot_ctrl_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%\n".format(self.eff_ctrl_area, self.tot_mem_ctrl_area, self.eff_ctrl_area/self.tot_mem_ctrl_area * 100 ))
       f.write("eff_stack_area: {0:11.2f} (mm2)\t tot_stack_area: {1:11.2f} (mm2)\t\t\t\t\t\t\t\t\t\t util: {2:.2f}%\n".format(self.eff_stack_area, self.tot_area, self.eff_stack_area/self.tot_area * 100 ))
       f.write("dynamic_power: {0:11.2f}\t\t static_power: {1:11.2f}\t\t eff_power: {2:15.2f} (watt)\t tot_power: {3:.2f} (watt)\t\t util: {4:.2f}%\n".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))

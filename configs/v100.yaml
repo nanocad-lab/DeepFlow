@@ -29,7 +29,7 @@ tech_param:
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
         util: 0.85 #util should be 0.75 (12/16) for tensorcore
     DRAM:
-        dynamic_energy_per_bit: 4.2e-12
+        dynamic_energy_per_bit: 4.2e-12 #Joules
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
         stack_capacity: 4 GB
@@ -99,8 +99,8 @@ area_breakdown:
     node_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
     core: 0.3
-    L2: 0.08062 #0.267
-    L1: 0.102 #0.3375
+    L2: 0.08062
+    L1: 0.102
     reg_mem: 0.022
     DRAM: 0.0248
     network:

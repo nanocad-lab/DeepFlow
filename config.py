@@ -236,7 +236,7 @@ def convert(d):
                   exit(0)
 
               if (bit == "b"):
-                  mult = mult * 8
+                  mult = mult / 8 #Capacity is expected in Bytes 
               elif (bit =="B"):
                   mult = mult
               else: 

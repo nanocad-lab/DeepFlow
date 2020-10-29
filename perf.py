@@ -278,7 +278,7 @@ class TimeCalculation:
                              softmax_mem/gigaByte, 
                              projection_mem/gigaByte))
 
-          f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard Per Model Shard/ Memory capacity per node): {:.1f}\n"
+          f.write("\nMemory Overflow Rate (Total Memory Required per Data Shard Per Model Shard/ Memory capacity per node): {:.5f}\n"
                 .format(float("inf") if M == 0 else tot_mem/M))
 
           f.write("\nTotal Memory: {:.1f} GB\n"
