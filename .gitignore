@@ -62,4 +62,5 @@ v100_tensorcore_enabled_half_precision.out
 validate-v100.py
 validate.sh
 validation-v100/
-
+case_study/perf_model/energy_per_membit
+case_study/perf_model/energy_per_flop

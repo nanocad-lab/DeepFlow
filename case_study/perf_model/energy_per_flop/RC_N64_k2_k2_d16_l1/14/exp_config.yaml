@@ -142,8 +142,8 @@ tech_param:
     inter_node:
       latency: 5e-06
       margin_voltage: 0.5
-      nominal_area_per_link: 0.045
-      nominal_energy_per_link: 1.3e-11
+      nominal_area_per_link: 0.018984375
+      nominal_energy_per_link: 1.625e-12
       nominal_frequency: 20000000000.0
       nominal_voltage: 1.2
       num_links_per_mm: 20

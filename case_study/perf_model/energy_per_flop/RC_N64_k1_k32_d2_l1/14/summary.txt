@@ -11,7 +11,7 @@ L1 Size: 7.5000000000 MB
 L0 Bandwidth: 93.7 TB/s
 L0 Size: 20.0312500000 MB
 Intra-node Bandwidth: 0.0 GB/s
-Inter-node Bandwidth: 48.1 GB/s
+Inter-node Bandwidth: 384.5 GB/s
 
 
 ===========================================
@@ -111,5 +111,5 @@ dynamic_power:       47.92		 static_power:        0.08		 eff_power:           48
 ==============================================
 Performance Results
 ==============================================
-Time: 48.43137243
+Time: 8.46968374
 Params (Billion): 38.37019059

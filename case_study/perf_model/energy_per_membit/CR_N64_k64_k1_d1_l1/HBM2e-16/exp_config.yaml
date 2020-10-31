@@ -82,18 +82,16 @@ tech_param:
   DRAM:
     area_per_bit: 1.1e-09
     area_per_stack: 110
-    capacity_per_stack: 33554432
     dynamic_energy_per_bit: 1.0084199999999997e-12
-    freq: 4000000000.0
     latency: 1e-07
     margin_voltage: 0.6
     max_voltage: 1.8
     mem_ctrl_area: 5
-    nominal_frequency: 1380000000.0
+    nominal_frequency: 4000000000.0
     nominal_voltage: 0.9774074999999998
     num_links_per_mm: 400
     num_links_per_stack: 2048
-    stack_capacity: 4 GB
+    stack_capacity: 34359738368
     static_power_per_bit: 6e-13
     threshold_voltage: 0.4
     util: 1
