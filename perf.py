@@ -830,7 +830,7 @@ class TimeCalculation:
 
     #Reduction and all-gather time estimation
     def getR(self, Dim0 = None, Dim1 = None, p = None, ib = None, ll = None, partial = None,
-            allReduce = None):
+            allReduce = None, name = None):
         """Get partail or full reduction or allGather latency"""
         """Partial reduction means each gpu is only collecting a shard of 
         reduced data"""
@@ -982,7 +982,8 @@ class TimeCalculation:
                                    ib = self.IBK1,
                                    ll = self.LLK1,
                                    partial = True,
-                                   allReduce = True)
+                                   allReduce = True,
+                                   name = name)
         if self.validating_GEMM:
           print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
           return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
@@ -1000,7 +1001,8 @@ class TimeCalculation:
                                    ib = self.IBK1,
                                    ll = self.LLK1,
                                    partial = False,
-                                   allReduce = False)
+                                   allReduce = False,
+                                   name = name)
 
         #Multiply full grad_activation with shards of weights
         grad_wt_time,_,_  = self.getGEMMTime(k, (m // dim1), n, name + "wt")
@@ -1020,7 +1022,8 @@ class TimeCalculation:
                                    ib = self.IBK2,
                                    ll = self.LLK2,
                                    partial = False,
-                                   allReduce = False)
+                                   allReduce = False,
+                                   name = name)
         if self.validating_GEMM:
           print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
           return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
@@ -1037,7 +1040,8 @@ class TimeCalculation:
                                        ib = self.IBK1,
                                        ll = self.LLK1,
                                        partial = False,
-                                       allReduce = False)/2
+                                       allReduce = False,
+                                       name = name)/2
         #To calculate grad wrt weights (A^T, grad(A')), 
         #gather column grad(A')
         reduction_time_wt2 = self.getR(Dim0 = m, 
@@ -1046,7 +1050,8 @@ class TimeCalculation:
                                        ib = self.IBK1,
                                        ll = self.LLK1,
                                        partial = False,
-                                       allReduce = False)
+                                       allReduce = False,
+                                       name = name)
 
         ########################################################################################
         #calculate grad wrt. act (grad(A'). w^T)
@@ -1057,7 +1062,8 @@ class TimeCalculation:
                                         ib = self.IBK2,
                                         ll = self.LLK2,
                                         partial = False,
-                                        allReduce = False)
+                                        allReduce = False,
+                                        name = name)
         #calculate grad wrt. act (grad(A'). w^T)
         #gather col(w^T)
         reduction_time_act2 = self.getR(Dim0 = k, 
@@ -1066,7 +1072,8 @@ class TimeCalculation:
                                        ib = self.IBK2,
                                        ll = self.LLK2,
                                        partial = False,
-                                       allReduce = False)/2
+                                       allReduce = False,
+                                       name = name)/2
         
         reduction_time = reduction_time_wt1 + reduction_time_wt2 + reduction_time_act1 +reduction_time_act2
 
@@ -1097,7 +1104,8 @@ class TimeCalculation:
                                              ib = self.IBD,
                                              ll = self.LLD,
                                              partial = False,
-                                             allReduce = True)
+                                             allReduce = True,
+                                             name = name)
             apply_grad_time = self.applyGrad(Dim0 = k/dim1, Dim1 = n, name = name)
         
         elif self.kp_hidden_type == 2: #RC
@@ -1107,7 +1115,8 @@ class TimeCalculation:
                                              ib = self.IBD,
                                              ll = self.LLD,
                                              partial = False,
-                                             allReduce = True)
+                                             allReduce = True,
+                                             name = name)
 
             #gather col(w)
             reduction_time_wt_kp = self.getR(Dim0 = k, 
@@ -1116,7 +1125,8 @@ class TimeCalculation:
                                              ib = self.IBK1,
                                              ll = self.LLK1,
                                              partial = False,
-                                             allReduce = False)
+                                             allReduce = False,
+                                             name = name)
             apply_grad_time = self.applyGrad(Dim0 = k, Dim1 = n/dim2, name = name)
         else:
             reduction_time_wt_kp = 0
@@ -1126,7 +1136,8 @@ class TimeCalculation:
                                              ib = self.IBD,
                                              ll = self.LLD,
                                              partial = False,
-                                             allReduce = True)
+                                             allReduce = True,
+                                             name = name)
             apply_grad_time = self.applyGrad(Dim0 = k, Dim1 = n, name = name)
 
         reduction_time =  reduction_time_wt_kp + reduction_time_wt_dp + apply_grad_time 
@@ -1259,7 +1270,8 @@ class TimeCalculation:
                                ib = self.IBK1,
                                ll = self.LLK1,
                                partial = False,
-                               allReduce = False)
+                               allReduce = False,
+                               name="getSoftmax_f_kp1")
         #communicating partail sum per row from one GPU to all others to perform sum reduce
 
         point_time = self.roofline(point_flop, point_mem, name='pointwise-softmax-f-kp1') + self.O + point_comm
@@ -1394,7 +1406,8 @@ class TimeCalculation:
                                       ib = self.IBK1,
                                       ll = self.LLK1,
                                       partial = False,
-                                      allReduce = False)
+                                      allReduce = False,
+                                      name="getEmbedding_f_kp1")
         embedding_mem = 2 * (self.miniB * self.D * self.precision)
         #embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         embedding_time = self.roofline(0, embedding_mem, name='embedding_f') + self.O
@@ -1412,7 +1425,8 @@ class TimeCalculation:
                                       ib = self.IBK1,
                                       ll = self.LLK1,
                                       partial = False,
-                                      allReduce = False)
+                                      allReduce = False,
+                                      name="getEmbedding_b_kp1")
         #Each GPU would read through the entire actication and write as many at most as many of B rows
         embedding_mem = 2 * self.miniB * self.D * self.precision
         embedding_mem_time = self.roofline(0, embedding_mem, name='embedding_b') + self.O
@@ -1438,7 +1452,8 @@ class TimeCalculation:
                                       ib = self.IBK1,
                                       ll = self.LLK1,
                                       partial = False,
-                                      allReduce = False)
+                                      allReduce = False,
+                                      name="getEmbedding_b_kp2")
         
         embedding_mem = 2 * (self.miniB / self.kp_embedding_dim1) * (self.D / self.kp_embedding_dim2) * self.precision
         embedding_mem_time = self.roofline(0, embedding_mem, name='embedding_b') + self.O

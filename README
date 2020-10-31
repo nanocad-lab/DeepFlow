@@ -1,0 +1,16 @@
+The tool can be used in 5 different modes:
+
+(1) Standalone mode -- gemm only: Mostly purposed for GEMM validation
+python perf.py --exp_config configs/v100-large.yaml --exp_dir debug --debug True --gemm True --t RC --kp1 4 --kp2 16 --m 16384 --n 8192 --k 4096 
+
+(2) Standalone mode -- end-2-end LM
+python perf.py --exp_config configs/v100-large.yaml --exp_dir debug --batch_size 4096 --seq_len 20 --hidden_dim 19968 --vocab_size 800000 --dp 8 --kp1 8 --kp2 1 --t RC
+
+(3) Standalone-mode -- using main.py standalone argument; this is somewhat equivalent of option 2
+python main.py stand_alone --exp_dir /mnt/scratch/newsha/MechaFlow --exp_config configs/exp_config_SiIF.yaml --no_launch True
+
+(4) Architecture search for a fixed parallelism strategy
+python GD_search.py --exp_config configs/exp_config.yaml --exp_dir debug --debug False --index 40 --batch_size 256 --hidden_dim 19968 --data_scale 1 --dp 64 --lp 1 --kp_type 1 --kp1 1 --kp2 1 --inter_derate 0 --intra_derate 2 --kp1_inter False --kp2_inter False --dp_inter False --lp_inter False --wafer_dim 8
+
+(5) Architecture Search mode for all types of parallelism strategies
+python main.py arch_search --exp_dir /mnt/scratch/newsha/MechaFlow --exp_config configs/exp_config_SiIF.yaml --no_launch True

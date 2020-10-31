@@ -309,6 +309,27 @@ def arch_search(exp_config, exp_dir, debug, no_launch, num_search, num_wafer, wa
                     batch_size = batch_size,
                     hidden_dim = hidden_dim)
 
+def call_arch_search(exp_config, exp_dir, debug, no_launch, num_search, num_wafer, wafer_dim, num_worker, batch_size, hidden_dim):
+    #if number of parallel workers is not specified (default), 
+    #we assume that all resources in the systems are parallel workers.
+    #Specify num_workers only if number of parallel workers 
+    #is less than the available resources in the system.
+    #eg. use only 8 GPUs out of 64 GPUs on a wafer
+    if num_worker == -1:
+      num_worker = num_wafer * wafer_dim * wafer_dim
+    outerloop_sweep(exp_config = exp_config,
+                    exp_dir = exp_dir, 
+                    debug = debug, 
+                    num_search = num_search,
+                    no_launch = no_launch,
+                    num_wafer = num_wafer,
+                    wafer_dim = wafer_dim,
+                    num_worker = num_worker,
+                    batch_size = batch_size,
+                    hidden_dim = hidden_dim)
+
+
+
 
 if __name__ == "__main__":
     main()
