@@ -1,0 +1,161 @@
+area_breakdown:
+  DRAM: 0.0248
+  L1: 0.102
+  L2: 0.08062
+  core: 0.3
+  network:
+    inter_node: 0.1
+    intra_node: 0.0
+  node_area_budget: 1230
+  proc_chip_area_budget: 815
+  reg_mem: 0.022
+memory_hierarchy:
+  l0:
+    scope: mcu
+    type: SRAM-R
+  l1:
+    scope: mcu-bundle
+    type: SRAM-L1
+  l2:
+    scope: global
+    type: SRAM-L2
+  l3:
+    scope: global
+    type: DRAM
+model_param:
+  batch_size: 512
+  data_scale: 100
+  layer_size: 19968
+  num_add: 8
+  num_gates: 4
+  num_layers: 2
+  num_non_linear: 5
+  projection: 2048
+  seq_len: 20
+  vocab_size: 800000
+network_topology:
+  inter_wafer: hic
+  intra_wafer: none
+perimeter_breakdown:
+  DRAM: 0.5
+  inter_node: 0.5
+  intra_node: 0.0
+power_breakdown:
+  DRAM: 0.16
+  L1: 0.0016
+  L2: 0.000217
+  TDP: 300
+  core: 0.3745
+  network:
+    inter_node: 0.00935
+    intra_node: 0.0
+  reg_mem: 0.0055
+scheduling_param:
+  auto: false
+  dp: 1
+  kp_embedding_dim1: 1
+  kp_embedding_dim2: 1
+  kp_embedding_type: -1
+  kp_hidden_dim1: 1
+  kp_hidden_dim2: 1
+  kp_hidden_type: -1
+  kp_projection_dim1: 1
+  kp_projection_dim2: 1
+  kp_projection_type: -1
+  kp_softmax_dim1: 1
+  kp_softmax_dim2: 1
+  kp_softmax_type: -1
+  lp: 1
+sw_param:
+  kernel_launch_overhead: 9e-06
+  precision: 2
+system_hierarchy:
+  dp_inter: true
+  inter_derate: 1
+  intra_derate: 0
+  kp1_inter: true
+  kp2_inter: true
+  lp_inter: true
+  num_nodes_per_wafer: 1
+  num_workers: 64
+tech_param:
+  DRAM:
+    area_per_bit: 1.1e-09
+    area_per_stack: 100
+    dynamic_energy_per_bit: 4.2e-12
+    latency: 1e-07
+    margin_voltage: 0.6
+    max_voltage: 1.8
+    mem_ctrl_area: 5
+    nominal_frequency: 1380000000.0
+    nominal_voltage: 1.2
+    num_links_per_mm: 400
+    num_links_per_stack: 1024
+    stack_capacity: 4 GB
+    static_power_per_bit: 6e-13
+    threshold_voltage: 0.4
+    util: 1
+  SRAM-L1:
+    area_per_bit: 8e-08
+    bank_capacity: 32 KB
+    controller_area_per_link: 0.004
+    controller_power_per_link: 0.04
+    dynamic_energy_per_bit: 2e-15
+    latency: 0
+    overhead: 0.2
+    static_power_per_bit: 8e-12
+    util: 1
+  SRAM-L2:
+    area_per_bit: 6.4e-08
+    bank_capacity: 32 KB
+    controller_area_per_link: 0.004
+    controller_power_per_link: 0.04
+    dynamic_energy_per_bit: 3.5e-15
+    latency: 0
+    overhead: 0.2
+    static_power_per_bit: 8.4e-12
+    util: 0.45
+  SRAM-R:
+    area_per_bit: 8e-08
+    bank_capacity: 16 KB
+    controller_area_per_link: 0.0
+    controller_power_per_link: 0.0
+    dynamic_energy_per_bit: 2e-15
+    latency: 0
+    overhead: 0.25
+    static_power_per_bit: 9e-12
+    util: 1
+  core:
+    FMA_width: 4
+    dataflow: best
+    margin_voltage: 0.35
+    nominal_area_per_mcu: 0.38
+    nominal_flop_rate_per_mcu: 128
+    nominal_frequency: 1330000000.0
+    nominal_power_per_mcu: 0.13
+    nominal_voltage: 0.8
+    num_mcu_per_bundle: 8
+    operating_area_per_mcu: 0.38
+    threshold_voltage: 0.2
+    util: 0.85
+  network:
+    inter_node:
+      latency: 5e-06
+      margin_voltage: 0.5
+      nominal_area_per_link: 0.010678710937499999
+      nominal_energy_per_link: 4.0625e-13
+      nominal_frequency: 20000000000.0
+      nominal_voltage: 1.2
+      num_links_per_mm: 20
+      threshold_voltage: 0.35
+      util: 0.96
+    intra_node:
+      latency: 5e-06
+      margin_voltage: 0.45
+      nominal_area_per_link: 0.0001
+      nominal_energy_per_link: 1e-12
+      nominal_frequency: 3000000000.0
+      nominal_voltage: 1
+      num_links_per_mm: 400
+      threshold_voltage: 0.25
+      util: 1
