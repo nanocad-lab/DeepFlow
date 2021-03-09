@@ -56,7 +56,7 @@ tech_param:
         util: 0.45
     SRAM-L1:
         dynamic_energy_per_bit: 130e-15
-        static_power_per_bit: 8e-12
+        static_power_per_bit: 9e-12
         area_per_bit: 8e-8 #mm2
         bank_capacity: 32 KB
         controller_area_per_link: 0.00 #mm2 
