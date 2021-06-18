@@ -61,7 +61,7 @@ class Memory(Base):
   def getPower2TileDims(self):
       np.random.seed(1)
       tile_dim_candidates = set()
-      num_candidates = 30  #50
+      num_candidates = 20
       M = self.size_per_bundle / self.precision
       max_power = int(math.floor(math.log2(M)))
       

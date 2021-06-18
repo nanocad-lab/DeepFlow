@@ -1,0 +1,4 @@
+#Run model in LM mode 
+#Setup model parameter in configs/v100.yaml
+
+python perf.py --exp_dir debug --exp_config configs/v100.yaml
