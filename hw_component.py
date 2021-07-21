@@ -428,6 +428,10 @@ class Network(Base):
 
       return intra_latency, inter_latency
 
+  def printStats(self, f):
+      self.inter_network.printStats(f, "inter")
+      self.intra_network.printStats(f, "intra")
+
 class SubNetwork(Base):
   def __init__(self, exp_config, net_config, power_breakdown, area_breakdown, netLevel):
       super().__init__(exp_config)
@@ -456,6 +460,7 @@ class SubNetwork(Base):
      
       self.throughput                 = 0
       self.operating_freq             = 0
+      self.operating_voltage          = 0
       if self.num_links > 0:
           self.calcOperatingVoltageFrequency()
           self.throughput                 = self.calcThroughput()
@@ -488,8 +493,25 @@ class SubNetwork(Base):
 
   #Return P2P bw
   def calcThroughput(self):
+      #TODO: update this to support other network topology
       #4 edges comes out of each node on wafer since we assume a mesh topology
       #1 edges for cross-wafer as each node is connected to only one node on the other wafer (mesh extension)
       degree = 4 if self.intra else 1
       throughput                      = (self.num_links * self.operating_freq * self.util)/(8 * degree)
       return throughput
+
+  def printStats(self, f, name):
+     self.eff_power              = self.num_links * self.operating_freq * self.nominal_energy_per_link
+     self.eff_area               = self.num_links * self.nominal_area_per_link
+    
+     if self.eff_power > 0  and self.eff_area > 0:
+        f.write("\n\n=============\n")
+        f.write("Network: {}\n".format(name))
+        f.write("=============\n")
+        f.write("operating_volatge: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
+        f.write("voltage_lowerbound: {0:.2f}\n".format(self.threshold_voltage + self.margin_voltage))
+        f.write("#links: {0:5d}\n".format(self.num_links))
+        f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
+        f.write("eff_power: {0:.2f} (watt), tot_power: {1:.2f} (watt), util: {2:.2f}%\n".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+
+

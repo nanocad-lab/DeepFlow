@@ -51,6 +51,7 @@ class TimeCalculation:
         self.memLayer            = self.memoryHierarchy.memLayer
         self.tileSpace           = self.generateTileSpace()
       
+        #TODO: move this to config file
         self.H2Dbw               = 12.4*1024*1024*1024 
 
         #System Parameters
@@ -69,7 +70,7 @@ class TimeCalculation:
         derated_inter_throughput = -1
         derated_intra_throughput = -1
         
-        #cross communication will pass through intra links too
+        #cross-wafercommunications will pass through intra links too
         if self.num_wafer > 1 and self.num_workers > 1:
           if intra_derate != 0:
             derated_inter_throughput = min(intra_throughput/intra_derate, 
@@ -307,6 +308,8 @@ class TimeCalculation:
           self.core.printStats(f)
           for i in range(0, self.num_levels):
               self.memLayer[i].printStats(f)
+
+          self.network.printStats(f) 
 
     def roofline(self, flop, mem_access_, name=''):
 
