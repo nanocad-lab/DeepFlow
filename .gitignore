@@ -64,4 +64,4 @@ validate-v100.py
 validate.sh
 validation-v100/
 case_study/perf_model/energy_per_membit
-case_study/perf_model/energy_per_flop
+case_study/perf_model/energy_per_flop/*
