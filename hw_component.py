@@ -437,6 +437,7 @@ class SubNetwork(Base):
       super().__init__(exp_config)
       self.tot_power                  = power_breakdown * self.TDP
       self.tot_area                   = area_breakdown  * self.proc_chip_area_budget
+      #TODO: Rename core_perimeter to proc_chip_perimeter
       self.latency                    = net_config.latency
       self.nominal_freq               = net_config.nominal_freq
       self.nominal_voltage            = net_config.nominal_voltage
@@ -452,6 +453,7 @@ class SubNetwork(Base):
       inter_frac                      = exp_config.perimeter_breakdown.inter_node
       intra_frac                      = exp_config.perimeter_breakdown.intra_node
       perimeter_fraction              = inter_frac if self.inter else intra_frac
+      self.tot_perimeter              = perimeter_fraction * self.core_perimeter 
       self.num_links                  = int(min(self.tot_area / 
                                                 self.nominal_area_per_link, 
                                                 perimeter_fraction * 
@@ -501,8 +503,10 @@ class SubNetwork(Base):
       return throughput
 
   def printStats(self, f, name):
-     self.eff_power              = self.num_links * self.operating_freq * self.nominal_energy_per_link
+     self.calcEnergyPerBit()
+     self.eff_power              = self.num_links * self.operating_freq * self.operating_energy_per_link
      self.eff_area               = self.num_links * self.nominal_area_per_link
+     self.eff_perimeter          = self.num_links / self.num_links_per_mm
     
      if self.eff_power > 0  and self.eff_area > 0:
         f.write("\n\n=============\n")
@@ -513,5 +517,6 @@ class SubNetwork(Base):
         f.write("#links: {0:5d}\n".format(self.num_links))
         f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
         f.write("eff_power: {0:.2f} (watt), tot_power: {1:.2f} (watt), util: {2:.2f}%\n".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+        f.write("eff_perimeter: {0:.2f} (mm), tot_perimeter: {1:.2f} (mm), util: {2:.2f}%\n".format(self.eff_perimeter, self.tot_perimeter, self.eff_perimeter/self.tot_perimeter * 100 ))
 
 
