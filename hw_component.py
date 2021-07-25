@@ -515,8 +515,11 @@ class SubNetwork(Base):
         f.write("operating_volatge: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
         f.write("voltage_lowerbound: {0:.2f}\n".format(self.threshold_voltage + self.margin_voltage))
         f.write("#links: {0:5d}\n".format(self.num_links))
-        f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
-        f.write("eff_power: {0:.2f} (watt), tot_power: {1:.2f} (watt), util: {2:.2f}%\n".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
-        f.write("eff_perimeter: {0:.2f} (mm), tot_perimeter: {1:.2f} (mm), util: {2:.2f}%\n".format(self.eff_perimeter, self.tot_perimeter, self.eff_perimeter/self.tot_perimeter * 100 ))
+        if self.tot_area !=0:
+            f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
+        if self.tot_power != 0:
+            f.write("eff_power: {0:.2f} (watt), tot_power: {1:.2f} (watt), util: {2:.2f}%\n".format(self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
+        if self.tot_perimeter != 0:
+            f.write("eff_perimeter: {0:.2f} (mm), tot_perimeter: {1:.2f} (mm), util: {2:.2f}%\n".format(self.eff_perimeter, self.tot_perimeter, self.eff_perimeter/self.tot_perimeter * 100 ))
 
 
