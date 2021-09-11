@@ -73,6 +73,55 @@ def run_slurm_command(command):
     
     print("JOB {} Submitted!".format(job_id), flush=True)
 
+def create_command(exp_dir, feature, tech_node, exp_config, N, kp1, kp2, kp_type, dp, lp):
+  partition='debug_1080Ti' #'1080Ti,M40x8,2080Ti,P100,TitanXx8_short,TitanXx8_mlong,TitanXx8_slong,M40x8_slong,M40x8_mlong,1080Ti_mlong,1080Ti_slong,1080Ti_short,2080Ti_mlong'
+  gpus_per_node = 1
+  batch_size = 4096 
+  seq_len = 20
+  hidden_dim = 19968 
+  vocab_size = 800000
+  num_layer = 2
+  job_name="{}/{}_N{}_k{}_k{}_d{}_l{}/{}".format(feature, kp_type, N, kp1, kp2, dp, lp, tech_node)
+  out_dir = "{}/{}".format(exp_dir, job_name)
+  script_args = ('--exp_config {exp_config} ' 
+                 '--exp_dir {exp_dir} '
+                 '--debug True '
+                 '--batch_size {batch_size} '
+                 '--seq_len {seq_len} '
+                 '--hidden_dim {hidden_dim} '
+                 '--vocab_size {vocab_size} '
+                 '--num_layer {num_layer} '
+                 '--dp {dp} ' 
+                 '--lp {lp} '
+                 '--t {kp_type} '
+                 '--kp1 {kp1} '
+                 '--kp2 {kp2}'.format(
+                    exp_config=exp_config,
+                    exp_dir=out_dir,
+                    batch_size=batch_size,
+                    seq_len=seq_len,
+                    hidden_dim=hidden_dim,
+                    vocab_size=vocab_size,
+                    num_layer=num_layer,
+                    dp=dp,
+                    lp=lp,
+                    kp1=kp1,
+                    kp2=kp2,
+                    kp_type=kp_type)
+                 )
+
+
+  script = 'perf.py'
+  command = "python {script} {script_args}".format(script=script,
+                                            script_args=script_args) 
+
+  print(command)
+  return command
+ 
+def run_command(command):
+    output = subprocess.check_output(
+             command, stderr=subprocess.STDOUT, shell=True,
+             ).decode("utf-8")
 
 def findMultipliers(n, curr_depth, results, result, max_depth):
     if curr_depth == max_depth:
@@ -148,8 +197,11 @@ def sweep_core(base_config, exp_dir, N, kp1, kp2, kp_type, dp, lp):
       with open(modified_config, 'w') as f:
           _yaml.dump(config_dict, f, default_flow_style=False)
       #launch batch job
-      command = create_sbatch_command(exp_dir, "energy_per_flop", node, modified_config, N, kp1, kp2, kp_type, dp, lp)
-      run_slurm_command(command)
+      #command = create_sbatch_command(exp_dir, "energy_per_flop", node, modified_config, N, kp1, kp2, kp_type, dp, lp)
+      #run_slurm_command(command)
+      
+      command = create_command(exp_dir, "energy_per_flop", node, modified_config, N, kp1, kp2, kp_type, dp, lp)
+      run_command(command)
 
       vol_scaling   = vol_scaling * 0.9
       area_scaling  = area_scaling * 0.67
@@ -160,9 +212,10 @@ def sweep_core(base_config, exp_dir, N, kp1, kp2, kp_type, dp, lp):
 
 
 #################################################
-root="/mnt/home/newsha/baidu/developement/MechaFlow"
-exp_dir="/mnt/home/newsha/baidu/developement/MechaFlow/case_study/perf_model"
-base_config = "{}/configs/v100-large.yaml".format(root)
+root="/Users/new/Desktop/DeepFlow"
+exp_dir= root + "/case_study/perf_model"
+#base_config = "{}/configs/v100-large.yaml".format(root)
+base_config = "{}/configs/v100.yaml".format(root)
 num_gpus = [64]
 lp = 1
 
