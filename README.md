@@ -33,7 +33,7 @@ DeepFlow can be used in 5 different modes:
 (2) Performance Prediction Mode (End-2-End Application)
 * Specify the application parameters in configs/[config.yaml]
 * python perf.py --exp_config configs/[config.yaml] --exp_dir [/path/to/output/directory]
-* python perf.py --exp_config configs/[config.yaml] --exp_dir [/path/to/output/directory] --batch_size [batch] --seq_len [seq_len] --hidden_dim [lstm_dim] --vocab_size [vocab_size] --dp [data parallel] --kp1 [kernel parallel dim1.] --kp2 [kernel parallel dim2.] --t [RC|CR]
+* python perf.py --exp_config configs/[config.yaml] --exp_dir [/path/to/output/directory] --batch_size [batch] --seq_len [seq_len] --hidden_dim [lstm_dim] --vocab_size [vocab_size] --dp [data parallel] --kp1 [kernel parallel dim1.] --kp2 [kernel parallel dim2.] --t [RC|CR] --args_input [True|False]
 
 (3) Performance Prediction Mode (using main.py standalone argument; this is somewhat equivalent of option 2, for running on slurm)
 * python main.py stand_alone --exp_dir [/path/to/output/result/directory] --exp_config configs/[config.yaml]

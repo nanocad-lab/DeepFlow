@@ -7,6 +7,7 @@ import sys
 import config
 import shutil
 import itertools
+import numpy as np
 
 from parallelism import Parallelism
 from topology import Topology
@@ -471,6 +472,7 @@ class TimeCalculation:
         
         for level in range(0, self.num_levels-1):
             memory = self.memLayer[level]
+            #tiles[level] = self.getTileDims(memory)
             tiles[level] = memory.getTileDims()
         
         if self.num_levels == 1:
@@ -499,12 +501,44 @@ class TimeCalculation:
         #tile1,tile2,tile3 = self.getTileSize(level-1)
         tile1, tile2, tile3 = tile_dim
 
+        orig_size = tile1*tile2 + tile1*tile3 + tile2*tile3
+        short_tile_cond = [0,0,0]
+
         if tile1 > dim1:
             tile1 = dim1
+            short_tile_cond[0] = 1  
         if tile2 > dim2:
             tile2 = dim2
+            short_tile_cond[1] = 1
         if tile3 > dim3:
             tile3 = dim3
+            short_tile_cond[2] = 1
+
+        if short_tile_cond[2] == 0 and (short_tile_cond[0] | short_tile_cond[1]) == 1:
+            if level <= 1:
+              tile3 = math.floor((orig_size - tile1 * tile2) / (tile1 + tile2))
+            else:
+            #store bypasses cache, directly goes to memory 
+              tile3 = math.floor((orig_size - tile1 * tile2) / tile2)
+            if tile3 > dim3:
+              tile3 = dim3
+            #Uncomment if tile3 needs to be pow of 2
+            #tile3 = int(math.pow(2, math.floor(math.log2(tile3))))
+        elif short_tile_cond[0] == 0 and (short_tile_cond[1] | short_tile_cond[2]) == 1:
+            if level <= 1:
+              tile1 = math.floor((orig_size - tile3 * tile2) / (tile3 + tile2))
+            else:
+            #store bypasses cache, directly goes to memory 
+              tile1 = math.floor((orig_size - tile3 * tile2) / tile2)
+            if tile1 > dim1:
+              tile1 = dim1
+        elif short_tile_cond[1] == 0 and (short_tile_cond[0] & short_tile_cond[2]) == 1:
+            if level <= 1:
+              tile2 = math.floor((orig_size - tile3 * tile1) / (tile3 + tile1))
+            else:
+              tile2 = math.floor((orig_size) / (tile1 + tile3))
+            if tile2 > dim2:
+              tile2 = dim2
 
         reload_A = 1
         reload_B = 1
@@ -1620,7 +1654,8 @@ def callPerf(exp_config, exp_dir, debug):
         f.write("Time: {0:.8f}\n".format(tot_time))
         f.write("Params (Billion): {0:.8f}\n".format(tot_param/1e9))
 
-@click.command("standalone")        
+@click.command("standalone")
+@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=False, type=bool, required=False)
 @click.option("--exp_config", help="Path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
@@ -1631,7 +1666,7 @@ def callPerf(exp_config, exp_dir, debug):
 @click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=None, type=int, required=False) #only use for GEMM validation
 @click.option("--kp2", help="RC:parallelism along output dimension", default=None, type=int, required=False) #only use for GEMM validation
 @click.option("--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False) #only use for GEMM validation
-@click.option("--batch_size", help="Total Batch Size", default=4096, type=int, required=False)
+@click.option("--batch_size", help="Total Batch Size", default=2048, type=int, required=False)
 @click.option("--hidden_dim", help="Hidden Dimension per LSTM layer", default=19968, type=int, required=False)
 @click.option("--seq_len", help="Number of times to unroll LSTM", default=20, type=int, required=False)
 @click.option("--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False)
@@ -1639,14 +1674,15 @@ def callPerf(exp_config, exp_dir, debug):
 @click.option("--dp", help="data parallelism", default=None, type=int, required=False) #only use for GEMM validation
 @click.option("--lp", help="layer parallelism", default=None, type=int, required=False) #only use for GEMM validation
 
-def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer, dp, lp):
+def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer, dp, lp, args_input=False):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary.txt"
+    output_file = exp_dir + "/summary.txt" ##Output dir should be created manually
 
 
     TC = TimeCalculation(exp_config)
-    TC.updateParams(debug, m, n, k, t, kp1, kp2, dp, lp, gemm, 
+    if args_input:
+        TC.updateParams(debug, m, n, k, t, kp1, kp2, dp, lp, gemm, 
                     batch_size, hidden_dim, seq_len, vocab_size, num_layer)
 
     #Report GEMM time on fw path
