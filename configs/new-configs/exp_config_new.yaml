@@ -125,7 +125,7 @@ perimeter_breakdown:
 
 system_hierarchy:
     num_devices_per_node: 1
-    num_devices: 1
+    num_nodes: 1
     inter_derate: 1
     intra_derate: 0
     kp1_inter: False
