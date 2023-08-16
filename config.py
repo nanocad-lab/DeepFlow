@@ -83,7 +83,7 @@ class AreaBreakdownConfig:
     self.L2                     = config_dict['L2']
     self.L1                     = config_dict['L1']
     self.reg_mem                = config_dict['reg_mem']
-    self.node_area_budget       = config_dict['node_area_budget']
+    self.node_area_budget       = config_dict['device_area_budget']
     self.network                = NetworkAreaConfig(config_dict['network'])
     
     tot_sum                     = (self.core + self.DRAM + self.L2 + 
@@ -135,13 +135,14 @@ class NetworkPowerConfig:
 
 class SystemHierarchyConfig:
   def __init__(self, config_dict):
-    #A node is an accelerator which can itself be composed of many single cores
+    #A device is an accelerator which can itself be composed of many single cores
     #This number does not say anything about number of cores within an accelerator.
-    #It is the number of accelerators per wafer.
-    self.num_nodes_per_wafer  = config_dict['num_nodes_per_wafer'] 
+    #It is the number of accelerators/devices per wafer.
+    self.num_nodes_per_wafer  = config_dict['num_devices_per_node'] 
     #This is redundant but makes my life easier.
-    self.num_workers          = config_dict['num_workers']
-    self.num_wafers           = int(math.ceil(self.num_workers / self.num_nodes_per_wafer))
+    self.num_wafers           = config_dict['num_nodes']
+    self.num_workers          = int(self.num_wafers * self.num_nodes_per_wafer)
+    #self.num_wafers           = int(math.ceil(self.num_workers / self.num_nodes_per_wafer))
     self.inter_derate         = config_dict['inter_derate']
     self.intra_derate         = config_dict['intra_derate']
     self.kp1_inter            = config_dict['kp1_inter']
@@ -161,8 +162,8 @@ class TopologyConfig:
 
 class NetworkTopologyConfig:
   def __init__(self, config_dict):
-    self.inter = TopologyConfig(config_dict['inter_wafer'])
-    self.intra = TopologyConfig(config_dict['intra_wafer'])
+    self.inter = TopologyConfig(config_dict['inter_node'])
+    self.intra = TopologyConfig(config_dict['intra_node'])
 
 
 class MemoryConfig:

@@ -65,3 +65,5 @@ validate.sh
 validation-v100/
 case_study/perf_model/energy_per_membit
 case_study/perf_model/energy_per_flop/*
+lib/
+bin/

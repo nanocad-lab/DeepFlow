@@ -71,7 +71,7 @@ class TimeCalculation:
         derated_inter_throughput = -1
         derated_intra_throughput = -1
         
-        #cross-wafercommunications will pass through intra links too
+        #inter-wafercommunications will pass through intra links too
         if self.num_wafer > 1 and self.num_workers > 1:
           if intra_derate != 0:
             derated_inter_throughput = min(intra_throughput/intra_derate, 
@@ -94,7 +94,7 @@ class TimeCalculation:
                                    (derated_intra_throughput, intra_latency)) 
         self.IBL, self.LLL      = ((derated_inter_throughput, inter_latency) if par2cross["lp"] else 
                                    (derated_intra_throughput, intra_latency)) 
-        
+
 
         #Scheduling Parameters
         par                     = Parallelism(exp_config)
