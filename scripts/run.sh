@@ -17,7 +17,7 @@ while IFS= read -r line; do
     value3=$(echo "$line" | awk '{print $3}')
 
     # Submit a job using python perf.py with extracted values as arguments
-    python "$RUNDIR"/perf.py --exp_config "$CONFIG_DIR"/v100.yaml --exp_dir "$OUTDIR"/LLM/ --debug True --gemm True --t RC --kp1 1 --kp2 1 --m "$value1" --n "$value2" --k "$value3"
+    python "$RUNDIR"/perf.py --exp_config "$CONFIG_DIR"/v100.yaml --exp_dir "$OUTDIR"/LLM/ --debug True --gemm True --t RC --kp1 4 --kp2 1 --m "$value1" --n "$value2" --k "$value3"
 
     # You can add sleep between job submissions if needed
     # sleep 1
