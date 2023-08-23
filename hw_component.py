@@ -67,9 +67,10 @@ class Memory(Base):
       
       self.calcTileDim()
       square_tile = self.getTileDim()
-      
+      #print("square_tile = ", square_tile)
       tile_dim_candidates.add((square_tile, square_tile, square_tile))
       tile_dim_candidates.add((square_tile//2, square_tile, square_tile*2))
+      #print("tile_dim_candidates = ", tile_dim_candidates)
       while len(tile_dim_candidates) < num_candidates:
           z = -1
           while(z < 0):
@@ -89,7 +90,7 @@ class Memory(Base):
             tile_dim = (s[0], s[1], z)
             tile_dim_candidates.add(tile_dim)
 
-      #print(tile_dim_candidates)
+      #print("tile_dim_candidates_2 = ", tile_dim_candidates, "s[0]=", s[0], "s[1]=", s[1], "z=", z)
       return list(tile_dim_candidates)
 
 
@@ -109,7 +110,7 @@ class Memory(Base):
           tile_dim = (s[0], s[1], z)
           tile_dim_candidates.append(tile_dim)
 
-      print(tile_dim_candidates)
+      #print(tile_dim_candidates)
       return tile_dim_candidates
 
   def calcTileDim(self):
@@ -125,10 +126,13 @@ class Memory(Base):
         NotImplemented()
 
       self.size_per_bundle            = 0 if (divisor == 0) else self.size / divisor
+
+      #print("INSIDE calcTileDim\n")
       
       if (self.size > 0):
           self.tile_dim = math.ceil(math.pow(2, math.floor(math.log(math.sqrt((self.size_per_bundle / self.precision) / 2), 2))))
           #self.tile_dim = math.floor(math.sqrt((self.size_per_bundle / self.precision) / 3))
+      #print("tile_dim =", self.tile_dim, "size_per_bundle = ", self.size_per_bundle)
  
 
 class Core(Base):
