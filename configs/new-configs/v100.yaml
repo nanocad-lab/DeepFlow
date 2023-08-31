@@ -124,8 +124,8 @@ perimeter_breakdown:
     inter_node: 0.5
 
 system_hierarchy:
-    num_devices_per_node: 1
-    num_nodes: 1
+    num_devices_per_node: 16 # it was 1 before as the base config
+    num_nodes: 1        # it was 1 before
     inter_derate: 1
     intra_derate: 0
     kp1_inter: False

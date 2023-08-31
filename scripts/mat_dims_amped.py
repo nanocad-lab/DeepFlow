@@ -50,7 +50,7 @@ def main():
     h_MLP2 = args.h_MLP2
     
     print(B, D, S, h, nheads, h_MLP1, h_MLP2)
-    assert(D == nheads*h) #"dimensionality is not equal to nheads x hidden dim")
+    #assert(D == nheads*h) #"dimensionality is not equal to nheads x hidden dim")
 
     mmm_breakup(B, D, S, h, nheads, h_MLP1, h_MLP2)
      

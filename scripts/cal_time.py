@@ -23,15 +23,28 @@ for filename in os.listdir(directory):
         
         t_elapsed += time_value
 
+t_elapsed = t_elapsed*3.0 #FW pass + BW pass (~ 2x FW pass)
+comp_time = t_elapsed
+#comm_time = 8.85 # (hours) comes from AMPED
 parser = argparse.ArgumentParser(description='Generate Matrix dimensions')
 
+parser.add_argument('N_L', type=int, help='nlayers')
+parser.add_argument('B', type=int, help='batch size')
 parser.add_argument('S', type=int, help='sequence length')
 parser.add_argument('ntokens', type=int, help='number of tokens to train')
+parser.add_argument('comm_time', type=int, help='comm overhead')
+parser.add_argument('N_PP', type=int, help='pipeline degree')
 
 args = parser.parse_args()
 
+N_L = args.N_L
+B = args.B
 S = args.S
 ntokens = args.ntokens
-nbatch = ntokens/S
+comm_time = args.comm_time
+N_PP = args.N_PP
 
-print("number of tokens:", ntokens, " | time to exhaust all tokens:", nbatch*t_elapsed, "(s)", " or ", nbatch*t_elapsed/3600.0, " days")
+nbatch = ntokens/(S*B)
+time = N_L*nbatch*t_elapsed/N_PP + comm_time
+
+print("number of tokens:", ntokens, " | time to exhaust all tokens:", time, "(s)", " or ", time/3600.0/24.0, " days")
