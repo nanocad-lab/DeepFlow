@@ -1,0 +1,23 @@
+-------------------------------
+TO RUN:
+-------------------------------
+source buildRun.sh 
+or,
+./builRun.sh
+
+--------------------------------
+DESCRIPTION:
+--------------------------------
+**** mat_dims_amped.py **** generates the matrix dimensions for a single layer of an LLM model -- the essential parameters need to be passed -- as of now it is a stand alone file -- we will connect it with AMPED once it is public
+
+*** run.sh *** runs DeepFlow sequentially for every GEMM
+
+*** cal_time.py *** takes into account the number of batches, number of layers and sums up the time for FW and BW passes. In addition to LLM
+model specific parameters, it also needs the communication time from AMPED. As of now it is done manually -- we can connect it with AMPED for
+auomation.
+
+--------------------------------
+NOTE
+--------------------------------
+The current strategy of GEMM break up wroks for Tensor model parallelism
+Data or pipeline parallelism needs modifications
