@@ -7,7 +7,7 @@ def mmm_breakup(B, D, S, h, nheads, h_MLP1, h_MLP2):
     numlevels = 6
     levels = ["X.W=KQV", "Q.K=R", "R.V=Z", "Z.W=O", "O.WL1=O1", "O1.WL2=O2"]
     print("matrix dimensions accounting for all heads & batched dimension")
-    dims[str(levels[0])]=[B*S, D, h*nheads]
+    dims[str(levels[0])]=[3*B*S, D, h*nheads]
     dims[str(levels[1])]=[B*S, h, S*nheads]
     dims[str(levels[2])]=[B*S, S, h*nheads]
     dims[str(levels[3])]=[B*S, D, D]
