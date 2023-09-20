@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Input data file
-input_file="mat_dims.txt"
+input_file="/imec/other/csainfra/kundu16/DeepFlow/scripts/mat_dims.txt"
 
 # Relevant directories
 RUNDIR="/imec/other/csainfra/kundu16/DeepFlow"
