@@ -86,8 +86,7 @@ def main():
     #print("t_FW_BW:", t_FW_BW)
     nbatch = int(llm_params_ext["tokens_to_train"][0])/(int(llm_params_ext["context"][0])\
                                            *int(llm_params_ext["batch_size"][0]))
-    time = int(llm_params_ext["layers"][0])*nbatch*t_FW_BW/ int(llm_params_ext["tensor_parallel_degree"][0])\
-        + float(timeFromAmped["Total communication time forward pass (s)"][0])\
+    time = int(llm_params_ext["layers"][0])*nbatch*t_FW_BW + float(timeFromAmped["Total communication time forward pass (s)"][0])\
         +float(timeFromAmped["Total communication time backward pass (s)"][0])\
         +float(timeFromAmped["Computation time weight updates (s)"][0])/int(llm_params_ext["tensor_parallel_degree"][0])
 
