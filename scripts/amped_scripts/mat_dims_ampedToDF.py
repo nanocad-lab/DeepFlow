@@ -3,18 +3,18 @@ import argparse
 import os
 import pandas as pd
 
-def mmm_breakup(B, D, S, h, nheads, h_MLP1, h_MLP2):
+def mmm_breakup(B, D, S, h, nheads, h_MLP1, h_MLP2, N_DP):
     mmm =  {}
     dims = {}
     numlevels = 6
     levels = ["X.W=KQV", "Q.K=R", "R.V=Z", "Z.W=O", "O.WL1=O1", "O1.WL2=O2"]
     #print("matrix dimensions accounting for all heads & batched dimension")
-    dims[str(levels[0])]=[3*B*S, D, h*nheads] #factor 3 due to K+Q+V
-    dims[str(levels[1])]=[B*S, h, S*nheads]
-    dims[str(levels[2])]=[B*S, S, h*nheads]
-    dims[str(levels[3])]=[B*S, D, D]
-    dims[str(levels[4])]=[B*S, D, h_MLP1]
-    dims[str(levels[5])]=[B*S, h_MLP1, h_MLP2]
+    dims[str(levels[0])]=[int(3*B*S/N_DP), D, h*nheads] #factor 3 due to K+Q+V
+    dims[str(levels[1])]=[int(B*S/N_DP), h, S*nheads]
+    dims[str(levels[2])]=[int(B*S/N_DP), S, h*nheads]
+    dims[str(levels[3])]=[int(B*S/N_DP), D, D]
+    dims[str(levels[4])]=[int(B*S/N_DP), D, h_MLP1]
+    dims[str(levels[5])]=[int(B*S/N_DP), h_MLP1, h_MLP2]
 
     #print("levels:",levels)
     #print("writting the matrix dimensions ...")
@@ -45,7 +45,7 @@ def main():
 
     #B D S h nheads h_MLP1 h_MLP2
     llm_configs = ["batch_size", "dimensionality", "context", "hidden_layer_dimension_for_attention_sublayers",\
-                 "attention_heads", "hidden_layer_dimension_MLP_1", "hidden_layer_dimension_MLP_2"]
+                 "attention_heads", "hidden_layer_dimension_MLP_1", "hidden_layer_dimension_MLP_2", "data_parallel_degree"]
     llm_params = {}
     df = pd.read_csv(out_file_path)
     for i, conf in enumerate(llm_configs):
@@ -65,7 +65,8 @@ def main():
     nheads = int(llm_params[llm_configs[4]][0])
     h_MLP1 = int(llm_params[llm_configs[5]][0])
     h_MLP2 = int(llm_params[llm_configs[6]][0])
-    mmm_breakup(B, D, S, h, nheads, h_MLP1, h_MLP2)
+    N_DP = int(llm_params[llm_configs[7]][0])
+    mmm_breakup(B, D, S, h, nheads, h_MLP1, h_MLP2, N_DP)
 
 if __name__ == '__main__':
     main()
