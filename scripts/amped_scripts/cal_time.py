@@ -24,8 +24,8 @@ def time_from_GEMM():
 
             t_elapsed += time_value
 
-    t_elapsed = t_elapsed*3.0 #FW pass + BW pass (~ 2x FW pass)
-    #print("FW pass time:", t_elapsed/3.0)
+    t_elapsed = t_elapsed*2.0 #FW pass + BW pass (weight update time is added seperately)
+    #print("********** FW-BW pass time ************", t_elapsed)
     return t_elapsed
 
 
@@ -88,7 +88,7 @@ def main():
                                            *int(llm_params_ext["batch_size"][0]))
     time = int(llm_params_ext["layers"][0])*nbatch*t_FW_BW + float(timeFromAmped["Total communication time forward pass (s)"][0])\
         +float(timeFromAmped["Total communication time backward pass (s)"][0])\
-        +float(timeFromAmped["Computation time weight updates (s)"][0])/int(llm_params_ext["tensor_parallel_degree"][0])
+        +float(timeFromAmped["Computation time weight updates (s)"][0])
 
     print("total time:", time)
 
