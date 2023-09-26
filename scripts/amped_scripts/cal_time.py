@@ -66,7 +66,7 @@ def main():
     breakdown_out_file_path = amped_dir +'/'+ 'output_files/' + breakdown_filename
     components = ["Total communication time forward pass (s)", \
               "Total communication time backward pass (s)", \
-             "Computation time weight updates (s)"]
+             "Computation time weight updates (s)", "Waiting Time due to pipeline bubbles (s)"]
     time_spent={}
     df = pd.read_csv(breakdown_out_file_path)
 
@@ -88,7 +88,8 @@ def main():
                                            *int(llm_params_ext["batch_size"][0]))
     time = int(llm_params_ext["layers"][0])*nbatch*t_FW_BW + float(timeFromAmped["Total communication time forward pass (s)"][0])\
         +float(timeFromAmped["Total communication time backward pass (s)"][0])\
-        +float(timeFromAmped["Computation time weight updates (s)"][0])
+        +float(timeFromAmped["Computation time weight updates (s)"][0]) \
+        +float(timeFromAmped["Waiting Time due to pipeline bubbles (s)"][0])
 
     print("total time:", time)
 
