@@ -138,8 +138,8 @@ class Memory(Base):
 class Core(Base):
   def __init__(self, exp_config):
       super().__init__(exp_config)
-      self.tot_power                    = exp_config.power_breakdown.core * self.TDP
-      self.tot_area                     = exp_config.area_breakdown.core * self.proc_chip_area_budget
+      self.tot_power                    = exp_config.power_breakdown.core #* self.TDP
+      self.tot_area                     = exp_config.area_breakdown.core #* self.proc_chip_area_budget
       
       self.FMA_width                    = exp_config.tech_config.core.FMA_width
       self.dataflow                    = exp_config.tech_config.core.dataflow
@@ -221,11 +221,11 @@ class MemoryHierarchy(Base):
         if mem_config.type == 'DRAM':
           self.memLayer[level] = DRAM(exp_config, mem_config, level)
         elif mem_config.type == 'SRAM-R':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.reg_mem, exp_config.area_breakdown.reg_mem, exp_config.tech_config.SRAMR, mem_config, level)
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.reg_mem / exp_config.power_breakdown.TDP, exp_config.area_breakdown.reg_mem / exp_config.area_breakdown.proc_chip_area_budget, exp_config.tech_config.SRAMR, mem_config, level)
         elif mem_config.type == 'SRAM-L1':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L1, exp_config.area_breakdown.L1, exp_config.tech_config.SRAML1, mem_config, level)
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L1 / exp_config.power_breakdown.TDP, exp_config.area_breakdown.L1 / exp_config.area_breakdown.proc_chip_area_budget, exp_config.tech_config.SRAML1, mem_config, level)
         elif mem_config.type == 'SRAM-L2':
-          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L2, exp_config.area_breakdown.L2, exp_config.tech_config.SRAML2, mem_config, level)
+          self.memLayer[level] = SRAM(exp_config, exp_config.power_breakdown.L2 / exp_config.power_breakdown.TDP, exp_config.area_breakdown.L2 / exp_config.area_breakdown.proc_chip_area_budget, exp_config.tech_config.SRAML2, mem_config, level)
         else:
           NotImplemented()
       
@@ -233,9 +233,9 @@ class MemoryHierarchy(Base):
 class DRAM(Memory):
   def __init__(self, exp_config, mem_config, level):
       super().__init__(exp_config, level)
-      self.tot_power                  = exp_config.power_breakdown.DRAM * self.TDP
+      self.tot_power                  = exp_config.power_breakdown.DRAM #* self.TDP
       self.tot_area                   = exp_config.area_breakdown.node_area_budget - self.proc_chip_area_budget
-      self.tot_mem_ctrl_area          = self.proc_chip_area_budget * exp_config.area_breakdown.DRAM
+      self.tot_mem_ctrl_area          = exp_config.area_breakdown.DRAM #* self.proc_chip_area_budget
       self.mem_ctrl_area              = exp_config.tech_config.DRAM.mem_ctrl_area
       self.dynamic_energy_per_bit     = exp_config.tech_config.DRAM.dynamic_energy_per_bit
       self.static_power_per_byte      = exp_config.tech_config.DRAM.static_power_per_bit * 8
@@ -439,8 +439,8 @@ class Network(Base):
 class SubNetwork(Base):
   def __init__(self, exp_config, net_config, power_breakdown, area_breakdown, netLevel):
       super().__init__(exp_config)
-      self.tot_power                  = power_breakdown * self.TDP
-      self.tot_area                   = area_breakdown  * self.proc_chip_area_budget
+      self.tot_power                  = power_breakdown #* self.TDP
+      self.tot_area                   = area_breakdown  #* self.proc_chip_area_budget
       #TODO: Rename core_perimeter to proc_chip_perimeter
       self.latency                    = net_config.latency
       self.nominal_freq               = net_config.nominal_freq
