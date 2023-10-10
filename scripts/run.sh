@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Input data file
-input_file="/imec/other/csainfra/kundu16/DeepFlow/scripts/mat_dims.txt"
+input_file="/home/nanoproj/ravit/DeepFlow/scripts/mat_dims.txt"
 
 # Relevant directories
-RUNDIR="/imec/other/csainfra/kundu16/DeepFlow"
-CONFIG_DIR="/imec/other/csainfra/kundu16/DeepFlow/configs/new-configs"
-OUTDIR="/imec/other/csainfra/kundu16/DeepFlow/results/output"
+RUNDIR="/home/nanoproj/ravit/DeepFlow"
+CONFIG_DIR="/home/nanoproj/ravit/DeepFlow/configs/new-configs"
+OUTDIR="/home/nanoproj/ravit/DeepFlow/results/output"
 
 # Remove the old files
 rm -rf "$OUTDIR"/LLM/*
