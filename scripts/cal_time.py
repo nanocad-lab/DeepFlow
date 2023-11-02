@@ -3,7 +3,7 @@ import pandas as pd
 import argparse
 
 # Directory containing the files
-directory = "/home/nanoproj/ravit/DeepFlow/results/output/LLM/"
+directory = "/home/nanoproj/ravit/DeepFlow/results/output/LLM_no_frac/"
 
 t_elapsed =0.0
 print("Time spent in different GEMMs")
