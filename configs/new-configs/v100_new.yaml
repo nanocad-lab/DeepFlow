@@ -8,11 +8,11 @@ model_param:
     num_gates: 4
     num_non_linear: 5
     num_add: 8
-    data_scale: 100 
+    data_scale: 100
 
 sw_param:
     kernel_launch_overhead: 9e-6 #9us
-    precision: 2 
+    precision: 2
 
 tech_param:
     core:
@@ -20,8 +20,8 @@ tech_param:
         nominal_flop_rate_per_mcu: 128
         nominal_area_per_mcu: 0.38 #mm^2
         nominal_frequency: 1.33e9 #Hz
-        nominal_voltage: 0.8 
-        threshold_voltage: 0.2 
+        nominal_voltage: 0.8
+        threshold_voltage: 0.2
         margin_voltage: 0.35
         operating_area_per_mcu: 0.38 #!!!!operating_area n nominal_area should chnage hand-in-hand as they affect area scaling
         num_mcu_per_bundle: 8 #a bundle can be thought of as an SM, number of tensorcores per SM
@@ -35,10 +35,10 @@ tech_param:
         stack_capacity: 4 GB
         area_per_stack: 100 #mm2
         latency: 100e-9
-        mem_ctrl_area: 5 #mm2 
+        mem_ctrl_area: 5 #mm2
         nominal_frequency: 1.38e9
-        nominal_voltage: 1.2 
-        threshold_voltage: 0.4 
+        nominal_voltage: 1.2
+        threshold_voltage: 0.4
         margin_voltage: 0.6
         max_voltage: 1.8
         num_links_per_mm: 400
@@ -49,7 +49,7 @@ tech_param:
         static_power_per_bit: 8.4e-12
         area_per_bit: 6.4e-8 #mm2
         bank_capacity: 32 KB
-        controller_area_per_link: 0.004 #mm2 
+        controller_area_per_link: 0.004 #mm2
         controller_power_per_link: 0.04 #W
         latency: 0
         overhead: 0.20 #20% circuitry overhead in cell area
@@ -59,7 +59,7 @@ tech_param:
         static_power_per_bit: 9e-12
         area_per_bit: 8e-8 #mm2
         bank_capacity: 32 KB
-        controller_area_per_link: 0.00 #mm2 
+        controller_area_per_link: 0.00 #mm2
         controller_power_per_link: 0.0 #W
         latency: 0
         overhead: 0.20
@@ -69,14 +69,14 @@ tech_param:
         static_power_per_bit: 9e-12
         area_per_bit: 8e-8 #mm2
         bank_capacity: 16 KB
-        controller_area_per_link: 0.00 #mm2 
+        controller_area_per_link: 0.00 #mm2
         controller_power_per_link: 0.0 #W
         latency: 0
         overhead: 0.25
-        util: 1 
+        util: 1
     network:
         intra_node:
-          latency: 5e-6 
+          latency: 5e-6
           nominal_frequency: 3e9
           nominal_voltage: 1
           nominal_energy_per_link: 1e-12
@@ -100,7 +100,7 @@ area_breakdown:
     proc_chip_area_budget: 815 #mm2
     core: 0.3
     L2: 0.08062
-    L1: 0.0103 
+    L1: 0.0103
     reg_mem: 0.022
     DRAM: 0.0248
     network:
@@ -115,19 +115,19 @@ power_breakdown:
     L1: 0.1041
     reg_mem: 0.3022
     network:
-      intra_node: 0.00935
-      inter_node: 0
+      intra_node: 0.00935 #0.079 #0.00935 # 0 before
+      inter_node: 0.0 # 0.00935 before
 
 perimeter_breakdown:
     DRAM: 0.5
-    intra_node: 0.5
-    inter_node: 0
+    intra_node: 0.5 # it was 0 before
+    inter_node: 0.0 # it was 0.5 before
 
 system_hierarchy:
-    num_devices_per_node: 8 # it was 1 before as the base config
-    num_nodes: 1        # it was 1 before
+    num_devices_per_node: 8
+    num_nodes: 1
     inter_derate: 1
-    intra_derate: 1
+    intra_derate: 1 #it was 0
     kp1_inter: False
     kp2_inter: False
     dp_inter: False
@@ -135,7 +135,7 @@ system_hierarchy:
 
 network_topology:
     inter_node: "hic" #mesh, torus, crossbar, custom, hierarchical
-    intra_node: "mesh"
+    intra_node: "none"
 
 memory_hierarchy:
     l0: #Register Memory
@@ -144,15 +144,15 @@ memory_hierarchy:
     l1: #Shared Memory
       type: "SRAM-L1"
       scope: "mcu-bundle"
-    l2: #L2 
+    l2: #L2
       type: "SRAM-L2"
       scope: "global"
     l3: #Global Memory
       type: "DRAM"
-      scope: "global" 
+      scope: "global"
 
 scheduling_param:
-    auto: False 
+    auto: False
     dp: 1
     lp: 1
     kp_hidden_dim1: 1

@@ -15,6 +15,7 @@ OUTDIR="/imec/other/csainfra/kundu16/DeepFlow/results/output"
 rm -rf "$OUTDIR"/LLM/*
 
 # Read lines from the input file
+l=0
 while IFS= read -r line; do
     # Extract values from the line
     value1=$(echo "$line" | awk '{print $1}')
@@ -22,8 +23,6 @@ while IFS= read -r line; do
     value3=$(echo "$line" | awk '{print $3}')
 
     # Submit a job using python perf.py with extracted values as arguments
-    python "$RUNDIR"/perf.py --exp_config "$CONFIG_DIR"/v100.yaml --exp_dir "$OUTDIR"/LLM/ --debug True --gemm True --t RC --kp1 $TP_intra --kp2 1 --m "$value1" --n "$value2" --k "$value3"
-
-    # You can add sleep between job submissions if needed
-    # sleep 1
+    python "$RUNDIR"/perf.py --args_input true --exp_config "$CONFIG_DIR"/v100_new.yaml --exp_dir "$OUTDIR"/LLM/ --debug false --gemm true --t RC --kp1 1 --kp2 "$TP_intra" --m "$value1" --k "$value2" --n "$value3" --lev "$l"
+    ((l++))
 done < "$input_file"

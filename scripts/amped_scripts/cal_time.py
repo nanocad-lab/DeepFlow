@@ -7,6 +7,8 @@ def time_from_GEMM():
     directory = "/imec/other/csainfra/kundu16/DeepFlow/results/output/LLM/"
 
     t_elapsed =0.0
+    red_time_value=0.0
+    gemm_time_value=0.0
     #print("Time spent in different GEMMs")
     # Loop through files in the directory
     for filename in os.listdir(directory):
@@ -15,17 +17,26 @@ def time_from_GEMM():
 
             data = pd.read_csv(file_path, sep=':', header=None, names=['Field', 'Value'], skipinitialspace=True)
             # Extract the time value
-            time_row = data[data['Field'] == 'Time']
+            time_row = data[data['Field'] == 'GEMM Time']
             if not time_row.empty:
-                time_value = float(time_row['Value'].iloc[0])
-                #print(time_value)
+                gemm_time_value += float(time_row['Value'].iloc[0])
+                #print("gemm_time_value=", gemm_time_value)
             else:
                 print("Time value not found in the file.")
 
-            t_elapsed += time_value
+            if filename.startswith("summary_l3") or filename.startswith("summary_l5"):
+                time_row = data[data['Field'] == 'Reduction Time']
+                if not time_row.empty:
+                   red_time_value += float(time_row['Value'].iloc[0])
+                   #print("red_time_value=",red_time_value)
+                else:
+                   print("Time value not found in the file.")
+
+    t_elapsed = gemm_time_value + red_time_value
+            #print("t_elapsed=", t_elapsed)
 
     t_elapsed = t_elapsed*2.0 #FW pass + BW pass (weight update time is added seperately)
-    #print("********** FW-BW pass time ************", t_elapsed)
+    print("********** FW-BW pass time ************", t_elapsed/2)
     return t_elapsed
 
 
@@ -84,8 +95,10 @@ def main():
 
     t_FW_BW = time_from_GEMM()
     #print("t_FW_BW:", t_FW_BW)
-    nbatch = int(llm_params_ext["tokens_to_train"][0])/(int(llm_params_ext["context"][0])\
-                                           *int(llm_params_ext["batch_size"][0]))
+    nbatch = 1
+    #nbatch = int(llm_params_ext["tokens_to_train"][0])/(int(llm_params_ext["context"][0])\
+    #                                       *int(llm_params_ext["batch_size"][0]))
+
     time = int(llm_params_ext["layers"][0])*nbatch*t_FW_BW + float(timeFromAmped["Total communication time forward pass (s)"][0])\
         +float(timeFromAmped["Total communication time backward pass (s)"][0])\
         +float(timeFromAmped["Computation time weight updates (s)"][0]) \

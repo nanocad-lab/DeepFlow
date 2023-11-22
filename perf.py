@@ -18,7 +18,7 @@ from model import Model
 
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
-validating_v100=True
+validating_v100=False
 
 class TimeCalculation:
     def __init__(self, exp_config):
@@ -1032,8 +1032,9 @@ class TimeCalculation:
                                    allReduce = True,
                                    name = name)
         if self.validating_GEMM:
-          print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
-          return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
+          print("getDistGEMM_f_kp1- GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
+          #return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
+          return GEMM_time[0], reduction_time
         else:
           return GEMM_time[0], reduction_time
 
@@ -1072,8 +1073,9 @@ class TimeCalculation:
                                    allReduce = False,
                                    name = name)
         if self.validating_GEMM:
-          print("GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
-          return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
+          print("getDistGEMM_f_kp2- (m,k,n)= (",m,k,n ,") GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time))
+          #return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
+          return GEMM_time[0], reduction_time
         else:
           return GEMM_time[0], reduction_time
 
@@ -1683,11 +1685,12 @@ def callPerf(exp_config, exp_dir, debug):
 @click.option("--num_layer", help="number of lstm layers", default=2, type=int, required=False)
 @click.option("--dp", help="data parallelism", default=None, type=int, required=False) #only use for GEMM validation
 @click.option("--lp", help="layer parallelism", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--lev", help="GEMM level", default=None, type=int, required=False) #only use for GEMM validation
 
-def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer, dp, lp, args_input=False):
+def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer, dp, lp, lev, args_input=False):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" %(m, n, k) ##Output dir should be created manually
+    output_file = exp_dir + "/summary_l%s_m%s_n%s_k%s.txt" %(lev, m, n, k) ##Output dir should be created manually
 
 
     TC = TimeCalculation(exp_config)
@@ -1709,9 +1712,10 @@ def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hid
           sys.exit()
           
         with open(output_file, "w") as f:
-          f.write("Best Order: {}\n".format(gemm_time[1]))
-          f.write("Best Tile: {}\n".format(gemm_time[2]))
-          f.write("Time: {}\n".format(gemm_time[0]))
+          #f.write("Best Order: {}\n".format(gemm_time[1]))
+          #f.write("Best Tile: {}\n".format(gemm_time[2]))
+          f.write("GEMM Time: {}\n".format(gemm_time[0]))
+          f.write("Reduction Time: {}\n".format(gemm_time[1]))
         return
 
     tot_time, tot_param = TC.calcTime()
