@@ -23,6 +23,6 @@ while IFS= read -r line; do
     value3=$(echo "$line" | awk '{print $3}')
 
     # Submit a job using python perf.py with extracted values as arguments
-    python "$RUNDIR"/perf.py --args_input true --exp_config "$CONFIG_DIR"/v100_new.yaml --exp_dir "$OUTDIR"/LLM/ --debug false --gemm true --t RC --kp1 1 --kp2 "$TP_intra" --m "$value1" --k "$value2" --n "$value3" --lev "$l"
+    python "$RUNDIR"/perf.py --args_input true --exp_config "$CONFIG_DIR"/v100_new.yaml --exp_dir "$OUTDIR"/LLM/ --debug false --gemm true --t RC --kp1 1 --kp2 "$TP_intra" --m "$value1" --k "$value2" --n "$value3" --lev "$l" --lp 2
     ((l++))
 done < "$input_file"

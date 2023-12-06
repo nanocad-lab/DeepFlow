@@ -125,13 +125,13 @@ perimeter_breakdown:
 
 system_hierarchy:
     num_devices_per_node: 8
-    num_nodes: 1
+    num_nodes: 2
     inter_derate: 1
     intra_derate: 1 #it was 0
     kp1_inter: False
     kp2_inter: False
     dp_inter: False
-    lp_inter: False
+    lp_inter: True
 
 network_topology:
     inter_node: "hic" #mesh, torus, crossbar, custom, hierarchical
@@ -154,7 +154,7 @@ memory_hierarchy:
 scheduling_param:
     auto: False
     dp: 1
-    lp: 1
+    lp: 2
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1
     kp_softmax_dim1: 1
