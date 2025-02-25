@@ -11,15 +11,13 @@ Pre-requirement: Python3
 	* python3 -m venv [/path/to/new/virtual/environment]
 	* source [/path/to/new/virtual/environment]/bin/activate
 	* pip install --upgrade pip
-	* pip install click ruamel.yaml numpy
-	* mkdir -p [/path/to/output/directory] 
+	* pip install -r requirements.txt
+	* mkdir -p output
 
 **Step 4**. Test if the installation has been successful:
 
-	* python perf.py --exp_config configs/[config.yaml] --exp_dir output
-	* check the output result: vim [/path/to/output/directory]/summary.txt
-
-
+	* python perf.py --exp_config configs/new-configs/exp_config_new_MCM.yaml --exp_dir output
+	* check the output result: vim output/summary.txt
 
 
 ## Execution Modes ##
@@ -28,7 +26,7 @@ DeepFlow can be used in 5 different modes:
 
 (1) Peformance Prediction Mode (GEMM) 
 * **When to use**: Use for distributed GEMM prediction
-* **How**: python perf.py --exp_config configs/[config.yaml] --exp_dir output --debug [False|True] --gemm True --t [RC|CR] --kp1 [kp1 dim.] --kp2 [kp2 dim.] --m [input dim.] --n [output dim.] --k [inner dim.] 
+* **How**: python perf.py --exp_config configs/[config.yaml] --exp_dir output --debug [False|True] --gemm True --t [RC|CR] --kp1 [kp1 dim.] --kp2 [kp2 dim.] --m [input dim.] --n [output dim.] --k [inner dim.] --args_input True
 
 (2) Performance Prediction Mode (End-2-End Application)
 * Specify the application parameters in configs/[config.yaml]
