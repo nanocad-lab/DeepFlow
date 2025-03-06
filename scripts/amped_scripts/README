@@ -1,0 +1,5 @@
+# git clone git@github.imec.be:CSA/amped.git
+# make sure to checkout "connect_DF" branch
+
+# how to to run
+$source buildrun.sh

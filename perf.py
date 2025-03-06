@@ -124,8 +124,8 @@ class TimeCalculation:
         self.tot_flop           = 0
         self.tot_mem            = 0
         self.tot_time           = 0
-        self.debug              = False
-        self.validating_GEMM    = False
+        self.debug              = False #############################
+        self.validating_GEMM    = True
     
     def updateParams(self, debug, m, n, k, t, kp1, kp2, dp, lp, gemm,
                       batch_size, hidden_dim, seq_len, vocab_size, num_layer):
@@ -365,6 +365,7 @@ class TimeCalculation:
                 print("inflection_point: {:.2f}".format(inflection_point[i]))
                 print("comp_int: {:.2f}".format(comp_int[i]))
                 print("time: {}".format(time[i]))
+                print("Throughput = ", self.th, "BW = ", self.memLayer[i].getThroughput(), "mem_latency=", self.memLayer[i].getLatency()) ################
                 print()
         
         #print("Roofline: exited {}".format(name))
@@ -413,6 +414,7 @@ class TimeCalculation:
             print("===============================================================")
             print("order: {}".format(order_dims))
             print("===============================================================")
+          #print("TILE_SPACE: \n", self.tileSpace)
           for tile_dims in self.tileSpace:
             if self.debug:
               print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -421,6 +423,7 @@ class TimeCalculation:
             GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
             GEMM_time = self.roofline(GEMM_flop,mem_access, name) + self.O
             tile2time[(order_dims, tile_dims)] = GEMM_time
+            #print("GEMM_time = ", GEMM_time, "tile_dims = ", tile_dims)
 
        
        best_tile = min(tile2time, key=tile2time.get)
@@ -499,7 +502,10 @@ class TimeCalculation:
     # output matrix C(dim1, dim3)
     def getNumAccesses(self, level, dim1, dim2, dim3, tile_dim, num_repeat, name):
         #tile1,tile2,tile3 = self.getTileSize(level-1)
+        #print("dim1= ", dim1, "dim2= ", dim2, "dim3 = ", dim3)
+
         tile1, tile2, tile3 = tile_dim
+        #print("BEFORE: level = ", level, "|tile1= ", tile1, "tile2= ", tile2, "tile3 = ", tile3) ###############
 
         orig_size = tile1*tile2 + tile1*tile3 + tile2*tile3
         short_tile_cond = [0,0,0]
@@ -513,6 +519,8 @@ class TimeCalculation:
         if tile3 > dim3:
             tile3 = dim3
             short_tile_cond[2] = 1
+
+        #print("AFTER: level= ", level ,"|tile1= ", tile1, "tile2= ", tile2, "tile3 = ", tile3) ###############
 
         if short_tile_cond[2] == 0 and (short_tile_cond[0] | short_tile_cond[1]) == 1:
             if level <= 1:
@@ -539,6 +547,8 @@ class TimeCalculation:
               tile2 = math.floor((orig_size) / (tile1 + tile3))
             if tile2 > dim2:
               tile2 = dim2
+    
+        #print("FINAL: level= ", level ,"|tile1= ", tile1, "tile2= ", tile2, "tile3 = ", tile3) ###############
 
         reload_A = 1
         reload_B = 1
@@ -681,7 +691,7 @@ class TimeCalculation:
 
         point_time = self.roofline(point_flop, point_mem, name='pointwise_cf_kp1') + 5 * self.O + point_comm
 
-
+        #print("GEMM_time = ", GEMM_time, "point_time= ", point_time)
         return GEMM_time + reduction_time + point_time
  
     def getCb_kp1(self):
@@ -1677,7 +1687,7 @@ def callPerf(exp_config, exp_dir, debug):
 def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer, dp, lp, args_input=False):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary.txt" ##Output dir should be created manually
+    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" %(m, n, k) ##Output dir should be created manually
 
 
     TC = TimeCalculation(exp_config)
