@@ -114,28 +114,29 @@ tech_param:
           threshold_voltage: 0.35
           margin_voltage: 0.5
           util: 0.96
-area_breakdown: # the area breakdown are FRACTIONS (meant to add to 1). They are fractions of proc_chip_area_budget!!!
-    device_area_budget: 1230 #mm2 # DRAM Area is device_area_budget - proc_chip_area_budget. This is how we compute DRAM stack no.!
-    proc_chip_area_budget: 815 #mm2
-    core: 0.3 
-    L2: 0.08062
-    L1: 0.0103 
-    reg_mem: 0.022
-    DRAM: 0.0248 # This is the Memory controller area of the compute chip. IMPORTANT: Used to compute no. of DRAM stacks!!!!
+area_breakdown: # No longer fractions. Absolute values in mm^2.
+    device_area_budget: 1230 #mm^2 # DRAM Area is device_area_budget - proc_chip_area_budget. This is how we compute DRAM stack no.!
+    proc_chip_area_budget: 815 #mm^2
+    core: 244.5
+    L2: 65.7053
+    L1: 8.3945
+    reg_mem: 17.93
+    DRAM: 20.212 # This is the Memory controller area of the compute chip. IMPORTANT: Used to compute no. of DRAM stacks!
     network:
-      intra_node: 0.1 # This is the intra-node I/O controller area of the compute chip.
+      intra_node: 81.5 # This is the intra-node I/O controller area of the compute chip.
       inter_node: 0.0 # This is the inter-node I/O controller area of the compute chip.
 
-power_breakdown: # everything here is fractions of TDP
-    TDP: 300 
-    core: 0.3745 #0.4927 if 0.171W per core #0.0189 for 15.7Tflops #0.1504 for 125TFLOps
-    DRAM: 0.16
-    L2: 0.008
-    L1: 0.1041
-    reg_mem: 0.3022
+power_breakdown: # Absolute values in W. TDP is total power.
+    TDP: 300
+    core: 112.35 
+    DRAM: 48
+    L2: 2.4
+    L1: 31.23
+    reg_mem: 90.66
     network:
-      intra_node: 0.0625
+      intra_node: 18.75
       inter_node: 0.0
+
 
 perimeter_breakdown: # out of the compute die, what fraction of the perimeter is dedicated to IO links to each component
     DRAM: 0.5
