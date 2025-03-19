@@ -125,7 +125,7 @@ class TimeCalculation:
         self.tot_mem            = 0
         self.tot_time           = 0
         self.debug              = False #############################
-        self.validating_GEMM    = True
+        self.validating_GEMM    = False
     
     def updateParams(self, debug, m, n, k, t, kp1, kp2, dp, lp, gemm,
                       batch_size, hidden_dim, seq_len, vocab_size, num_layer):
