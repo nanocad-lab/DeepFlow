@@ -35,6 +35,8 @@ class DRAMConfig:
     self.num_links_per_stack      = dram_config_dict['num_links_per_stack']
     self.max_voltage              = dram_config_dict['max_voltage']
     self.util                     = dram_config_dict['util']
+    self.size                     = None if 'size' not in dram_config_dict.keys() else dram_config_dict['size']
+    self.bandwidth                = None if 'bandwidth' not in dram_config_dict.keys() else dram_config_dict['bandwidth']
 
 class SRAMConfig:
   def __init__(self, sram_config_dict):
@@ -46,7 +48,8 @@ class SRAMConfig:
     self.latency                  = sram_config_dict['latency']
     self.overhead                 = sram_config_dict['overhead']
     self.util                     = sram_config_dict['util']
-
+    self.size                     = None if 'size' not in sram_config_dict.keys() else sram_config_dict['size']
+    self.bandwidth                = None if 'bandwidth' not in sram_config_dict.keys() else sram_config_dict['bandwidth']
 
 class NetworkConfig:
   def __init__(self, net_config_dict):

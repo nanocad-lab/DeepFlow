@@ -124,8 +124,8 @@ class TimeCalculation:
         self.tot_flop           = 0
         self.tot_mem            = 0
         self.tot_time           = 0
-        self.debug              = False
-        self.validating_GEMM    = False
+        self.debug              = False #############################
+        self.validating_GEMM    = True
     
     def updateParams(self, debug, m, n, k, t, kp1, kp2, dp, lp, gemm,
                       batch_size, hidden_dim, seq_len, vocab_size, num_layer):
@@ -144,7 +144,7 @@ class TimeCalculation:
         self.validating_GEMM = gemm
         self.lp = lp if lp != None else self.lp
         self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
-        self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
+        # self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
         self.kp_hidden_dim2 = kp2 if kp2 != None else self.kp_hidden_dim2
         self.kp_hidden_type = (2 if t == 'RC' else (1 if t == 'CR' else self.kp_hidden_type))
         
@@ -365,6 +365,7 @@ class TimeCalculation:
                 print("inflection_point: {:.2f}".format(inflection_point[i]))
                 print("comp_int: {:.2f}".format(comp_int[i]))
                 print("time: {}".format(time[i]))
+                print("Throughput = ", self.th, "BW = ", self.memLayer[i].getThroughput(), "mem_latency=", self.memLayer[i].getLatency()) ################
                 print()
         
         #print("Roofline: exited {}".format(name))
@@ -413,6 +414,7 @@ class TimeCalculation:
             print("===============================================================")
             print("order: {}".format(order_dims))
             print("===============================================================")
+          #print("TILE_SPACE: \n", self.tileSpace)
           for tile_dims in self.tileSpace:
             if self.debug:
               print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
@@ -420,16 +422,17 @@ class TimeCalculation:
               print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
             GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
             GEMM_time = self.roofline(GEMM_flop,mem_access, name) + self.O
-            tile2time[(order_dims, tile_dims)] = GEMM_time
+            tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access)
+            #print("GEMM_time = ", GEMM_time, "tile_dims = ", tile_dims)
 
        
        best_tile = min(tile2time, key=tile2time.get)
-       best_time = tile2time[best_tile]
+       best_time, mem_access = tile2time[best_tile]
 
        if self.debug:
           print("{}: Best Time: {:,}, Best Order: {}, Best Tile: {}\n".format(name, best_time, best_tile[0], best_tile[1]))
 
-       return best_time, best_tile[0], best_tile[1]
+       return best_time, best_tile[0], best_tile[1], mem_access
     
     def generateOrder(self, dim1, dim2, dim3, name):
 
@@ -497,9 +500,12 @@ class TimeCalculation:
     #Count the number of accesses from level-1 to level
     # input matrix A(dim1, dim2) and B(dim2, dim3)
     # output matrix C(dim1, dim3)
-    def getNumAccesses(self, level, dim1, dim2, dim3, tile_dim, num_repeat, name):
+    def getNumAccesses(self, level, dim1, dim2, dim3, tile_dim, num_repeat, name, r):
         #tile1,tile2,tile3 = self.getTileSize(level-1)
+        #print("dim1= ", dim1, "dim2= ", dim2, "dim3 = ", dim3)
+
         tile1, tile2, tile3 = tile_dim
+        #print("BEFORE: level = ", level, "|tile1= ", tile1, "tile2= ", tile2, "tile3 = ", tile3) ###############
 
         orig_size = tile1*tile2 + tile1*tile3 + tile2*tile3
         short_tile_cond = [0,0,0]
@@ -514,31 +520,35 @@ class TimeCalculation:
             tile3 = dim3
             short_tile_cond[2] = 1
 
+        #print("AFTER: level= ", level ,"|tile1= ", tile1, "tile2= ", tile2, "tile3 = ", tile3) ###############
+
         if short_tile_cond[2] == 0 and (short_tile_cond[0] | short_tile_cond[1]) == 1:
             if level <= 1:
-              tile3 = math.floor((orig_size - tile1 * tile2) / (tile1 + tile2))
+                tile3 = math.floor((orig_size - tile1 * tile2) / (tile1 + tile2))
             else:
             #store bypasses cache, directly goes to memory 
-              tile3 = math.floor((orig_size - tile1 * tile2) / tile2)
+                tile3 = math.floor((orig_size - tile1 * tile2) / tile2)
             if tile3 > dim3:
-              tile3 = dim3
+                tile3 = dim3
             #Uncomment if tile3 needs to be pow of 2
             #tile3 = int(math.pow(2, math.floor(math.log2(tile3))))
         elif short_tile_cond[0] == 0 and (short_tile_cond[1] | short_tile_cond[2]) == 1:
             if level <= 1:
-              tile1 = math.floor((orig_size - tile3 * tile2) / (tile3 + tile2))
+                tile1 = math.floor((orig_size - tile3 * tile2) / (tile3 + tile2))
             else:
             #store bypasses cache, directly goes to memory 
-              tile1 = math.floor((orig_size - tile3 * tile2) / tile2)
+                tile1 = math.floor((orig_size - tile3 * tile2) / tile2)
             if tile1 > dim1:
-              tile1 = dim1
+                tile1 = dim1
         elif short_tile_cond[1] == 0 and (short_tile_cond[0] & short_tile_cond[2]) == 1:
             if level <= 1:
-              tile2 = math.floor((orig_size - tile3 * tile1) / (tile3 + tile1))
+                tile2 = math.floor((orig_size - tile3 * tile1) / (tile3 + tile1))
             else:
-              tile2 = math.floor((orig_size) / (tile1 + tile3))
+                tile2 = math.floor((orig_size) / (tile1 + tile3))
             if tile2 > dim2:
-              tile2 = dim2
+                tile2 = dim2
+    
+        #print("FINAL: level= ", level ,"|tile1= ", tile1, "tile2= ", tile2, "tile3 = ", tile3) ###############
 
         reload_A = 1
         reload_B = 1
@@ -550,16 +560,23 @@ class TimeCalculation:
            #do not access the slow memory on every write,acculmuate in fast memory 
            reload_C = (1 if level > 1 else math.ceil(dim2 / tile2))
            
-         
-        num_mem = num_repeat * (dim1 * dim2 * reload_A + dim2 * dim3 * reload_B + dim1 * dim3 * reload_C) * self.precision
+        num_repeat = r[0] * r[1] * r[2]
+        
+        if level == 2: # access to L1 scratchpad
+            num_mem = (num_repeat * (dim1 * dim2 * reload_A + dim2 * dim3 * reload_B) + r[0] * dim1 * r[2] * dim3 * reload_C) * self.precision
+        else:    
+            num_mem = num_repeat * (dim1 * dim2 * reload_A + dim2 * dim3 * reload_B + dim1 * dim3 * reload_C) * self.precision
+        
+        # num_mem = num_repeat * (dim1 * dim2 * reload_A + dim2 * dim3 * reload_B + dim1 * dim3 * reload_C) * self.precision
+
         if self.debug:
-           print(name)
-           print("Matrix dimension at Level {}: {:,} x {:,} x {:,}".format(level, dim1, dim2, dim3))
-           print("Tile dimension at Level {}: {:,} x {:,} x {:,}".format(level-1, tile1, tile2, tile3))
-           print("reload_A: {}, reload_B: {}, reload_C: {}".format(reload_A, reload_B, reload_C))
-           print("num_repeat: {}".format(num_repeat))
-           print("Bytes Accessed: {:,}".format(num_mem))
-           print("")
+            print(name)
+            print("Matrix dimension at Level {}: {:,} x {:,} x {:,}".format(level, dim1, dim2, dim3))
+            print("Tile dimension at Level {}: {:,} x {:,} x {:,}".format(level-1, tile1, tile2, tile3))
+            print("reload_A: {}, reload_B: {}, reload_C: {}".format(reload_A, reload_B, reload_C))
+            print("num_repeat: {}".format(num_repeat))
+            print("Bytes Accessed: {:,}".format(num_mem))
+            print("")
 
         return num_mem, tile1, tile2, tile3
         
@@ -587,17 +604,23 @@ class TimeCalculation:
         #X3 = self.reg_tile_dim
 
         num_accesses = [0] * self.num_levels
+        r1, r2, r3 = 1,1,1
 
         if (algByte):
             num_accesses[self.num_levels - 1] = (dim1 * dim2 + dim2 * dim3 + dim1 * dim3) * self.precision
         else:
             num_repeat = 1
             for level in range(self.num_levels - 1, 0, -1):
-                num_accesses[level], tile1, tile2, tile3  = self.getNumAccesses(level, dim1, dim2, dim3, tile_dims[level-1], num_repeat, name)
+                repeat = (r1, r2, r3)
+                num_accesses[level], tile1, tile2, tile3  = self.getNumAccesses(level, dim1, dim2, dim3, tile_dims[level-1], num_repeat, name, repeat)
                 try:
-                  num_repeat           *= math.ceil(dim1/tile1) * math.ceil(dim2/tile2) * math.ceil(dim3/tile3)
+                    num_repeat *= math.ceil(dim1/tile1) * math.ceil(dim2/tile2) * math.ceil(dim3/tile3)
+                    r1 *= math.ceil(dim1/tile1)
+                    r2 *= math.ceil(dim2/tile2)
+                    r3 *= math.ceil(dim3/tile3)
                 except:
-                  num_repeat           *= 1
+                    num_repeat           *= 1
+                    
 
                 dim1                   = tile1 if tile1 != 0 else dim1
                 dim2                   = tile2 if tile2 != 0 else dim2
@@ -681,7 +704,7 @@ class TimeCalculation:
 
         point_time = self.roofline(point_flop, point_mem, name='pointwise_cf_kp1') + 5 * self.O + point_comm
 
-
+        #print("GEMM_time = ", GEMM_time, "point_time= ", point_time)
         return GEMM_time + reduction_time + point_time
  
     def getCb_kp1(self):
@@ -846,8 +869,8 @@ class TimeCalculation:
    
     def getCb(self):
         """Get LSTM Cell Time on Backward Path"""
-        grad_act_time,_,_ = self.getGEMMTime(self. miniB, self.G * self.D, 2 * self.D, "Cb_act") 
-        grad_wt_time,_,_   = self.getGEMMTime(2 * self.D, self.miniB, self.G * self.D, "Cb_wt")
+        grad_act_time,_,_,_ = self.getGEMMTime(self. miniB, self.G * self.D, 2 * self.D, "Cb_act") 
+        grad_wt_time,_,_,_  = self.getGEMMTime(2 * self.D, self.miniB, self.G * self.D, "Cb_wt")
 
         
         GEMM_time = grad_act_time + grad_wt_time
@@ -1042,9 +1065,9 @@ class TimeCalculation:
                                    name = name)
 
         #Multiply full grad_activation with shards of weights
-        grad_wt_time,_,_  = self.getGEMMTime(k, (m // dim1), n, name + "wt")
+        grad_wt_time,_,_,_  = self.getGEMMTime(k, (m // dim1), n, name + "wt")
         #Multiply full grad-activation with shards of activations 
-        grad_act_time,_,_ = self.getGEMMTime(m, (n // dim1), k, name + "act")
+        grad_act_time,_,_,_ = self.getGEMMTime(m, (n // dim1), k, name + "act")
 
 
         GEMM_time = grad_wt_time + grad_act_time
@@ -1115,9 +1138,9 @@ class TimeCalculation:
         reduction_time = reduction_time_wt1 + reduction_time_wt2 + reduction_time_act1 +reduction_time_act2
 
         #Multiply full grad_activation with shards of weights
-        grad_wt_time,_,_  = self.getGEMMTime(k / dim1, m, n / dim2, name + "wt")
+        grad_wt_time,_,_,_  = self.getGEMMTime(k / dim1, m, n / dim2, name + "wt")
         #Multiply full grad-activation with shards of activations 
-        grad_act_time,_,_ = self.getGEMMTime(m / dim1, n, k / dim2, name + "act")
+        grad_act_time,_,_,_ = self.getGEMMTime(m / dim1, n, k / dim2, name + "act")
 
         GEMM_time = grad_wt_time + grad_act_time
 
@@ -1182,12 +1205,12 @@ class TimeCalculation:
     
     
     def getProjection_f(self):
-        GEMM_time,_,_ = self.getGEMMTime(self.miniB, self.D, self.projection, "projection")
+        GEMM_time,_,_,_ = self.getGEMMTime(self.miniB, self.D, self.projection, "projection")
         return GEMM_time
 
     def getProjection_b(self):
-        grad_wt_time,_,_  = self.getGEMMTime(self.projection, self.miniB, self.D, "projection_b_wt")
-        grad_act_time,_,_ = self.getGEMMTime(self.miniB, self.projection, self.D, "projection_b_act")
+        grad_wt_time,_,_,_  = self.getGEMMTime(self.projection, self.miniB, self.D, "projection_b_wt")
+        grad_act_time,_,_,_ = self.getGEMMTime(self.miniB, self.projection, self.D, "projection_b_act")
 
         GEMM_time = grad_wt_time + grad_act_time
         return GEMM_time
@@ -1227,7 +1250,7 @@ class TimeCalculation:
         return GEMM_time + reduction_time
 
     def getSoftmax_f(self):
-        GEMM_time,_,_ = self.getGEMMTime(self.miniB, (self.projection if proj else self.D), self.V, "softmax_f")
+        GEMM_time,_,_,_ = self.getGEMMTime(self.miniB, (self.projection if proj else self.D), self.V, "softmax_f")
 
         #Final matrix after GEMM has (B, V) dimensionality
         #We get exponential on each of the elements in a row
@@ -1253,8 +1276,8 @@ class TimeCalculation:
 
     #FIXME: where is the reduction time?
     def getSoftmax_b(self):
-        grad_wt_time,_,_  = self.getGEMMTime((self.projection if proj else self.D), self.miniB, self.V, "softmax_b_wt")
-        grad_act_time,_,_ = self.getGEMMTime(self.miniB, self.V, (self.projection if proj else self.D), "softmax_b_act")
+        grad_wt_time,_,_,_  = self.getGEMMTime((self.projection if proj else self.D), self.miniB, self.V, "softmax_b_wt")
+        grad_act_time,_,_,_ = self.getGEMMTime(self.miniB, self.V, (self.projection if proj else self.D), "softmax_b_act")
 
         GEMM_time = grad_wt_time + grad_act_time
         point_flop = self.miniB * self.V * 5
@@ -1631,6 +1654,7 @@ class TimeCalculation:
 
     def getTime(self):
         return self.tot_time
+    
 def callPerf(exp_config, exp_dir, debug):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
@@ -1677,7 +1701,7 @@ def callPerf(exp_config, exp_dir, debug):
 def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hidden_dim, seq_len, vocab_size, num_layer, dp, lp, args_input=False):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary.txt" ##Output dir should be created manually
+    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" %(m, n, k) ##Output dir should be created manually
 
 
     TC = TimeCalculation(exp_config)
@@ -1702,6 +1726,8 @@ def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hid
           f.write("Best Order: {}\n".format(gemm_time[1]))
           f.write("Best Tile: {}\n".format(gemm_time[2]))
           f.write("Time: {}\n".format(gemm_time[0]))
+          for i in range(len(gemm_time[3])):
+              f.write(f'L{i}: {gemm_time[3][i] * 4} B\n')
         return
 
     tot_time, tot_param = TC.calcTime()
