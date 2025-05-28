@@ -141,7 +141,7 @@ class Core(Base):
       self.tot_power                    = exp_config.power_breakdown.core #* self.TDP
       self.tot_area                     = exp_config.area_breakdown.core #* self.proc_chip_area_budget
       
-      self.FMA_width                    = exp_config.tech_config.core.FMA_width
+      self.FMA_dims                    = exp_config.tech_config.core.FMA_dims
       self.dataflow                    = exp_config.tech_config.core.dataflow
       self.nominal_voltage              = exp_config.tech_config.core.nominal_voltage
       self.nominal_freq                 = exp_config.tech_config.core.nominal_frequency
@@ -202,7 +202,7 @@ class Core(Base):
      f.write("\n\n=============\n")
      f.write("Core\n")
      f.write("=============\n")
-     f.write("operating_volatge: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
+     f.write("operating_voltage: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
      f.write("voltage_lowerbound: {0:.2f}\n".format(self.threshold_voltage + self.margin_voltage))
      f.write("#mcu: {0:5d}, #bundles: {1:5d}\n".format(self.num_mcu, self.num_bundle))
      f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
@@ -408,7 +408,6 @@ class SRAM(Memory):
 
       self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
   
- 
   def printStats(self, f):
       self.dynamic_power                     = self.dynamic_throughput * self.dynamic_energy_per_byte
       self.eff_power                         = self.dynamic_power + self.static_power
@@ -418,7 +417,7 @@ class SRAM(Memory):
       f.write("{}\n".format(self.type))
       f.write("=============\n")
       f.write("num_banks: {0:17d}\n".format(self.num_banks)) 
-      f.write("bank_bandwidth: {0:13.2f} (GB/s)\t bank_capacity: {1:9.2f} (GB)\n".format(self.bank_bw/giga, self.bank_capacity/kilo))
+      f.write("bank_bandwidth: {0:13.2f} (GB/s)\t bank_capacity: {1:9.2f} (KB)\n".format(self.bank_bw/giga, self.bank_capacity/kilo))
       f.write("ctrl_area: {0:17.2f} (mm2)\t\t bank_area: {1:11.2f} (mm2)\t tot_area: {2:11.2f}(mm2)\t\t\t util: {3:.2f}%\n".format(self.ctrl_area, self.tot_bank_area, self.tot_area, (self.ctrl_area + self.tot_bank_area)/self.tot_area * 100 ))
       f.write("dynamic_power: {0:13.2f} (watt)\t\t static_power: {1:11.2f} (watt)\t\t eff_power: {2:15.2f} (watt)\t tot_power: {3:.2f} (watt)\t\t util: {4:.2f}%\n".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 

@@ -44,8 +44,8 @@ class TimeCalculation:
         #Hardware Parameters
         self.core               = Core(exp_config)
         self.th                 = self.core.getThroughput()
-        self.FMA_width          = self.core.FMA_width
-        self.dataflow          = self.core.dataflow
+        self.FMA_dims           = self.core.FMA_dims
+        self.dataflow           = self.core.dataflow
 
         self.memoryHierarchy     = MemoryHierarchy(exp_config)
         self.num_levels          = self.memoryHierarchy.num_levels
@@ -627,7 +627,13 @@ class TimeCalculation:
                 dim3                   = tile3 if tile3 != 0 else dim3
 
 
-            #Number of accesses to level0 (for every 2N^3 computation, 3N^2 memory accesses happen, where N is the width of the systolic engine)
+            # assume systolic engine can support n x m x n GEMM  (e.g. 8 x 4 x 8 for A100 tensorcore), which is FLOPs_tile = n^2 * (m-1) FLOPs
+            # reuse is the number of n x m x n GEMMs that are performed before stationary values (weight, activations, or output) get swapped
+            # every n x n output tile: 
+            #   1. loads nxm activations and mxn weights -> 2 * reuse * n * m accesses
+            #   2. performs reuse * FLOPs_tile computations
+            #   3. writes back n^2 output elements
+    
             reuse = 1
             dim1 = dim1_
             dim2 = dim2_
@@ -636,19 +642,20 @@ class TimeCalculation:
             if self.dataflow == "none":
                 reuse = 1
             elif self.dataflow == "best":
-                reuse = max(math.ceil(dim1/self.FMA_width), math.ceil(dim3/self.FMA_width), math.ceil(dim2/self.FMA_width))
-            elif self.dataflow == "wst": #wt stationary
-                reuse = math.ceil(dim1/self.FMA_width)
-            elif self.dataflow == "ast": #act statinary
-                reuse = math.ceil(dim3/self.FMA_width)
-            elif self.dataflow == "ost": #output stationary
-                reuse = math.ceil(dim2/self.FMA_width)
+                reuse = max(math.ceil(dim1/self.FMA_dims[0]), math.ceil(dim3/self.FMA_dims[0]), math.ceil(dim2/self.FMA_dims[1]))
+            elif self.dataflow == "wst": # weight stationary
+                reuse = math.ceil(dim1/self.FMA_dims[0])
+            elif self.dataflow == "ast": # activation stationary
+                reuse = math.ceil(dim3/self.FMA_dims[0])
+            elif self.dataflow == "ost": # output stationary
+                reuse = math.ceil(dim2/self.FMA_dims[1])
             else:
                 raise NotImplementedError()
                
             #TODO: make sure to model underutilized systolic array
-            #TODO: support FMA_width_x and FMA_width_y
-            num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision
+
+            num_accesses[0] = GEMM_flop * (2 * reuse * self.FMA_dims[0] * self.FMA_dims[1] + self.FMA_dims[0] ** 2) / (2 * reuse * self.FMA_dims[0] * (self.FMA_dims[1] - 1)) * self.precision
+            # num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision
             #num_accesses[0]    = GEMM_flop * ((2 * reuse + self.FMA_width) / (2 * reuse)) * 1/self.FMA_width * self.precision
              
             #TODO: do we still need these in new hierarchical version?

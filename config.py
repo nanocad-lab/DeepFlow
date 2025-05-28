@@ -14,7 +14,7 @@ class CoreConfig:
     self.margin_voltage             = core_config_dict['margin_voltage']
     self.operating_area_per_mcu     = core_config_dict['operating_area_per_mcu']
     self.num_mcu_per_bundle         = core_config_dict['num_mcu_per_bundle']
-    self.FMA_width                  = core_config_dict['FMA_width']
+    self.FMA_dims                   = (core_config_dict['FMA_d1'], core_config_dict['FMA_d2'])
     self.dataflow                   = core_config_dict['dataflow']
     self.util                       = core_config_dict['util']
 
