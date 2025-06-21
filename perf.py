@@ -1686,16 +1686,16 @@ def callPerf(exp_config, exp_dir, debug):
         f.write("Params (Billion): {0:.8f}\n".format(tot_param/1e9))
 
 @click.command("standalone")
-@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=False, type=bool, required=False)
-@click.option("--exp_config", help="Path to experiment config", required=True)
-@click.option("--exp_dir", help="Checkpoint/log directory", required=True)
+@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=True, type=bool, required=False)
+@click.option("--exp_config", help="Path to experiment config", default="configs/new-configs/a100_80GB.yaml", required=True)
+@click.option("--exp_dir", help="Checkpoint/log directory", default="output", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
 @click.option("--m", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
 @click.option("--n", help="output dimension", default=32768, type=int, required=False) #only use for GEMM validation
 @click.option("--k", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation
-@click.option("--t", help="parallelism strategy (RC or CR)", default='None', type=str, required=False) #only use for GEMM validation
-@click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=None, type=int, required=False) #only use for GEMM validation
-@click.option("--kp2", help="RC:parallelism along output dimension", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--t", help="parallelism strategy (RC or CR)", default='RC', type=str, required=False) #only use for GEMM validation
+@click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=1, type=int, required=False) #only use for GEMM validation
+@click.option("--kp2", help="RC:parallelism along output dimension", default=1, type=int, required=False) #only use for GEMM validation
 @click.option("--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False) #only use for GEMM validation
 @click.option("--batch_size", help="Total Batch Size", default=2048, type=int, required=False)
 @click.option("--hidden_dim", help="Hidden Dimension per LSTM layer", default=19968, type=int, required=False)
