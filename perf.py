@@ -15,6 +15,7 @@ from simulate import Graph
 import util
 from hw_component import Core, MemoryHierarchy, Network
 from model import Model
+from tile import TiledGEMM, formatBytes
 
 algByte=False #algorithmic ops false
 proj=False #consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
@@ -44,7 +45,7 @@ class TimeCalculation:
         #Hardware Parameters
         self.core               = Core(exp_config)
         self.th                 = self.core.getThroughput()
-        self.FMA_dims           = self.core.FMA_dims
+        self.FMA_dims           = self.core.FMA_dims # (FMA_x, FMA_y)
         self.dataflow           = self.core.dataflow
 
         self.memoryHierarchy     = MemoryHierarchy(exp_config)
@@ -416,26 +417,29 @@ class TimeCalculation:
             print("===============================================================")
           #print("TILE_SPACE: \n", self.tileSpace)
           for tile_dims in self.tileSpace:
+            tile_dims = tile_dims + ((dim1, dim2, dim3),)
             if self.debug:
               print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
               print("tile: {}".format(tile_dims))
               print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-            GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
-            GEMM_time = self.roofline(GEMM_flop,mem_access, name) + self.O
-            tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access)
-            #print("GEMM_time = ", GEMM_time, "tile_dims = ", tile_dims)
+            # GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
+            gemm = TiledGEMM(order_dims, tile_dims, self.core, self.precision) # assumes 4 levels of memory hierarchy
+            GEMM_flop = gemm.GEMM_flop()
+            mem_access = gemm.mem_accesses()
+            GEMM_time = self.roofline(GEMM_flop, mem_access, name) + self.O
+            tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access, gemm)
 
-       
        best_tile = min(tile2time, key=tile2time.get)
-       best_time, mem_access = tile2time[best_tile]
+       best_time, mem_access, best_gemm = tile2time[best_tile]
 
        if self.debug:
-          print("{}: Best Time: {:,}, Best Order: {}, Best Tile: {}\n".format(name, best_time, best_tile[0], best_tile[1]))
+          print(repr(best_gemm))
+          print("{}: Best Time: {:,} ms, Best Order: {}, Best Tile: {}\n".format(name, best_time * 1e3, best_tile[0], best_tile[1]))
+
 
        return best_time, best_tile[0], best_tile[1], mem_access
     
     def generateOrder(self, dim1, dim2, dim3, name):
-
         if self.dataflow =="best": # best stationary
            if dim1 >= max(dim2, dim3):
               self.dataflow = "wst"
@@ -446,26 +450,36 @@ class TimeCalculation:
 
         order=[]
         if self.dataflow == "wst": #weight stationary
-            order.append((dim2, dim3, dim1))
+            # order.append((dim2, dim3, dim1))
+            order.append('mnk')
             if dim2 != dim3:
-                order.append((dim3, dim2, dim1))
+                # order.append((dim3, dim2, dim1))
+                order.append('mkn')
         elif self.dataflow == "ast": #activation stationary
-            order.append((dim1, dim2, dim3))
+            # order.append((dim1, dim2, dim3))
+            order.append('nkm')
             if dim2 != dim1:
-                order.append((dim2, dim1, dim3))
+                # order.append((dim2, dim1, dim3))
+                order.append('nmk')
         elif self.dataflow == "ost": #output stationary
-            order.append((dim1, dim3, dim2))
+            # order.append((dim1, dim3, dim2))
+            order.append('knm')
             if dim1 != dim3:
-                order.append((dim3, dim1, dim2))
+                # order.append((dim3, dim1, dim2))
+                order.append('kmn')
         elif self.dataflow == "none": # not stationary
             if dim1 != dim2 and dim2 != dim3 and dim1 != dim3:
-                order=list(itertools.permutations([dim1, dim2, dim3]))
+                # order=list(itertools.permutations([dim1, dim2, dim3]))
+                order = [ ''.join(i) for i in list(itertools.permutations('mnk')) ]
             elif dim1 == dim2 and dim2 != dim3:
-                order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim3, dim1, dim2)]
+                # order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim3, dim1, dim2)]
+                order = ['nkm', 'knm', 'kmn']
             elif dim1 == dim3 and dim2 != dim1:
-                order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim2, dim1, dim3)]
+                # order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim2, dim1, dim3)]
+                order = ['nkm', 'knm', 'nmk']
             elif dim2 == dim3 and dim1 != dim2:
-                order = [(dim1, dim2, dim3), (dim2, dim1, dim3), (dim2, dim3, dim1)]
+                # order = [(dim1, dim2, dim3), (dim2, dim1, dim3), (dim2, dim3, dim1)]
+                order = ['nkm', 'nmk', 'mnk']
 
         return order
 
@@ -488,6 +502,9 @@ class TimeCalculation:
             tile_space = [(x,y,z) for x in tiles[0] for y in tiles[1] for z in tiles[2]]
         else: 
           raise NotImplementedError()
+        
+        # inject tile size
+        tile_space = [((8,4,8), (16,32,16), (128,64,256)), ]
 
         return tile_space
 
@@ -579,7 +596,6 @@ class TimeCalculation:
             print("")
 
         return num_mem, tile1, tile2, tile3
-        
 
     #This is the main function that captures the memory hierarchy impact
     #on the number of accesses to global memory considering not everything fits in 
@@ -605,7 +621,7 @@ class TimeCalculation:
 
         num_accesses = [0] * self.num_levels
         r1, r2, r3 = 1,1,1
-
+    
         if (algByte):
             num_accesses[self.num_levels - 1] = (dim1 * dim2 + dim2 * dim3 + dim1 * dim3) * self.precision
         else:
@@ -1732,9 +1748,9 @@ def main(exp_config, exp_dir, debug, m, n, k, t, kp1, kp2, gemm, batch_size, hid
         with open(output_file, "w") as f:
           f.write("Best Order: {}\n".format(gemm_time[1]))
           f.write("Best Tile: {}\n".format(gemm_time[2]))
-          f.write("Time: {}\n".format(gemm_time[0]))
+          f.write("Time: {} ms\n".format(gemm_time[0] * 1e3))
           for i in range(len(gemm_time[3])):
-              f.write(f'L{i}: {gemm_time[3][i] * 4} B\n')
+              f.write(f'L{i}: {formatBytes(gemm_time[3][i])}\n')
         return
 
     tot_time, tot_param = TC.calcTime()
