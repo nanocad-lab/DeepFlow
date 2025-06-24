@@ -1,0 +1,12 @@
+[project]
+name = "deepflow"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "click==8.1.8",
+    "numpy==1.24.4",
+    "ruamel-yaml==0.17.40",
+    "ruamel-yaml-clib==0.2.8",
+]

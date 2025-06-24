@@ -58,7 +58,7 @@ class EnergyCalculation:
 
         #Power Breakdown Parameters
         self.TDP                = exp_config.power_breakdown.TDP
-        self.DRAMPower          = exp_config.power_breakdown.DRAM * self.TDP
+        self.DRAMPower          = exp_config.power_breakdown.DRAM #* self.TDP
         self.HBM_stack_bw       = exp_config.tech_config.HBM_stack_bw
         self.HBM_stack_capacity = exp_config.tech_config.HBM_stack_capacity
         self.mem_bw             = self.DRAMPower / self.dram_energy_per_byte * util.mem_scale
@@ -70,10 +70,10 @@ class EnergyCalculation:
 
         #Calculate architecture configurations based on power breakdown
         #and technology parameters
-        self.corePower = exp_config.power_breakdown.core * self.TDP
-        self.L2Power   = exp_config.power_breakdown.L2 * self.TDP
-        self.shared_mem_power = exp_config.power_breakdown.shared_mem * self.TDP
-        self.IBPower  = exp_config.power_breakdown.IB * self.TDP
+        self.corePower = exp_config.power_breakdown.core #* self.TDP
+        self.L2Power   = exp_config.power_breakdown.L2 #* self.TDP
+        self.shared_mem_power = exp_config.power_breakdown.shared_mem #* self.TDP
+        self.IBPower  = exp_config.power_breakdown.IB #* self.TDP
         self.th     = self.corePower / self.energy_per_flop * util.th_scale
         
         self.L2_bank_bw  = exp_config.tech_config.L2_bank_bw
