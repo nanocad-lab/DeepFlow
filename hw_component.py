@@ -141,7 +141,7 @@ class Core(Base):
       self.tot_power                    = exp_config.power_breakdown.core #* self.TDP
       self.tot_area                     = exp_config.area_breakdown.core #* self.proc_chip_area_budget
       
-      self.FMA_width                    = exp_config.tech_config.core.FMA_width
+      self.FMA_dims                    = exp_config.tech_config.core.FMA_dims
       self.dataflow                    = exp_config.tech_config.core.dataflow
       self.nominal_voltage              = exp_config.tech_config.core.nominal_voltage
       self.nominal_freq                 = exp_config.tech_config.core.nominal_frequency
@@ -202,7 +202,7 @@ class Core(Base):
      f.write("\n\n=============\n")
      f.write("Core\n")
      f.write("=============\n")
-     f.write("operating_volatge: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
+     f.write("operating_voltage: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(self.operating_voltage, self.operating_freq/1e9))
      f.write("voltage_lowerbound: {0:.2f}\n".format(self.threshold_voltage + self.margin_voltage))
      f.write("#mcu: {0:5d}, #bundles: {1:5d}\n".format(self.num_mcu, self.num_bundle))
      f.write("eff_area: {0:.2f} (mm2), tot_area: {1:.2f} (mm2), util: {2:.2f}%\n".format(self.eff_area, self.tot_area, self.eff_area/self.tot_area * 100 ))
@@ -259,6 +259,10 @@ class DRAM(Memory):
                                             exp_config.perimeter_breakdown.DRAM *
                                             self.num_links_per_mm)
       self.num_links                  = min(self.perimeter_bound, self.num_links_per_stack * self.num_stacks)
+      
+      self.size                       = exp_config.tech_config.DRAM.size
+      self.dynamic_throughput         = exp_config.tech_config.DRAM.bandwidth
+
       self.calcSize()
       self.calcActiveEnergy()
       
@@ -304,7 +308,8 @@ class DRAM(Memory):
       self.dynamic_power             = 0 if (self.tot_power < self.static_power_per_byte * self.size) else (self.tot_power - self.static_power_per_byte * self.size)
 
   def calcThroughput(self):
-      self.dynamic_throughput         = 0 if (self.size == 0) else self.num_links * self.operating_freq / 8
+      if not self.dynamic_throughput:
+        self.dynamic_throughput         = 0 if (self.size == 0) else self.num_links * self.operating_freq / 8
       self.stack_bw                   = 0 if self.num_stacks == 0 else self.dynamic_throughput  / self.num_stacks
       self.throughput                 = self.dynamic_throughput * self.util
   
@@ -312,7 +317,11 @@ class DRAM(Memory):
       #self.nominal_throughput         = self.tot_power / self.dynamic_energy_per_byte
       #self.size                       = min((self.nominal_throughput / self.stack_bw) * self.stack_capacity,
       #                                         self.cell_area / self.area_per_byte)
-      self.size                       = self.num_stacks * self.stack_capacity
+      if self.size:
+        self.num_stacks = self.size // self.stack_capacity
+        self.num_links = self.num_links_per_stack * self.num_stacks
+      else:
+        self.size                       = self.num_stacks * self.stack_capacity
 
 
   def printStats(self, f):
@@ -360,9 +369,13 @@ class SRAM(Memory):
       self.num_banks                  = int(math.floor((self.cell_percentage * self.tot_area) // (self.bank_area + self.cell_percentage * self.core.num_bundle * self.controller_area_per_link)))
 
       self.core                       = Core(self.exp_config)
-      
-      self.calcArea()
+
+      self.size                       = tech_config.size
+      self.dynamic_throughput         = tech_config.bandwidth
+  
       self.calcSize()
+
+      self.calcArea()
       self.calcActiveEnergy()
       self.calcThroughput()
       
@@ -379,19 +392,22 @@ class SRAM(Memory):
           self.cell_area              = 0
   
   def calcSize(self):
-      self.size                       = self.num_banks * self.bank_capacity
+      if self.size:
+        self.num_banks = self.size // self.bank_capacity
+      else:
+        self.size                       = self.num_banks * self.bank_capacity
   
   def calcActiveEnergy(self):
       self.static_power             = self.static_power_per_byte * self.size
       self.dynamic_power            = 0 if (self.tot_power < self.static_power) else (self.tot_power - self.static_power)
 
   def calcThroughput(self):
-      self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
+      if not self.dynamic_throughput:
+        self.dynamic_throughput         = 0 if (self.num_banks == 0) else self.dynamic_power / self.dynamic_energy_per_byte
       self.throughput                 = self.dynamic_throughput * self.util
 
       self.bank_bw                    = 0 if (self.num_banks == 0) else self.dynamic_throughput / self.num_banks
   
- 
   def printStats(self, f):
       self.dynamic_power                     = self.dynamic_throughput * self.dynamic_energy_per_byte
       self.eff_power                         = self.dynamic_power + self.static_power
@@ -401,7 +417,7 @@ class SRAM(Memory):
       f.write("{}\n".format(self.type))
       f.write("=============\n")
       f.write("num_banks: {0:17d}\n".format(self.num_banks)) 
-      f.write("bank_bandwidth: {0:13.2f} (GB/s)\t bank_capacity: {1:9.2f} (GB)\n".format(self.bank_bw/giga, self.bank_capacity/kilo))
+      f.write("bank_bandwidth: {0:13.2f} (GB/s)\t bank_capacity: {1:9.2f} (KB)\n".format(self.bank_bw/giga, self.bank_capacity/kilo))
       f.write("ctrl_area: {0:17.2f} (mm2)\t\t bank_area: {1:11.2f} (mm2)\t tot_area: {2:11.2f}(mm2)\t\t\t util: {3:.2f}%\n".format(self.ctrl_area, self.tot_bank_area, self.tot_area, (self.ctrl_area + self.tot_bank_area)/self.tot_area * 100 ))
       f.write("dynamic_power: {0:13.2f} (watt)\t\t static_power: {1:11.2f} (watt)\t\t eff_power: {2:15.2f} (watt)\t tot_power: {3:.2f} (watt)\t\t util: {4:.2f}%\n".format(self.dynamic_power, self.static_power, self.eff_power, self.tot_power, self.eff_power/self.tot_power * 100 ))
 

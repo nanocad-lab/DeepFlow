@@ -14,7 +14,7 @@ class CoreConfig:
     self.margin_voltage             = core_config_dict['margin_voltage']
     self.operating_area_per_mcu     = core_config_dict['operating_area_per_mcu']
     self.num_mcu_per_bundle         = core_config_dict['num_mcu_per_bundle']
-    self.FMA_width                  = core_config_dict['FMA_width']
+    self.FMA_dims                   = (core_config_dict['FMA_d1'], core_config_dict['FMA_d2'])
     self.dataflow                   = core_config_dict['dataflow']
     self.util                       = core_config_dict['util']
 
@@ -35,6 +35,8 @@ class DRAMConfig:
     self.num_links_per_stack      = dram_config_dict['num_links_per_stack']
     self.max_voltage              = dram_config_dict['max_voltage']
     self.util                     = dram_config_dict['util']
+    self.size                     = None if 'size' not in dram_config_dict.keys() else dram_config_dict['size']
+    self.bandwidth                = None if 'bandwidth' not in dram_config_dict.keys() else dram_config_dict['bandwidth']
 
 class SRAMConfig:
   def __init__(self, sram_config_dict):
@@ -46,7 +48,8 @@ class SRAMConfig:
     self.latency                  = sram_config_dict['latency']
     self.overhead                 = sram_config_dict['overhead']
     self.util                     = sram_config_dict['util']
-
+    self.size                     = None if 'size' not in sram_config_dict.keys() else sram_config_dict['size']
+    self.bandwidth                = None if 'bandwidth' not in sram_config_dict.keys() else sram_config_dict['bandwidth']
 
 class NetworkConfig:
   def __init__(self, net_config_dict):
