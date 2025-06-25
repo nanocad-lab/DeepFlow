@@ -464,7 +464,7 @@ class DRAM(Memory):
         f.write("DRAM\n")
         f.write("=============\n")
         f.write(
-            "operating_volatge: {0:6.2f}\t\t operating_freq: {1:9.2f} (Ghz)\n".format(
+            "operating_voltage: {0:6.2f}\t\t operating_freq: {1:9.2f} (Ghz)\n".format(
                 self.operating_voltage, self.operating_freq / 1e9
             )
         )
@@ -784,7 +784,7 @@ class SubNetwork(Base):
             f.write("Network: {}\n".format(name))
             f.write("=============\n")
             f.write(
-                "operating_volatge: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(
+                "operating_voltage: {0:.2f}, operating_freq: {1:.2f} (Ghz)\n".format(
                     self.operating_voltage, self.operating_freq / 1e9
                 )
             )

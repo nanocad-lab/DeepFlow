@@ -625,7 +625,9 @@ class TimeCalculation:
             raise NotImplementedError()
 
         # inject tile size
-        tile_space = [((8,4,8),(16,32,16), (256,32,128)), ]
+        tile_space = [
+            ((8, 4, 8), (16, 32, 16), (256, 32, 128)),
+        ]
 
         return tile_space
 
@@ -2245,24 +2247,78 @@ def callPerf(exp_config, exp_dir, debug):
 
 
 @click.command("standalone")
-@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=False, type=bool, required=False)
+@click.option(
+    "--args_input",
+    help="Shall it read the args from the input command (True) or from exp_config (False)",
+    default=False,
+    type=bool,
+    required=False,
+)
 @click.option("--exp_config", help="Path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
-@click.option("--m", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
-@click.option("--n", help="output dimension", default=32768, type=int, required=False) #only use for GEMM validation
-@click.option("--k", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation
-@click.option("--t", help="parallelism strategy (RC or CR)", default='None', type=str, required=False) #only use for GEMM validation
-@click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=None, type=int, required=False) #only use for GEMM validation
-@click.option("--kp2", help="RC:parallelism along output dimension", default=None, type=int, required=False) #only use for GEMM validation
-@click.option("--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False) #only use for GEMM validation
-@click.option("--batch_size", help="Total Batch Size", default=2048, type=int, required=False)
-@click.option("--hidden_dim", help="Hidden Dimension per LSTM layer", default=19968, type=int, required=False)
-@click.option("--seq_len", help="Number of times to unroll LSTM", default=20, type=int, required=False)
-@click.option("--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False)
-@click.option("--num_layer", help="number of lstm layers", default=2, type=int, required=False)
-@click.option("--dp", help="data parallelism", default=None, type=int, required=False) #only use for GEMM validation
-@click.option("--lp", help="layer parallelism", default=None, type=int, required=False) #only use for GEMM validation
+@click.option(
+    "--m", help="input dimension", default=32768, type=int, required=False
+)  # only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
+@click.option(
+    "--n", help="output dimension", default=32768, type=int, required=False
+)  # only use for GEMM validation
+@click.option(
+    "--k", help="input dimension", default=32768, type=int, required=False
+)  # only use for GEMM validation
+@click.option(
+    "--t",
+    help="parallelism strategy (RC or CR)",
+    default="None",
+    type=str,
+    required=False,
+)  # only use for GEMM validation
+@click.option(
+    "--kp1",
+    help="RC:parallelism along input dimension, CR: parallelism along inner dimension",
+    default=None,
+    type=int,
+    required=False,
+)  # only use for GEMM validation
+@click.option(
+    "--kp2",
+    help="RC:parallelism along output dimension",
+    default=None,
+    type=int,
+    required=False,
+)  # only use for GEMM validation
+@click.option(
+    "--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False
+)  # only use for GEMM validation
+@click.option(
+    "--batch_size", help="Total Batch Size", default=2048, type=int, required=False
+)
+@click.option(
+    "--hidden_dim",
+    help="Hidden Dimension per LSTM layer",
+    default=19968,
+    type=int,
+    required=False,
+)
+@click.option(
+    "--seq_len",
+    help="Number of times to unroll LSTM",
+    default=20,
+    type=int,
+    required=False,
+)
+@click.option(
+    "--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False
+)
+@click.option(
+    "--num_layer", help="number of lstm layers", default=2, type=int, required=False
+)
+@click.option(
+    "--dp", help="data parallelism", default=None, type=int, required=False
+)  # only use for GEMM validation
+@click.option(
+    "--lp", help="layer parallelism", default=None, type=int, required=False
+)  # only use for GEMM validation
 def main(
     exp_config,
     exp_dir,
@@ -2285,26 +2341,44 @@ def main(
 ):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" %(m, n, k) ##Output dir should be created manually
-
+    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" % (
+        m,
+        n,
+        k,
+    )  ##Output dir should be created manually
 
     TC = TimeCalculation(exp_config)
     if args_input:
-        TC.updateParams(debug, m, n, k, t, kp1, kp2, dp, lp, gemm, 
-                    batch_size, hidden_dim, seq_len, vocab_size, num_layer)
+        TC.updateParams(
+            debug,
+            m,
+            n,
+            k,
+            t,
+            kp1,
+            kp2,
+            dp,
+            lp,
+            gemm,
+            batch_size,
+            hidden_dim,
+            seq_len,
+            vocab_size,
+            num_layer,
+        )
 
-    #Report GEMM time on fw path
+    # Report GEMM time on fw path
     if TC.validating_GEMM:
-        if kp1 == 1 and kp2 ==1: #no parallelism
-          gemm_time = TC.getCf(m, k, n)
-        elif t == 'CR':
-          gemm_time = TC.getDistGEMM_f_kp1(m, k, n, kp1, "Cf_CR")
-        elif t == 'RC':
-          gemm_time = TC.getDistGEMM_f_kp2(m, k, n, kp1, kp2, "Cf_RC")
+        if kp1 == 1 and kp2 == 1:  # no parallelism
+            gemm_time = TC.getCf(m, k, n)
+        elif t == "CR":
+            gemm_time = TC.getDistGEMM_f_kp1(m, k, n, kp1, "Cf_CR")
+        elif t == "RC":
+            gemm_time = TC.getDistGEMM_f_kp2(m, k, n, kp1, kp2, "Cf_RC")
         else:
-          print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
-          sys.exit()
-          
+            print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
+            sys.exit()
+
         with open(output_file, "w") as f:
             f.write("Best Order: {}\n".format(gemm_time[1]))
             f.write("Best Tile: {}\n".format(gemm_time[2]))
