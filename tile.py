@@ -2,39 +2,6 @@ from math import ceil
 import numpy as np
 import copy
 
-class Mapping:
-    def __init__(self, M, N, K, l2_M, l2_N, l2_K, l1_M, l1_N, l1_K, FMA_M, FMA_N, FMA_K, l2_loop_order, l1_loop_order):
-        """
-        Represents a hierarchical mapping of GEMM tiling.
-
-        Parameters:
-        - M, N, K: Global GEMM dimensions
-        - l2_M, l2_N, l2_K: Tile sizes at L2 level
-        - l1_M, l1_N, l1_K: Tile sizes at L1 level
-        - FMA_M, FMA_N, FMA_K: GEMM sizes performed by systolic array
-        - l2_loop_order, l1_loop_order
-        """
-        self.M = M
-        self.N = N
-        self.K = K
-        self.l2_M = l2_M
-        self.l2_N = l2_N
-        self.l2_K = l2_K
-        self.l1_M = l1_M
-        self.l1_N = l1_N
-        self.l1_K = l1_K
-        self.FMA_M = FMA_M
-        self.FMA_N = FMA_N
-        self.FMA_K = FMA_K
-
-        self.l2_loop_order = l2_loop_order
-        self.l1_loop_order = l1_loop_order
-
-    def __repr__(self):
-        return (f"Mapping(GEMM=({self.M}, {self.N}, {self.K}), "
-                f"L2=({self.l2_M}, {self.l2_N}, {self.l2_K}), "
-                f"L1=({self.l1_M}, {self.l1_N}, {self.l1_K}))")
-
 class Tile:
     def __init__(self, tile_dims, level, dtype_size):
         """
@@ -118,7 +85,7 @@ class TiledGEMM(Tile):
     - dtype_size: size of one element in bytes (default is 2 bytes for fp16)
     """
     def __init__(self, order_dims, tile_dims, core, dtype_size=2):
-        self.num_mcu = core.num_mcu
+        self.num_bundle = core.num_bundle
         super().__init__(tile_dims, 3, dtype_size)
         self.order_dims = order_dims
         self.FMA_x, self.FMA_y = core.FMA_dims
@@ -143,7 +110,7 @@ class TiledGEMM(Tile):
         return self.M * self.N * (2 * self.K - 1)
     
     def get_tile(self, tile_dims):
-        return L2Tile(tile_dims, self.level-1, self.num_mcu, self.dtype_size)
+        return L2Tile(tile_dims, self.level-1, self.num_bundle, self.dtype_size)
     
     def sysarray_accesses(self):
         '''assume systolic engine can support n x m x n GEMM  (e.g. 8 x 4 x 8 for A100 tensorcore), which is FLOPs_tile = n^2 * (m-1) FLOPs
@@ -219,14 +186,14 @@ class TiledGEMM(Tile):
         return read_accesses, write_accesses
 
 class L2Tile(Tile):
-    def __init__(self, tile_dims, level, num_mcu, dtype_size):
+    def __init__(self, tile_dims, level, num_bundle, dtype_size):
         super().__init__(tile_dims, level, dtype_size)
-        self.num_mcu = num_mcu
-        # self.mk_read_bytes = self.mk_bytes()
-        # self.kn_read_bytes = self.kn_bytes()
-        # self.mn_read_bytes = self.mn_bytes()
-        # self.mn_write_bytes = self.mn_bytes()
-        self.mk_read_bytes, self.kn_read_bytes, self.mn_read_bytes, self.mn_write_bytes = self.simulate_accesses()
+        self.num_bundle = num_bundle
+        self.mk_read_bytes = self.mk_bytes()
+        self.kn_read_bytes = self.kn_bytes()
+        self.mn_read_bytes = self.mn_bytes()
+        self.mn_write_bytes = self.mn_bytes()
+        # self.mk_read_bytes, self.kn_read_bytes, self.mn_read_bytes, self.mn_write_bytes = self.simulate_accesses()
 
 
     def __repr__(self):
@@ -250,11 +217,11 @@ class L2Tile(Tile):
         reuse_N = ceil(self.N / self.tile_N)
         
         # effective number of tiles that can be processed in parallel
-        eff_mcu = min(self.num_mcu, reuse_M * reuse_K * reuse_N)
+        eff_sm = min(self.num_bundle, reuse_M * reuse_K * reuse_N)
 
-        # track bytes accessed from shared memory per mcu
-        read_bytes = (self.tile.mk_bytes() + self.tile.kn_bytes()) * (reuse_M * reuse_N * reuse_K) / eff_mcu
-        write_bytes = self.tile.mn_bytes() * (reuse_M * reuse_N) / eff_mcu
+        # track bytes accessed from shared memory per sm
+        read_bytes = (self.tile.mk_bytes() + self.tile.kn_bytes()) * (reuse_M * reuse_N * reuse_K) / eff_sm
+        write_bytes = self.tile.mn_bytes() * (reuse_M * reuse_N) / eff_sm
 
         return read_bytes, write_bytes
 
@@ -284,20 +251,20 @@ class L2Tile(Tile):
         prev_mn_read = copy.deepcopy(tile_mn_read)
         prev_mn_write = copy.deepcopy(tile_mn_write)
 
-        active_mcu = 0
+        active_sm = 0
         for m, n, k in self.generate_tile_loops(
             ceil(self.M / self.tile_M),
             ceil(self.N / self.tile_N),
             ceil(self.K / self.tile_K),
             "mkn",
         ):
-            active_mcu += 1
+            active_sm += 1
             tile_mk_read[m, k] = ~prev_mk_read[m, k]
             tile_kn_read[k, n] = ~prev_kn_read[k, n]
             tile_mn_read[m, n] = 1
             tile_mn_write[m, n] = 1
 
-            if active_mcu >= self.num_mcu or (
+            if active_sm >= self.num_bundle or (
                 m == ceil(self.M / self.tile_M) - 1 
                 and n == ceil(self.N / self.tile_N) - 1 
                 and k == ceil(self.K / self.tile_K) - 1
@@ -308,7 +275,7 @@ class L2Tile(Tile):
 
                 mn_write_bytes += np.sum(prev_mn_write * (~tile_mn_read)) * self.tile.mn_bytes()
             
-                active_mcu = 0
+                active_sm = 0
 
                 prev_mk_read = copy.deepcopy(tile_mk_read)
                 prev_kn_read = copy.deepcopy(tile_kn_read)
