@@ -120,12 +120,14 @@ class TiledGEMM(Tile):
         return L2Tile(tile_dims, self.level - 1, self.num_bundle, self.dtype_size)
 
     def sysarray_accesses(self):
-        """assume systolic engine can support n x m x n GEMM  (e.g. 8 x 4 x 8 for A100 tensorcore), which is FLOPs_tile = n^2 * (m-1) FLOPs
+        """
+        assume systolic engine can support n x m x n GEMM  (e.g. 8 x 4 x 8 for A100 tensorcore), which is FLOPs_tile = n^2 * (m-1) FLOPs
         reuse is the number of n x m x n GEMMs that are performed before stationary values (weight, activations, or output) get swapped
         every n x n output tile:
           1. loads nxm activations and mxn weights -> 2 * reuse * n * m accesses
           2. performs reuse * FLOPs_tile computations
-          3. writes back n^2 output elements"""
+          3. writes back n^2 output elements
+        """
         if self.dataflow == "none":
             reuse = 1
         elif self.dataflow == "best":

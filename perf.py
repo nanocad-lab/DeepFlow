@@ -136,7 +136,7 @@ class TimeCalculation:
         self.tot_mem = 0
         self.tot_time = 0
         self.debug = False  #############################
-        self.validating_GEMM = True
+        self.validating_GEMM = False
 
     def updateParams(
         self,
@@ -518,6 +518,7 @@ class TimeCalculation:
 
     def getGEMMTime(self, dim1, dim2, dim3, name):
         tile2time = {}
+        gemm_dict = {}
         orderSpace = self.generateOrder(dim1, dim2, dim3, name)
         for order_dims in orderSpace:
             if self.debug:
@@ -538,10 +539,12 @@ class TimeCalculation:
                 GEMM_flop = gemm.GEMM_flop()
                 mem_access = gemm.mem_accesses()
                 GEMM_time = self.roofline(GEMM_flop, mem_access, name) + self.O
-                tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access, gemm)
+                tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access)
+                gemm_dict[(order_dims, tile_dims)] = gemm
 
         best_tile = min(tile2time, key=tile2time.get)
-        best_time, mem_access, best_gemm = tile2time[best_tile]
+        best_time, mem_access = tile2time[best_tile]
+        best_gemm = gemm_dict[best_tile]
 
         if self.debug:
             print(repr(best_gemm))
@@ -571,10 +574,10 @@ class TimeCalculation:
                 order.append("mkn")
         elif self.dataflow == "ast":  # activation stationary
             # order.append((dim1, dim2, dim3))
-            order.append("nkm")
+            order.append("nmk")
             if dim2 != dim1:
                 # order.append((dim2, dim1, dim3))
-                order.append("nmk")
+                order.append("nkm")
         elif self.dataflow == "ost":  # output stationary
             # order.append((dim1, dim3, dim2))
             order.append("knm")
@@ -594,6 +597,8 @@ class TimeCalculation:
             elif dim2 == dim3 and dim1 != dim2:
                 # order = [(dim1, dim2, dim3), (dim2, dim1, dim3), (dim2, dim3, dim1)]
                 order = ["nkm", "nmk", "mnk"]
+
+        order = ["".join(i) for i in list(itertools.permutations("mnk"))]
 
         return order
 
@@ -620,7 +625,7 @@ class TimeCalculation:
             raise NotImplementedError()
 
         # inject tile size
-        # tile_space = [((8,4,8), (16,32,16), (128,32,256)), ]
+        tile_space = [((8,4,8),(16,32,16), (256,32,128)), ]
 
         return tile_space
 
@@ -1116,7 +1121,7 @@ class TimeCalculation:
 
         return GEMM_time + reduction_time + point_time
 
-    def getCf(self, m, n, k):
+    def getCf(self, m, k, n):
         # Add Biad adds
         """Get LSTM Cell Time on Forward Path"""
         GEMM_time = self.getGEMMTime(m, k, n, "Cf")
@@ -2240,83 +2245,24 @@ def callPerf(exp_config, exp_dir, debug):
 
 
 @click.command("standalone")
-@click.option(
-    "--args_input",
-    help="Shall it read the args from the input command (True) or from exp_config (False)",
-    default=True,
-    type=bool,
-    required=False,
-)
-@click.option(
-    "--exp_config",
-    help="Path to experiment config",
-    default="configs/new-configs/a100_80GB.yaml",
-    required=True,
-)
+@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=False, type=bool, required=False)
+@click.option("--exp_config", help="Path to experiment config", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
-@click.option(
-    "--m", help="input dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
-@click.option(
-    "--n", help="output dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--k", help="input dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--t",
-    help="parallelism strategy (RC or CR)",
-    default="RC",
-    type=str,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--kp1",
-    help="RC:parallelism along input dimension, CR: parallelism along inner dimension",
-    default=1,
-    type=int,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--kp2",
-    help="RC:parallelism along output dimension",
-    default=1,
-    type=int,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--batch_size", help="Total Batch Size", default=2048, type=int, required=False
-)
-@click.option(
-    "--hidden_dim",
-    help="Hidden Dimension per LSTM layer",
-    default=19968,
-    type=int,
-    required=False,
-)
-@click.option(
-    "--seq_len",
-    help="Number of times to unroll LSTM",
-    default=20,
-    type=int,
-    required=False,
-)
-@click.option(
-    "--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False
-)
-@click.option(
-    "--num_layer", help="number of lstm layers", default=2, type=int, required=False
-)
-@click.option(
-    "--dp", help="data parallelism", default=None, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--lp", help="layer parallelism", default=None, type=int, required=False
-)  # only use for GEMM validation
+@click.option("--m", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
+@click.option("--n", help="output dimension", default=32768, type=int, required=False) #only use for GEMM validation
+@click.option("--k", help="input dimension", default=32768, type=int, required=False) #only use for GEMM validation
+@click.option("--t", help="parallelism strategy (RC or CR)", default='None', type=str, required=False) #only use for GEMM validation
+@click.option("--kp1", help="RC:parallelism along input dimension, CR: parallelism along inner dimension", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--kp2", help="RC:parallelism along output dimension", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False) #only use for GEMM validation
+@click.option("--batch_size", help="Total Batch Size", default=2048, type=int, required=False)
+@click.option("--hidden_dim", help="Hidden Dimension per LSTM layer", default=19968, type=int, required=False)
+@click.option("--seq_len", help="Number of times to unroll LSTM", default=20, type=int, required=False)
+@click.option("--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False)
+@click.option("--num_layer", help="number of lstm layers", default=2, type=int, required=False)
+@click.option("--dp", help="data parallelism", default=None, type=int, required=False) #only use for GEMM validation
+@click.option("--lp", help="layer parallelism", default=None, type=int, required=False) #only use for GEMM validation
 def main(
     exp_config,
     exp_dir,
@@ -2339,48 +2285,30 @@ def main(
 ):
     exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" % (
-        m,
-        n,
-        k,
-    )  ##Output dir should be created manually
+    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" %(m, n, k) ##Output dir should be created manually
+
 
     TC = TimeCalculation(exp_config)
     if args_input:
-        TC.updateParams(
-            debug,
-            m,
-            n,
-            k,
-            t,
-            kp1,
-            kp2,
-            dp,
-            lp,
-            gemm,
-            batch_size,
-            hidden_dim,
-            seq_len,
-            vocab_size,
-            num_layer,
-        )
+        TC.updateParams(debug, m, n, k, t, kp1, kp2, dp, lp, gemm, 
+                    batch_size, hidden_dim, seq_len, vocab_size, num_layer)
 
-    # Report GEMM time on fw path
+    #Report GEMM time on fw path
     if TC.validating_GEMM:
-        if kp1 == 1 and kp2 == 1:  # no parallelism
-            gemm_time = TC.getCf(m, k, n)
-        elif t == "CR":
-            gemm_time = TC.getDistGEMM_f_kp1(m, k, n, kp1, "Cf_CR")
-        elif t == "RC":
-            gemm_time = TC.getDistGEMM_f_kp2(m, k, n, kp1, kp2, "Cf_RC")
+        if kp1 == 1 and kp2 ==1: #no parallelism
+          gemm_time = TC.getCf(m, k, n)
+        elif t == 'CR':
+          gemm_time = TC.getDistGEMM_f_kp1(m, k, n, kp1, "Cf_CR")
+        elif t == 'RC':
+          gemm_time = TC.getDistGEMM_f_kp2(m, k, n, kp1, kp2, "Cf_RC")
         else:
-            print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
-            sys.exit()
-
+          print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
+          sys.exit()
+          
         with open(output_file, "w") as f:
             f.write("Best Order: {}\n".format(gemm_time[1]))
             f.write("Best Tile: {}\n".format(gemm_time[2]))
-            f.write("Time: {} ms\n".format(gemm_time[0] * 1e3))
+            f.write("Time: {}\n".format(gemm_time[0]))
             for i in range(len(gemm_time[3])):
                 f.write(f"L{i}: {formatBytes(gemm_time[3][i])}\n")
         return
