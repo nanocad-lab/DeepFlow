@@ -97,17 +97,23 @@ class TiledGEMM(Tile):
         self.order_dims = order_dims
         self.FMA_x, self.FMA_y = core.FMA_dims
         self.dataflow = core.dataflow
+        self.count = []
         self.mem_read, self.mem_write = self.simulate_accesses(order_dims)
 
     def __repr__(self):
         return (
-            super().__repr__()
-            + f"  DRAM read: {formatBytes(self.mem_read[3])}, write: {formatBytes(self.mem_write[3])}\n"
+            super().__repr__() +
+            f"  DRAM read: {formatBytes(self.mem_read[3])}, write: {formatBytes(self.mem_write[3])}\n"
             f"  L2 read: {formatBytes(self.mem_read[2])}, write: {formatBytes(self.mem_write[2])}\n"
             f"  Shared read: {formatBytes(self.mem_read[1])}, write: {formatBytes(self.mem_write[1])}\n"
             f"  Reg read: {formatBytes(self.mem_read[0])}, write: {formatBytes(self.mem_write[0])}\n"
             f"  loop order: {self.order_dims}\n"
             f"{self.tile.__repr__()}"
+        )
+    
+    def print_count(self):
+        return (
+            f"read mk: {self.count[0]}, kn: {self.count[1]}, mn: {self.count[2]}, write mn: {self.count[3]}"
         )
 
     def mem_accesses(self):
@@ -169,40 +175,72 @@ class TiledGEMM(Tile):
         num_tiles_N = ceil(self.N / self.tile_N)
         num_tiles_K = ceil(self.K / self.tile_K)
 
+        max_reload = num_tiles_M * num_tiles_N * num_tiles_K
+
         l2_shared = self.tile.shared_accesses()
-        read_accesses[1] = l2_shared[0] * num_tiles_M * num_tiles_N * num_tiles_K
-        write_accesses[1] = l2_shared[1] * num_tiles_M * num_tiles_N * num_tiles_K
+        read_accesses[1] = l2_shared[0] * max_reload
+        write_accesses[1] = l2_shared[1] * max_reload
 
-        # read input tiles for first output tile
-        read_accesses[2] += self.tile.mk_read_bytes + self.tile.kn_read_bytes
-        prev_m, prev_n, prev_k = 0, 0, 0
-        for m, n, k in self.generate_tile_loops(
-            ceil(self.M / self.tile_M),
-            ceil(self.N / self.tile_N),
-            ceil(self.K / self.tile_K),
-            order_dims,
-        ):
-            if m == 0 and n == 0 and k == 0:
-                continue
+        inner = order_dims[2] # most inner loop
+        if inner == 'm':
+            mk_load = max_reload
+            kn_load = num_tiles_K * num_tiles_N
+            mn_load = max_reload
+        elif inner == 'k':
+            mk_load = max_reload
+            kn_load = max_reload
+            mn_load = num_tiles_M * num_tiles_N
+        elif inner == 'n':
+            mk_load = num_tiles_M * num_tiles_K
+            kn_load = max_reload
+            mn_load = max_reload
+        read_accesses[2] = mk_load * self.tile.mk_read_bytes + kn_load * self.tile.kn_read_bytes + mn_load * self.tile.mn_read_bytes
+        write_accesses[2] = mn_load * self.tile.mn_write_bytes
 
-            # read input tile if not already previously loaded
-            if m == prev_m and k == prev_k:
-                read_accesses[2] += self.tile.kn_read_bytes
-            elif k == prev_k and n == prev_n:
-                read_accesses[2] += self.tile.mk_read_bytes
-            else:
-                read_accesses[2] += self.tile.kn_read_bytes + self.tile.mk_read_bytes
+        # # read input tiles for first output tile
+        # mk_read_count = 0
+        # kn_read_count = 0
+        # mn_read_count = 0
+        # mn_write_count = 0
+        # read_accesses[2] += self.tile.mk_read_bytes + self.tile.kn_read_bytes
+        # prev_m, prev_n, prev_k = 0, 0, 0
+        # for m, n, k in self.generate_tile_loops(
+        #     ceil(self.M / self.tile_M),
+        #     ceil(self.N / self.tile_N),
+        #     ceil(self.K / self.tile_K),
+        #     order_dims,
+        # ):
+        #     if m == 0 and n == 0 and k == 0:
+        #         continue
 
-            # replace previous output tile if not the same
-            if not (m == prev_m and n == prev_n):
-                read_accesses[2] += self.tile.mn_read_bytes
-                write_accesses[2] += self.tile.mn_write_bytes
+        #     # read input tile if not already previously loaded
+        #     if m == prev_m and k == prev_k:
+        #         kn_read_count += 1
+        #         read_accesses[2] += self.tile.kn_read_bytes
+        #     elif k == prev_k and n == prev_n:
+        #         mk_read_count += 1
+        #         read_accesses[2] += self.tile.mk_read_bytes
+        #     else:
+        #         kn_read_count += 1
+        #         mk_read_count += 1
+        #         read_accesses[2] += self.tile.kn_read_bytes + self.tile.mk_read_bytes
 
-            prev_m, prev_n, prev_k = m, n, k
+        #     # replace previous output tile if not the same
+        #     if not (m == prev_m and n == prev_n):
+        #         mn_read_count += 1
+        #         mn_write_count += 1
+        #         read_accesses[2] += self.tile.mn_read_bytes
+        #         write_accesses[2] += self.tile.mn_write_bytes
 
-        write_accesses[2] += self.tile.mn_write_bytes
+        #     prev_m, prev_n, prev_k = m, n, k
 
+        # write_accesses[2] += self.tile.mn_write_bytes
+        # mn_write_count += 1
+
+        # TODO: model DRAM accesses
         read_accesses[3] = self.mk_bytes() + self.kn_bytes()
+
+        self.count = [mk_load, kn_load, mn_load, mn_load]
 
         return read_accesses, write_accesses
 
@@ -236,10 +274,10 @@ class L2Tile(Tile):
         reuse_K = ceil(self.K / self.tile_K)
         reuse_N = ceil(self.N / self.tile_N)
 
-        # effective number of tiles that can be processed in parallel
+        # effective number of SMs that are utilized
         eff_sm = min(self.num_bundle, reuse_M * reuse_K * reuse_N)
 
-        # track bytes accessed from shared memory per sm
+        # track bytes accessed from shared memory per SM
         read_bytes = (
             (self.tile.mk_bytes() + self.tile.kn_bytes())
             * (reuse_M * reuse_N * reuse_K)

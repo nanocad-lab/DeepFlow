@@ -462,23 +462,23 @@ class TimeCalculation:
 
         max_time = max(time)
 
-        if self.debug:
-            print("{}: {}".format(name, max_time))
-            print("GEMM flops: {:,}".format(flop))
-            for i in range(0, num_level):
-                print("L{}".format(i))
-                print("inflection_point: {:.2f}".format(inflection_point[i]))
-                print("comp_int: {:.2f}".format(comp_int[i]))
-                print("time: {}".format(time[i]))
-                print(
-                    "Throughput = ",
-                    self.th,
-                    "BW = ",
-                    self.memLayer[i].getThroughput(),
-                    "mem_latency=",
-                    self.memLayer[i].getLatency(),
-                )  ################
-                print()
+        # if self.debug:
+        #     print("{}: {}".format(name, max_time))
+        #     print("GEMM flops: {:,}".format(flop))
+        #     for i in range(0, num_level):
+        #         print("L{}".format(i))
+        #         print("inflection_point: {:.2f}".format(inflection_point[i]))
+        #         print("comp_int: {:.2f}".format(comp_int[i]))
+        #         print("time: {}".format(time[i]))
+        #         print(
+        #             "Throughput = ",
+        #             self.th,
+        #             "BW = ",
+        #             self.memLayer[i].getThroughput(),
+        #             "mem_latency=",
+        #             self.memLayer[i].getLatency(),
+        #         )  ################
+        #         print()
 
         # print("Roofline: exited {}".format(name))
         return max_time
@@ -536,6 +536,7 @@ class TimeCalculation:
                 gemm = TiledGEMM(
                     order_dims, tile_dims, self.core, self.precision
                 )  # assumes 4 levels of memory hierarchy
+
                 GEMM_flop = gemm.GEMM_flop()
                 mem_access = gemm.mem_accesses()
                 GEMM_time = self.roofline(GEMM_flop, mem_access, name) + self.O
@@ -625,9 +626,9 @@ class TimeCalculation:
             raise NotImplementedError()
 
         # inject tile size
-        tile_space = [
-            ((8, 4, 8), (16, 32, 16), (256, 32, 128)),
-        ]
+        # tile_space = [
+        #     ((8, 4, 8), (16, 32, 16), (128,32,128)),
+        # ]
 
         return tile_space
 
