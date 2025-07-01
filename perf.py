@@ -2346,7 +2346,10 @@ def main(
         m,
         n,
         k,
-    )  ##Output dir should be created manually
+    ) 
+    # create output dir if it doesn't exist
+    if not os.path.exists(exp_dir):
+        os.makedirs(exp_dir)
 
     TC = TimeCalculation(exp_config)
     if args_input:

@@ -28,7 +28,8 @@ tech_param:
         margin_voltage: 0.35
         operating_area_per_mcu: 0.38 #!!!!operating_area n nominal_area should chnage hand-in-hand as they affect area scaling
         num_mcu_per_bundle: 8 #a bundle can be thought of as an SM, number of tensorcores per SM
-        FMA_width: 4            #tensorcore width
+        FMA_d1: 4            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
+        FMA_d2: 4
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
         util: 0.85 #util should be 0.75 (12/16) for tensorcore
     DRAM:
