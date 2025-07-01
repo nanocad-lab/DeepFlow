@@ -25,7 +25,8 @@ tech_param:
         margin_voltage: 0.35
         operating_area_per_mcu: 0.11
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
-        FMA_width: 4            #4 for tensorcore enabled (implying 4x4 systolic array) and 1 for tensorcore disabled
+        FMA_d1: 4            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
+        FMA_d2: 4
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
         util: 0.85 #util should be 0.75 (12/16) for tensorcore
     DRAM:
@@ -95,28 +96,29 @@ tech_param:
           threshold_voltage: 0.35
           margin_voltage: 0.5
           util: 0.96
-area_breakdown:
+          
+area_breakdown: # no longer treated as fraction
     device_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
-    core: 0.3
-    L2: 0.08062
-    L1: 0.102
-    reg_mem: 0.022
-    DRAM: 0.0248
+    core: 244.5
+    L2: 65.7053
+    L1: 8.3945
+    reg_mem: 17.93
+    DRAM: 20.212
     network:
-      intra_node: 0.1
-      inter_node: 0.1
+      intra_node: 81.5
+      inter_node: 81.5
 
 power_breakdown:
     TDP: 300
-    core: 0.3745
-    DRAM: 0.16
-    L2: 0.000217
-    L1: 0.0016
-    reg_mem: 0.0055
+    core: 112.35
+    DRAM: 48
+    L2: 0.0651
+    L1: 0.48
+    reg_mem: 1.65
     network:
-      intra_node: 0.1
-      inter_node: 0.1
+      intra_node: 30
+      inter_node: 30
 
 perimeter_breakdown:
     DRAM: 0.5

@@ -1,10 +1,13 @@
+# Config that models 20 V100 GPUs in a node.
+# We are ignoring NVLINK2.0 controller area for now.
+
 model_param:
-    batch_size: 64
-    vocab_size: 40000
-    num_layers: 1
-    layer_size: 4096
+    batch_size: 2000
+    vocab_size: 800000
+    num_layers: 2
+    layer_size: 19968
     projection: 2048
-    seq_len: 10
+    seq_len: 20
     num_gates: 4
     num_non_linear: 5
     num_add: 8
@@ -33,10 +36,10 @@ tech_param:
         dynamic_energy_per_bit: 4.2e-12 #Joules
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
-        stack_capacity: 4 GB
-        area_per_stack: 100 #mm2
+        stack_capacity: 4 GB # stack is the entire HBM chip!!!
+        area_per_stack: 100 #mm2 # footprint of the entire chip!!! Also used to compute no. of DRAM stacks!!!!
         latency: 100e-9
-        mem_ctrl_area: 5 #mm2 
+        mem_ctrl_area: 5 #mm2 ## IMPORTANT: This is used to compute no. of DRAM stacks!!!!
         nominal_frequency: 1.38e9
         nominal_voltage: 1.2 
         threshold_voltage: 0.4 
@@ -76,19 +79,35 @@ tech_param:
         overhead: 0.25
         util: 1 
     network:
-        intra_node:
+        # How we arrived at the intra_node NVLINK 2.0 parameters:
+        # For nominal freuqnecy which is actually bits/second, we found 50GB/s PER NVLINK.
+        # However, each NVLINK is composed out of 32 WIRES (16 diff pairs, 8 per direction).
+        # So, 50 / 32 = 1.56 GB/s
+        # So 1.56 * 8 = 12.48 Gb/s PER NVLINK
+        # For energy, we found 8pj/bit.
+        # nominal_enery_per_link is ACTUALLY joules/byte per link.
+        # THIS MEANS WE ARE TREATING LINKS IN THE CODE AS PHYSICAL WIRES.
+        # then, for num_links_per_mm, we assume 815mm^2 V100 is square.
+        # perimeter is then 114.2
+        # 32 physical wires per NVlink, 6 NVlinks per chip, so 32*6 = 192 links per 114 mm^2
+        # Then, we DOUBLE the number to account for perimeter fraction is 0.5
+
+        # There is a major issue. The numbers calculated above are PER GPU.
+        # We have 20 workers in the node, but the code assumes the numbers are PER NODE, not per GPU. However it asks for links per ONE GPUs perimeter. THis makes no sense.
+        intra_node: # We should model NVLINK 2.0
           latency: 5e-6 
-          nominal_frequency: 3e9
+          nominal_frequency: 12.48e9 # THIS IS BITS/SECOND PER LINK!!!! Look at lines 502 in hw_component.py, 678 in perf.py
           nominal_voltage: 1
-          nominal_energy_per_link: 1e-12
-          nominal_area_per_link: 100e-6 #mm^2
-          num_links_per_mm: 400
+          # energy per link 
+          nominal_energy_per_link: 8e-12 # This is probably pessimistic, as it is likely stated for 300mm. Our avg distance is 150mm. 8pj/Bit based on https://www.techpowerup.com/forums/threads/nvidia-is-preparing-co-packaged-photonics-for-nvlink.276139/#:~:text=While%20the%20current%20NVLink%202.0,(4%20pJ%2Fb), https://www.techpowerup.com/img/fpXXsSk543ZUFWcx_thm.jpg
+          nominal_area_per_link: 1e-12 #mm^2. We are setting this to an extremely low value on purpose to ignore mem ctrl area. This is basically 0 but we cant set to 0 because of div errors.
+          num_links_per_mm: 3.363 #increased a tiny bit to account for integer division and the fact that I dropped digits
           threshold_voltage: 0.25
           margin_voltage: 0.45
-          util: 1
-        inter_node:
+          util: 0.95
+        inter_node: # ignore for now, all comms are intra comms.
           latency: 5e-6
-          nominal_frequency: 20e9
+          nominal_frequency: 20e9 
           nominal_voltage: 1.2
           nominal_energy_per_link: 13e-12
           nominal_area_per_link: 0.045
@@ -96,47 +115,48 @@ tech_param:
           threshold_voltage: 0.35
           margin_voltage: 0.5
           util: 0.96
-area_breakdown: # no longer treated as fraction
-    device_area_budget: 1230 #mm2
-    proc_chip_area_budget: 815 #mm2
+area_breakdown: # No longer fractions. Absolute values in mm^2.
+    device_area_budget: 1230 #mm^2 # DRAM Area is device_area_budget - proc_chip_area_budget. This is how we compute DRAM stack no.!
+    proc_chip_area_budget: 815 #mm^2
     core: 244.5
     L2: 65.7053
     L1: 8.3945
     reg_mem: 17.93
-    DRAM: 20.212
+    DRAM: 20.212 # This is the Memory controller area of the compute chip. IMPORTANT: Used to compute no. of DRAM stacks!
     network:
-      intra_node: 0.0
-      inter_node: 81.5
+      intra_node: 81.5 # This is the intra-node I/O controller area of the compute chip.
+      inter_node: 0.0 # This is the inter-node I/O controller area of the compute chip.
 
-power_breakdown: # no longer treated as fraction
+power_breakdown: # Absolute values in W. TDP is total power.
     TDP: 300
-    core: 112.35 #0.4927 if 0.171W per core #0.0189 for 15.7Tflops #0.1504 for 125TFLOps
+    core: 112.35 
     DRAM: 48
     L2: 2.4
     L1: 31.23
     reg_mem: 90.66
     network:
-      intra_node: 0.0
-      inter_node: 2.805
+      intra_node: 18.75
+      inter_node: 0.0
 
-perimeter_breakdown: # still fraction
+
+perimeter_breakdown: # out of the compute die, what fraction of the perimeter is dedicated to IO links to each component
     DRAM: 0.5
-    intra_node: 0.0
-    inter_node: 0.5
+    intra_node: 0.5
+    inter_node: 0.0
 
 system_hierarchy:
-    num_devices_per_node: 16 # it was 1 before as the base config
-    num_nodes: 1        # it was 1 before
+    num_devices_per_node: 20 # devices per package essentially
+    num_nodes: 1 # one package
+    intra_derate: 0 # derate is just a scaling down factor for the throughput of the links
     inter_derate: 1
-    intra_derate: 0
     kp1_inter: False
     kp2_inter: False
     dp_inter: False
     lp_inter: False
 
 network_topology:
-    inter_node: "hic" #mesh, torus, crossbar, custom, hierarchical
-    intra_node: "none"
+    intra_node: "mesh"
+    inter_node: "none" #mesh, torus, crossbar, custom, hierarchical
 
 memory_hierarchy:
     l0: #Register Memory
