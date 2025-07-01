@@ -2249,14 +2249,8 @@ def callPerf(exp_config, exp_dir, debug):
 
 
 @click.command("standalone")
-@click.option(
-    "--args_input",
-    help="Shall it read the args from the input command (True) or from exp_config (False)",
-    default=False,
-    type=bool,
-    required=False,
-)
-@click.option("--exp_config", help="Path to experiment config", required=True)
+@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=True, type=bool, required=False)
+@click.option("--exp_config", help="Path to experiment config", default="configs/new-configs/a100_80GB.yaml", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
 @click.option(

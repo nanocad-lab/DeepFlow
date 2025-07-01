@@ -2,7 +2,6 @@ from math import ceil
 import numpy as np
 import copy
 
-
 class Tile:
     def __init__(self, tile_dims, level, dtype_size):
         """
@@ -126,6 +125,8 @@ class TiledGEMM(Tile):
     def get_tile(self, tile_dims):
         return L2Tile(tile_dims, self.level - 1, self.num_bundle, self.dtype_size)
 
+        return L2Tile(tile_dims, self.level-1, self.num_bundle, self.dtype_size)
+    
     def sysarray_accesses(self):
         """
         assume systolic engine can support n x m x n GEMM  (e.g. 8 x 4 x 8 for A100 tensorcore), which is FLOPs_tile = n^2 * (m-1) FLOPs
@@ -261,6 +262,7 @@ class L2Tile(Tile):
         self.mn_write_bytes = self.mn_bytes()
         # self.mk_read_bytes, self.kn_read_bytes, self.mn_read_bytes, self.mn_write_bytes = self.simulate_accesses()
 
+
     def __repr__(self):
         return (
             super().__repr__() + f"  mk_read: {formatBytes(self.mk_read_bytes)}\n"
@@ -279,16 +281,12 @@ class L2Tile(Tile):
         reuse_M = ceil(self.M / self.tile_M)
         reuse_K = ceil(self.K / self.tile_K)
         reuse_N = ceil(self.N / self.tile_N)
-
-        # effective number of SMs that are utilized
+        
+        # effective number of tiles that can be processed in parallel
         eff_sm = min(self.num_bundle, reuse_M * reuse_K * reuse_N)
 
-        # track bytes accessed from shared memory per SM
-        read_bytes = (
-            (self.tile.mk_bytes() + self.tile.kn_bytes())
-            * (reuse_M * reuse_N * reuse_K)
-            / eff_sm
-        )
+        # track bytes accessed from shared memory per sm
+        read_bytes = (self.tile.mk_bytes() + self.tile.kn_bytes()) * (reuse_M * reuse_N * reuse_K) / eff_sm
         write_bytes = self.tile.mn_bytes() * (reuse_M * reuse_N) / eff_sm
 
         return read_bytes, write_bytes
@@ -333,8 +331,8 @@ class L2Tile(Tile):
             tile_mn_write[m, n] = 1
 
             if active_sm >= self.num_bundle or (
-                m == ceil(self.M / self.tile_M) - 1
-                and n == ceil(self.N / self.tile_N) - 1
+                m == ceil(self.M / self.tile_M) - 1 
+                and n == ceil(self.N / self.tile_N) - 1 
                 and k == ceil(self.K / self.tile_K) - 1
             ):
                 mk_read_bytes += np.sum(tile_mk_read) * self.tile.mk_bytes()
@@ -348,6 +346,9 @@ class L2Tile(Tile):
                     np.sum(prev_mn_write * (~tile_mn_read)) * self.tile.mn_bytes()
                 )
 
+                active_sm = 0
+                mn_write_bytes += np.sum(prev_mn_write * (~tile_mn_read)) * self.tile.mn_bytes()
+            
                 active_sm = 0
 
                 prev_mk_read = copy.deepcopy(tile_mk_read)
