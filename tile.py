@@ -102,19 +102,20 @@ class TiledGEMM(Tile):
 
     def __repr__(self):
         return (
-            super().__repr__() +
-            f"  DRAM read: {formatBytes(self.mem_read[3])}, write: {formatBytes(self.mem_write[3])}\n"
+            super().__repr__()
+            + f"  DRAM read: {formatBytes(self.mem_read[3])}, write: {formatBytes(self.mem_write[3])}\n"
             f"  L2 read: {formatBytes(self.mem_read[2])}, write: {formatBytes(self.mem_write[2])}\n"
             f"  Shared read: {formatBytes(self.mem_read[1])}, write: {formatBytes(self.mem_write[1])}\n"
             f"  Reg read: {formatBytes(self.mem_read[0])}, write: {formatBytes(self.mem_write[0])}\n"
             f"  loop order: {self.order_dims}\n"
             f"{self.tile.__repr__()}"
         )
-    
+
     def print_count(self):
-        return (
-            f"read mk: {self.count[0]}, kn: {self.count[1]}, mn: {self.count[2]}, write mn: {self.count[3]}"
-        )
+        return f"read mk: {self.count[0]}, kn: {self.count[1]}, mn: {self.count[2]}, write mn: {self.count[3]}"
+
+    def print_bytes(self):
+        return f"{formatBytes(self.mem_read[3])}, {formatBytes(self.mem_write[3])}, {formatBytes(self.mem_read[2])}, {formatBytes(self.mem_write[2])}, {formatBytes(self.mem_read[1])}, {formatBytes(self.mem_write[1])}"
 
     def mem_accesses(self):
         return [r + w for r, w in zip(self.mem_read, self.mem_write)]
@@ -181,20 +182,24 @@ class TiledGEMM(Tile):
         read_accesses[1] = l2_shared[0] * max_reload
         write_accesses[1] = l2_shared[1] * max_reload
 
-        inner = order_dims[2] # most inner loop
-        if inner == 'm':
+        inner = order_dims[2]  # most inner loop
+        if inner == "m":
             mk_load = max_reload
             kn_load = num_tiles_K * num_tiles_N
             mn_load = max_reload
-        elif inner == 'k':
+        elif inner == "k":
             mk_load = max_reload
             kn_load = max_reload
             mn_load = num_tiles_M * num_tiles_N
-        elif inner == 'n':
+        elif inner == "n":
             mk_load = num_tiles_M * num_tiles_K
             kn_load = max_reload
             mn_load = max_reload
-        read_accesses[2] = mk_load * self.tile.mk_read_bytes + kn_load * self.tile.kn_read_bytes + mn_load * self.tile.mn_read_bytes
+        read_accesses[2] = (
+            mk_load * self.tile.mk_read_bytes
+            + kn_load * self.tile.kn_read_bytes
+            + mn_load * self.tile.mn_read_bytes
+        )
         write_accesses[2] = mn_load * self.tile.mn_write_bytes
 
         # # read input tiles for first output tile
@@ -238,7 +243,8 @@ class TiledGEMM(Tile):
         # mn_write_count += 1
 
         # TODO: model DRAM accesses
-        read_accesses[3] = self.mk_bytes() + self.kn_bytes()
+        read_accesses[3] = self.mk_bytes() + self.kn_bytes() # input matrix compulsory cache misses only
+        write_accesses[3] = self.kn_bytes() # output matrix cache misses
 
         self.count = [mk_load, kn_load, mn_load, mn_load]
 
@@ -371,17 +377,10 @@ class L1Tile(Tile):
         super().__init__(tile_dims, level, dtype_size)
 
 
-def formatBytes(bytes):
-    unit = ""
-    if bytes < 1024:
-        unit = "B"
-    elif bytes < 1024**2:
-        unit = "KB"
-        bytes /= 1024
-    elif bytes < 1024**3:
-        unit = "MB"
-        bytes /= 1024**2
-    else:
-        unit = "GB"
-        bytes /= 1024**3
-    return f"{bytes} {unit}"
+def formatBytes(size):
+    """Format bytes into a human-readable string."""
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size < 1024:
+            return f"{size:.2f} {unit}"
+        size /= 1024
+    return f"{size:.2f} TB"
