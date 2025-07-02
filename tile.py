@@ -123,9 +123,7 @@ class TiledGEMM(Tile):
         return self.M * self.N * (2 * self.K - 1)
 
     def get_tile(self, tile_dims):
-        return L2Tile(tile_dims, self.level - 1, self.num_bundle, self.dtype_size)
-
-        return L2Tile(tile_dims, self.level-1, self.num_bundle, self.dtype_size)
+        return L2Tile(tile_dims, self.level-1, self.num_mcu, self.dtype_size)
     
     def sysarray_accesses(self):
         """
