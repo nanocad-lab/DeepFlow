@@ -123,7 +123,7 @@ class TiledGEMM(Tile):
         return self.M * self.N * (2 * self.K - 1)
 
     def get_tile(self, tile_dims):
-        return L2Tile(tile_dims, self.level-1, self.num_mcu, self.dtype_size)
+        return L2Tile(tile_dims, self.level-1, self.num_bundle, self.dtype_size)
     
     def sysarray_accesses(self):
         """
@@ -243,7 +243,7 @@ class TiledGEMM(Tile):
 
         # TODO: model DRAM accesses
         read_accesses[3] = self.mk_bytes() + self.kn_bytes() # input matrix compulsory cache misses only
-        write_accesses[3] = self.kn_bytes() # output matrix cache misses
+        # write_accesses[3] = self.kn_bytes() # output matrix cache misses
 
         self.count = [mk_load, kn_load, mn_load, mn_load]
 
