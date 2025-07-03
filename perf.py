@@ -1410,7 +1410,8 @@ class TimeCalculation:
             print(
                 "GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time)
             )
-            return GEMM_time[0] + reduction_time, GEMM_time[1], GEMM_time[2]
+            GEMM_time[0] += reduction_time
+            return GEMM_time
         else:
             return GEMM_time[0], reduction_time
 
