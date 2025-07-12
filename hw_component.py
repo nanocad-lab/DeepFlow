@@ -64,9 +64,6 @@ class Memory(Base):
         # return self.getArbitraryTileDims(self):
 
     def getGPUTileDims(self, M, K, N):
-        """
-        Based on LLMCompass heuristic GPU
-        """
         tile_dim_candidates = set()
         mem_size = self.size_per_bundle / self.precision
         for exp in range(5, math.floor(math.log2(M))):

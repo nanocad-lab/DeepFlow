@@ -9,7 +9,6 @@ class Tile:
 
         Parameters:
         - M, N, K: Full GEMM problem dimensions (C = A x B, where A is MxK, B is KxN)
-        - tile_M, tile_N, tile_K: Tile sizes along M, N, K dimensions
         - dtype_size: Size of one element in bytes (default is 2 bytes for fp16)
         """
 
@@ -17,7 +16,6 @@ class Tile:
 
         self.level = level
         self.M, self.K, self.N = tile_dims[level]
-        self.tile_M, self.tile_K, self.tile_N = tile_dims[level - 1]
         self.dtype_size = dtype_size
         self.tile = self.get_tile(tile_dims)
         self.total_bytes = self.mk_bytes() + self.kn_bytes() + self.mn_bytes()
@@ -44,41 +42,6 @@ class Tile:
     def get_tile(self, tile_dims):
         """Returns the lower level tile object"""
         return None
-
-    def generate_tile_loops(
-        self, loop_M: int, loop_N: int, loop_K: int, loop_order: str
-    ):
-        assert loop_order in ["mkn", "mnk", "nkm", "nmk", "knm", "kmn"]
-        if loop_order == "mnk":
-            for m in range(loop_M):
-                for n in range(loop_N):
-                    for k in range(loop_K):
-                        yield m, n, k
-        elif loop_order == "mkn":
-            for m in range(loop_M):
-                for k in range(loop_K):
-                    for n in range(loop_N):
-                        yield m, n, k
-        elif loop_order == "nmk":
-            for n in range(loop_N):
-                for m in range(loop_M):
-                    for k in range(loop_K):
-                        yield m, n, k
-        elif loop_order == "nkm":
-            for n in range(loop_N):
-                for k in range(loop_K):
-                    for m in range(loop_M):
-                        yield m, n, k
-        elif loop_order == "knm":
-            for k in range(loop_K):
-                for n in range(loop_N):
-                    for m in range(loop_M):
-                        yield m, n, k
-        elif loop_order == "kmn":
-            for k in range(loop_K):
-                for m in range(loop_M):
-                    for n in range(loop_N):
-                        yield m, n, k
 
 
 class TiledGEMM(Tile):
@@ -171,9 +134,9 @@ class TiledGEMM(Tile):
 
         read_accesses[0], write_accesses[0] = self.sysarray_accesses()
 
-        num_tiles_M = ceil(self.M / self.tile_M)
-        num_tiles_N = ceil(self.N / self.tile_N)
-        num_tiles_K = ceil(self.K / self.tile_K)
+        num_tiles_M = ceil(self.M / self.tile.M)
+        num_tiles_N = ceil(self.N / self.tile.N)
+        num_tiles_K = ceil(self.K / self.tile.K)
 
         max_reload = num_tiles_M * num_tiles_N * num_tiles_K
 
@@ -201,46 +164,6 @@ class TiledGEMM(Tile):
         )
         write_accesses[2] = mn_load * self.tile.mn_write_bytes
 
-        # # read input tiles for first output tile
-        # mk_read_count = 0
-        # kn_read_count = 0
-        # mn_read_count = 0
-        # mn_write_count = 0
-        # read_accesses[2] += self.tile.mk_read_bytes + self.tile.kn_read_bytes
-        # prev_m, prev_n, prev_k = 0, 0, 0
-        # for m, n, k in self.generate_tile_loops(
-        #     ceil(self.M / self.tile_M),
-        #     ceil(self.N / self.tile_N),
-        #     ceil(self.K / self.tile_K),
-        #     order_dims,
-        # ):
-        #     if m == 0 and n == 0 and k == 0:
-        #         continue
-
-        #     # read input tile if not already previously loaded
-        #     if m == prev_m and k == prev_k:
-        #         kn_read_count += 1
-        #         read_accesses[2] += self.tile.kn_read_bytes
-        #     elif k == prev_k and n == prev_n:
-        #         mk_read_count += 1
-        #         read_accesses[2] += self.tile.mk_read_bytes
-        #     else:
-        #         kn_read_count += 1
-        #         mk_read_count += 1
-        #         read_accesses[2] += self.tile.kn_read_bytes + self.tile.mk_read_bytes
-
-        #     # replace previous output tile if not the same
-        #     if not (m == prev_m and n == prev_n):
-        #         mn_read_count += 1
-        #         mn_write_count += 1
-        #         read_accesses[2] += self.tile.mn_read_bytes
-        #         write_accesses[2] += self.tile.mn_write_bytes
-
-        #     prev_m, prev_n, prev_k = m, n, k
-
-        # write_accesses[2] += self.tile.mn_write_bytes
-        # mn_write_count += 1
-
         # TODO: model DRAM accesses
         read_accesses[3] = self.mk_bytes() + self.kn_bytes() # input matrix compulsory cache misses only
         # write_accesses[3] = self.kn_bytes() # output matrix cache misses
@@ -258,7 +181,6 @@ class L2Tile(Tile):
         self.kn_read_bytes = self.kn_bytes()
         self.mn_read_bytes = self.mn_bytes()
         self.mn_write_bytes = self.mn_bytes()
-        # self.mk_read_bytes, self.kn_read_bytes, self.mn_read_bytes, self.mn_write_bytes = self.simulate_accesses()
 
 
     def __repr__(self):
@@ -276,9 +198,9 @@ class L2Tile(Tile):
     def shared_accesses(self):
         """Trace through tile accesses to L1 shared memory"""
 
-        reuse_M = ceil(self.M / self.tile_M)
-        reuse_K = ceil(self.K / self.tile_K)
-        reuse_N = ceil(self.N / self.tile_N)
+        reuse_M = ceil(self.M / self.tile.M)
+        reuse_K = ceil(self.K / self.tile.K)
+        reuse_N = ceil(self.N / self.tile.N)
         
         # effective number of tiles that can be processed in parallel
         eff_sm = min(self.num_bundle, reuse_M * reuse_K * reuse_N)
@@ -288,89 +210,7 @@ class L2Tile(Tile):
         write_bytes = self.tile.mn_bytes() * (reuse_M * reuse_N) / eff_sm
 
         return read_bytes, write_bytes
-
-    def simulate_accesses(self):
-        """Trace through tile accesses to L2 for mkn ordering"""
-        # bytes read from each tile
-        mk_read_bytes = 0
-        kn_read_bytes = 0
-        mn_read_bytes = 0
-        mn_write_bytes = 0
-
-        tile_mk_read = np.zeros(
-            [ceil(self.M / self.tile_M), ceil(self.K / self.tile_K)], dtype=bool
-        )
-        tile_kn_read = np.zeros(
-            [ceil(self.K / self.tile_K), ceil(self.N / self.tile_N)], dtype=bool
-        )
-        tile_mn_read = np.zeros(
-            [ceil(self.M / self.tile_M), ceil(self.N / self.tile_N)], dtype=bool
-        )
-        tile_mn_write = np.zeros(
-            [ceil(self.M / self.tile_M), ceil(self.N / self.tile_N)], dtype=bool
-        )
-
-        prev_mk_read = copy.deepcopy(tile_mk_read)
-        prev_kn_read = copy.deepcopy(tile_kn_read)
-        prev_mn_read = copy.deepcopy(tile_mn_read)
-        prev_mn_write = copy.deepcopy(tile_mn_write)
-
-        active_sm = 0
-        for m, n, k in self.generate_tile_loops(
-            ceil(self.M / self.tile_M),
-            ceil(self.N / self.tile_N),
-            ceil(self.K / self.tile_K),
-            "mkn",
-        ):
-            active_sm += 1
-            tile_mk_read[m, k] = ~prev_mk_read[m, k]
-            tile_kn_read[k, n] = ~prev_kn_read[k, n]
-            tile_mn_read[m, n] = 1
-            tile_mn_write[m, n] = 1
-
-            if active_sm >= self.num_bundle or (
-                m == ceil(self.M / self.tile_M) - 1 
-                and n == ceil(self.N / self.tile_N) - 1 
-                and k == ceil(self.K / self.tile_K) - 1
-            ):
-                mk_read_bytes += np.sum(tile_mk_read) * self.tile.mk_bytes()
-                kn_read_bytes += np.sum(tile_kn_read) * self.tile.kn_bytes()
-                mn_read_bytes += (
-                    np.sum(tile_mn_read * ~(prev_mn_read[m, n] + prev_mn_write[m, n]))
-                    * self.tile.mn_bytes()
-                )
-
-                mn_write_bytes += (
-                    np.sum(prev_mn_write * (~tile_mn_read)) * self.tile.mn_bytes()
-                )
-
-                active_sm = 0
-                mn_write_bytes += np.sum(prev_mn_write * (~tile_mn_read)) * self.tile.mn_bytes()
-            
-                active_sm = 0
-
-                prev_mk_read = copy.deepcopy(tile_mk_read)
-                prev_kn_read = copy.deepcopy(tile_kn_read)
-                prev_mn_read = copy.deepcopy(tile_mn_read)
-                prev_mn_write = copy.deepcopy(tile_mn_write)
-
-                tile_mk_read = np.zeros(
-                    [ceil(self.M / self.tile_M), ceil(self.K / self.tile_K)], dtype=bool
-                )
-                tile_kn_read = np.zeros(
-                    [ceil(self.K / self.tile_K), ceil(self.N / self.tile_N)], dtype=bool
-                )
-                tile_mn_read = np.zeros(
-                    [ceil(self.M / self.tile_M), ceil(self.N / self.tile_N)], dtype=bool
-                )
-                tile_mn_write = np.zeros(
-                    [ceil(self.M / self.tile_M), ceil(self.N / self.tile_N)], dtype=bool
-                )
-        mn_write_bytes += np.sum(prev_mn_write * (~tile_mn_read)) * self.tile.mn_bytes()
-
-        return mk_read_bytes, kn_read_bytes, mn_read_bytes, mn_write_bytes
-
-
+    
 class L1Tile(Tile):
     def __init__(self, tile_dims, level, dtype_size):
         super().__init__(tile_dims, level, dtype_size)
