@@ -205,7 +205,7 @@ class GradientDescentSearch:
             expected_sum = 1
             if param_class in self.excluded:
               for param in self.excluded[param_class]:
-                expected_sum = expected_sum - self.parameters[param_class][param]
+                expected_sum = expected_sum - self.parameters[param_class][param] # TODO: breakdowns are now actual values instead of fractions
             tot = float(sum(random_params)) 
             scale_factor = tot/expected_sum
             random_params = [x/scale_factor for x in random_params]
