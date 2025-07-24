@@ -63,6 +63,20 @@ class Memory(Base):
         return self.getPower2TileDims()
         # return self.getArbitraryTileDims(self):
 
+    def getGPUTileDims(self, M, K, N):
+        tile_dim_candidates = set()
+        mem_size = self.size_per_bundle / self.precision
+        for exp in range(5, math.floor(math.log2(M))):
+            m = 2 ** exp
+            for n in [m // 2, m, m * 2]:
+                for k in [16, 32, 64]:
+                    working_set_size = n * k + m * k + m * n
+                    if working_set_size > mem_size:
+                        continue
+                    tile_dim = (m, n, k)
+                    tile_dim_candidates.add(tile_dim)
+        return list(tile_dim_candidates)
+
     def getPower2TileDims(self):
         np.random.seed(1)
         tile_dim_candidates = set()

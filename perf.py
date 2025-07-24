@@ -918,24 +918,24 @@ class TimeCalculation:
         # print("GEMM_time = ", GEMM_time, "point_time= ", point_time)
         return GEMM_time + reduction_time + point_time
 
-    def getCb_kp1(self):
-        # TODO:Add local accumulation of weights at every time step
-        # Pointwise
-        point_flop = (self.miniB) * (self.G * self.D / self.kp_hidden_dim1) * 5 + (
-            2 * self.D * self.G * self.D / self.kp_hidden_dim1
-        )  # local accumulation of wts
-        # 4 refers to the number of pointwise ops (mul + add +tanh + mul) on
-        # the critical path
-        point_mem = (
-            self.precision
-            * self.miniB
-            * (self.G * self.D / self.kp_hidden_dim1)
-            * (3 * 3 + 2 * 2)
-            + (2 * self.precision * self.D * self.G * self.D / self.kp_hidden_dim1) * 3
-        )  # local accumulation of wts
-        # 3(3 memory access per operation with two input and one output)
-        # 3(mul +  add + mul) on critical path
-        return GEMM_time + reduction_time + point_time
+    # def getCb_kp1(self):
+    #     # TODO:Add local accumulation of weights at every time step
+    #     # Pointwise
+    #     point_flop = (self.miniB) * (self.G * self.D / self.kp_hidden_dim1) * 5 + (
+    #         2 * self.D * self.G * self.D / self.kp_hidden_dim1
+    #     )  # local accumulation of wts
+    #     # 4 refers to the number of pointwise ops (mul + add +tanh + mul) on
+    #     # the critical path
+    #     point_mem = (
+    #         self.precision
+    #         * self.miniB
+    #         * (self.G * self.D / self.kp_hidden_dim1)
+    #         * (3 * 3 + 2 * 2)
+    #         + (2 * self.precision * self.D * self.G * self.D / self.kp_hidden_dim1) * 3
+    #     )  # local accumulation of wts
+    #     # 3(3 memory access per operation with two input and one output)
+    #     # 3(mul +  add + mul) on critical path
+    #     return GEMM_time + reduction_time + point_time
 
     def getCb_kp1(self):
         # TODO:Add local accumulation of weights at every time step
@@ -2248,14 +2248,8 @@ def callPerf(exp_config, exp_dir, debug):
 
 
 @click.command("standalone")
-@click.option(
-    "--args_input",
-    help="Shall it read the args from the input command (True) or from exp_config (False)",
-    default=False,
-    type=bool,
-    required=False,
-)
-@click.option("--exp_config", help="Path to experiment config", required=True)
+@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=True, type=bool, required=False)
+@click.option("--exp_config", help="Path to experiment config", default="configs/new-configs/a100_80GB.yaml", required=True)
 @click.option("--exp_dir", help="Checkpoint/log directory", required=True)
 @click.option("--debug", help="debug", default=False, type=bool)
 @click.option(

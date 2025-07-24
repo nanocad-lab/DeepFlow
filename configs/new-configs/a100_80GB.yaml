@@ -37,7 +37,7 @@ tech_param:
         FMA_d1: 8            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
         FMA_d2: 4
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
-        util: 0.75 # util should be 0.75 (12/16) for tensorcore
+        util: 0.75 #util should be 0.75 (12/16) for tensorcore
     DRAM:
         size: 80 GB # [TPU]
         bandwidth: 1986 GB # (/s) [TPU]
