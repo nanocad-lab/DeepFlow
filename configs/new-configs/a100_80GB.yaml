@@ -1,3 +1,10 @@
+# DeepFlow configuration for NVIDIA A100 PCIe 80 GB
+# specifications from the following sources:
+# [NVIDIA] https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf
+# [TPU] https://www.techpowerup.com/gpu-specs/a100-pcie-80-gb.c3821
+# [GTC 2021] https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s33322/
+# die shot area estimates: https://locuza.substack.com/p/nvidias-ada-lineup-configurations
+
 model_param:
     batch_size: 64
     vocab_size: 40000
@@ -11,36 +18,39 @@ model_param:
     data_scale: 100 
 
 sw_param:
-    kernel_launch_overhead: 9e-6 #9us
-    precision: 2 # FP16 
+    kernel_launch_overhead: 9e-6 # (s)
+    precision: 2 # data type precision in bytes
 
 tech_param:
     core:
-        nominal_power_per_mcu: 0.13 #W
-        nominal_flop_rate_per_mcu: 512 # execute 256 FP16 FMA operations per clock
-        nominal_area_per_mcu: 1.006 #mm^2
-        nominal_frequency: 1.23e9 #Hz
-        nominal_voltage: 0.7 # scales for operating voltage
-        threshold_voltage: 0.2 
-        margin_voltage: 0.35
-        operating_area_per_mcu: 1.006 #!!!!operating_area n nominal_area should chnage hand-in-hand as they affect area scaling
-        num_mcu_per_bundle: 4 # a bundle can be thought of as an SM, number of tensorcores per SM
+        operating_frequency: 1.41e9 # (Hz) GPU boost clock frequency [NVIDIA]
+        num_bundles: 108 # number of bundles (SMs) [NVIDIA]
+        nominal_flop_rate_per_mcu: 512 # each tensor core executes 256 FP16 FMA operations per clock [NVIDIA]
+        nominal_power_per_mcu: 0.13 # (W)
+        # nominal_area_per_mcu: 1.006 # (mm^2)
+        # nominal_frequency: 1.23e9 # (Hz)
+        nominal_voltage: 0.8 # (V)
+        threshold_voltage: 0.2 # (V)
+        margin_voltage: 0.35 # (V)
+        operating_area_per_mcu: 1.006 # (mm^2) # operating area should match nominal area for scaling
+        num_mcu_per_bundle: 4 # number of tensorcores per SM [NVIDIA]
         FMA_d1: 8            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
         FMA_d2: 4
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
-        util: 0.85 #util should be 0.75 (12/16) for tensorcore
+        util: 0.75 # util should be 0.75 (12/16) for tensorcore
     DRAM:
-        size: 80 GB
-        bandwidth: 1986 GB # 1.94 TB/s
-
-        dynamic_energy_per_bit: 1.3e-12 #Joules # 4.2, 8
-        static_power_per_bit: 0.6e-12
-        area_per_bit: 11.54e-10 #mm2
-        stack_capacity: 16 GB # 5 HB2Me stacks of 16GB, 8-Hi memory, the updated A100 gets a total of 80GB of memory
-        area_per_stack: 86 #mm2
-        latency: 100e-9
-        mem_ctrl_area: 1.1 #mm2 
-        nominal_frequency: 2.51E+09 # for 1.5 * 2 GHz memory clock
+        size: 80 GB # [TPU]
+        bandwidth: 1986 GB # (/s) [TPU]
+        num_stacks: 5 # 5 stacks of HBM2e memory [TPU]
+        operating_frequency: 3.024e9 # (Hz) effective 1.512 GHz DDR memory clock [TPU] 
+        dynamic_energy_per_bit: 4.5e-12 # (J) [https://passlab.github.io/mchpc/mchpc2019/presentations/MCHPC_Pawlowski_keynote.pdf, slide 36]
+        static_power_per_bit: 0.6e-12 # (W)
+        area_per_bit: 11.54e-10 # (mm^2)
+        stack_capacity: 16 GB # 16 GB per HBM2e stack [TPU]
+        area_per_stack: 86 # (mm^2) [die shot]
+        latency: 100e-9 # (s)
+        mem_ctrl_area: 1.1 # (mm^2) 
+        # nominal_frequency: 2.51E+09 # for 1.5 * 2 GHz memory clock
         nominal_voltage: 1.2 
         threshold_voltage: 0.4 
         margin_voltage: 0.6
@@ -49,41 +59,38 @@ tech_param:
         num_links_per_stack: 1024
         util: 1
     SRAM-L2:
-        size: 80 MB
-        bandwidth: 7050 GB # source: GTC 2021
-
+        size: 80 MB # [TPU]
+        bandwidth: 7050 GB # [GTC 2021]
         dynamic_energy_per_bit: 130e-15
         static_power_per_bit: 8.4e-12
-        area_per_bit: 1.45e-7 #mm2
+        area_per_bit: 1.45e-7 # (mm^2)
         bank_capacity: 32 KB
-        controller_area_per_link: 0.0 #mm2 
-        controller_power_per_link: 0.04 #W
+        controller_area_per_link: 0.0 # (mm^2) 
+        controller_power_per_link: 0.04 # (W)
         latency: 0
-        overhead: 0.20 #20% circuitry overhead in cell area
-        util: 0.45
+        overhead: 0.20 # 20% circuitry overhead in cell area
+        util: 1
     SRAM-L1:
-        size: 20736 KB # max configurable shared memory per SM * number of SMs
-        bandwidth: 18 TB
-
+        size: 20736 KB # max configurable shared memory per SM * number of SMs [NVIDIA]
+        bandwidth: 18 TB # [GTC 2021]
         dynamic_energy_per_bit: 130e-15
         static_power_per_bit: 9e-12
-        area_per_bit: 1.41e-7 #mm2
+        area_per_bit: 1.41e-7 # (mm^2)
         bank_capacity: 32 KB
-        controller_area_per_link: 0.00 #mm2 
-        controller_power_per_link: 0.0 #W
+        controller_area_per_link: 0.00 # (mm^2) 
+        controller_power_per_link: 0.0 # (W)
         latency: 0
         overhead: 0.20
         util: 1
     SRAM-R:
-        size: 27 MB
-        bandwidth: 122 TB
-
+        size: 27 MB # register file memory per SM * number of SMs [NVIDIA]
+        bandwidth: 122 TB # traffic for 2 reads and 1 write for GEMMs computed per clock
         dynamic_energy_per_bit: 110e-15
         static_power_per_bit: 9e-12
-        area_per_bit: 12.78e-8 #mm2
+        area_per_bit: 12.78e-8 # (mm^2)
         bank_capacity: 16 KB
-        controller_area_per_link: 0.00 #mm2 
-        controller_power_per_link: 0.0 #W
+        controller_area_per_link: 0.00 # (mm^2) 
+        controller_power_per_link: 0.0 # (W)
         latency: 0
         overhead: 0.25
         util: 1 
@@ -93,7 +100,7 @@ tech_param:
           nominal_frequency: 3e9
           nominal_voltage: 1
           nominal_energy_per_link: 1e-12
-          nominal_area_per_link: 100e-6 #mm^2
+          nominal_area_per_link: 100e-6 # (mm^2)
           num_links_per_mm: 400
           threshold_voltage: 0.25
           margin_voltage: 0.45
@@ -108,14 +115,14 @@ tech_param:
           threshold_voltage: 0.35
           margin_voltage: 0.5
           util: 0.96
-area_breakdown: # no longer treated as fraction
-    device_area_budget: 1330 #mm2 # enough area for 5 DRAM stacks
-    proc_chip_area_budget: 826 #mm2
-    core: 435 # remaining area
+area_breakdown: # (mm^2) [die shot]
+    device_area_budget: 1330 # enough area for 6 DRAM stacks + chip area
+    proc_chip_area_budget: 826 # (mm^2)
+    core: 435 # remaining area from inspecting die shots
     L2: 180 # scale based on capacity
     L1: 30.00
     reg_mem: 41.36
-    DRAM: 7
+    DRAM: 7 # memory control area
     network:
       intra_node: 0.0
       inter_node: 133.00
