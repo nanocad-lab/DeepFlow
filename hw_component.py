@@ -170,41 +170,50 @@ class Core(Base):
 
         self.FMA_dims = exp_config.tech_config.core.FMA_dims
         self.dataflow = exp_config.tech_config.core.dataflow
-        self.nominal_voltage = exp_config.tech_config.core.nominal_voltage
-        self.nominal_freq = exp_config.tech_config.core.nominal_frequency
-        self.nominal_area_per_mcu = exp_config.tech_config.core.nominal_area_per_mcu
-        # TODO: Define it as a function of precision
-        self.nominal_flop_rate_per_mcu = (
-            exp_config.tech_config.core.nominal_flop_rate_per_mcu
-        )
+
+        self.nominal_flop_rate_per_mcu = exp_config.tech_config.core.nominal_flop_rate_per_mcu # TODO: Define it as a function of precision
         self.nominal_power_per_mcu = exp_config.tech_config.core.nominal_power_per_mcu
         self.util = exp_config.tech_config.core.util
 
         # self.operating_voltage            = exp_config.tech_config.core.operating_voltage
-
+        self.nominal_voltage = exp_config.tech_config.core.nominal_voltage
         self.threshold_voltage = exp_config.tech_config.core.threshold_voltage
         self.margin_voltage = exp_config.tech_config.core.margin_voltage
-        self.operating_area_per_mcu = exp_config.tech_config.core.operating_area_per_mcu
-        self.num_mcu_per_bundle = exp_config.tech_config.core.num_mcu_per_bundle
-        self.num_mcu = int(self.tot_area // self.operating_area_per_mcu)
-        self.num_bundle = int(self.num_mcu // self.num_mcu_per_bundle)
-        self.area_scaling = self.operating_area_per_mcu / self.nominal_area_per_mcu
-        # Assumption: performance scales linearly with area
-        self.operating_flop_rate_per_mcu = (
-            self.nominal_flop_rate_per_mcu * self.area_scaling
-        )
-        self.nominal_power = (
-            self.nominal_power_per_mcu * self.num_mcu * self.area_scaling
-        )
 
+        # Assumption: performance scales linearly with area
+        self.operating_area_per_mcu = exp_config.tech_config.core.operating_area_per_mcu
+        if exp_config.tech_config.core.nominal_area_per_mcu:
+            self.nominal_area_per_mcu = exp_config.tech_config.core.nominal_area_per_mcu
+            self.area_scaling = self.operating_area_per_mcu / self.nominal_area_per_mcu
+        else:
+            self.area_scaling = 1
+            self.nominal_area_per_mcu = self.operating_area_per_mcu
+
+        self.num_mcu_per_bundle = exp_config.tech_config.core.num_mcu_per_bundle
+        if exp_config.tech_config.core.num_bundles:
+            self.num_bundle = exp_config.tech_config.core.num_bundles
+            self.num_mcu = self.num_bundle * self.num_mcu_per_bundle
+        else:
+            self.num_mcu = int(self.tot_area // self.operating_area_per_mcu)
+            self.num_bundle = int(self.num_mcu // self.num_mcu_per_bundle)
+
+        self.operating_flop_rate_per_mcu = self.nominal_flop_rate_per_mcu * self.area_scaling
+        self.nominal_power = self.nominal_power_per_mcu * self.num_mcu * self.area_scaling
+        
         if self.tot_power > 0 and self.nominal_power > 0:
-            self.calcOperatingVoltageFrequency()
+            self.calcOperatingVoltage()
+            if exp_config.tech_config.core.operating_frequency:
+                self.operating_freq = exp_config.tech_config.core.operating_frequency
+                self.operating_power_per_mcu = self.tot_power / self.num_mcu
+            elif exp_config.tech_config.core.nominal_frequency:
+                self.nominal_freq = exp_config.tech_config.core.nominal_frequency
+                self.calcOperatingFrequency()
         else:
             self.operating_freq = 0
 
         self.calcThroughput()
 
-    def calcOperatingVoltageFrequency(self):
+    def calcOperatingVoltage(self):
         # minimum voltage that meets power constraints
         self.operating_voltage = self.solve_poly(
             p0=1,
@@ -216,6 +225,16 @@ class Core(Base):
             * self.nominal_voltage
             * (self.nominal_voltage - self.threshold_voltage) ** 2,
         )
+
+        self.frequency_scaling_factor = 1
+        if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
+            self.scaled_voltage = self.threshold_voltage + self.margin_voltage
+            self.frequency_scaling_factor = (
+                self.operating_voltage / self.scaled_voltage
+            ) ** 2
+            self.operating_voltage = self.scaled_voltage
+
+    def calcOperatingFrequency(self):
         # Calculate operating frequency at minimum voltage
         self.operating_freq = self.nominal_freq * (
             (
@@ -227,13 +246,6 @@ class Core(Base):
                 / self.nominal_voltage
             )
         )
-        self.frequency_scaling_factor = 1
-        if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
-            self.scaled_voltage = self.threshold_voltage + self.margin_voltage
-            self.frequency_scaling_factor = (
-                self.operating_voltage / self.scaled_voltage
-            ) ** 2
-            self.operating_voltage = self.scaled_voltage
 
         self.operating_freq = self.frequency_scaling_factor * self.operating_freq
 
@@ -244,9 +256,7 @@ class Core(Base):
         )
 
     def calcThroughput(self):
-        self.operating_throughput = (
-            self.operating_flop_rate_per_mcu * self.operating_freq * self.num_mcu
-        )
+        self.operating_throughput = self.operating_flop_rate_per_mcu * self.operating_freq * self.num_mcu
         self.throughput = self.operating_throughput * self.util
 
     def printStats(self, f):
@@ -329,34 +339,40 @@ class DRAM(Memory):
     def __init__(self, exp_config, mem_config, level):
         super().__init__(exp_config, level)
         self.tot_power = exp_config.power_breakdown.DRAM  # * self.TDP
-        self.tot_area = (
-            exp_config.area_breakdown.node_area_budget - self.proc_chip_area_budget
-        )
-        self.tot_mem_ctrl_area = (
-            exp_config.area_breakdown.DRAM
-        )  # * self.proc_chip_area_budget
+        self.tot_area = exp_config.area_breakdown.node_area_budget - self.proc_chip_area_budget
+        self.tot_mem_ctrl_area = exp_config.area_breakdown.DRAM  # * self.proc_chip_area_budget
         self.mem_ctrl_area = exp_config.tech_config.DRAM.mem_ctrl_area
         self.dynamic_energy_per_bit = exp_config.tech_config.DRAM.dynamic_energy_per_bit
-        self.static_power_per_byte = (
-            exp_config.tech_config.DRAM.static_power_per_bit * 8
-        )
+        self.static_power_per_byte = exp_config.tech_config.DRAM.static_power_per_bit * 8
         self.area_per_byte = exp_config.tech_config.DRAM.area_per_bit * 8
         self.stack_capacity = exp_config.tech_config.DRAM.stack_capacity
         self.area_per_stack = exp_config.tech_config.DRAM.area_per_stack
         self.latency = exp_config.tech_config.DRAM.latency
         self.scope = mem_config.scope
         self.util = exp_config.tech_config.DRAM.util
-        self.nominal_freq = exp_config.tech_config.DRAM.nominal_frequency
+        
+        if exp_config.tech_config.DRAM.nominal_frequency:
+            self.nominal_freq = exp_config.tech_config.DRAM.nominal_frequency
+        elif exp_config.tech_config.DRAM.operating_frequency:
+            self.nominal_freq = exp_config.tech_config.DRAM.operating_frequency
+        else:
+            raise NotImplementedError()
+
         self.nominal_voltage = exp_config.tech_config.DRAM.nominal_voltage
         self.threshold_voltage = exp_config.tech_config.DRAM.threshold_voltage
         self.margin_voltage = exp_config.tech_config.DRAM.margin_voltage
         self.max_voltage = exp_config.tech_config.DRAM.max_voltage
-        self.num_stacks = int(
-            min(
-                self.tot_area // self.area_per_stack,
-                self.tot_mem_ctrl_area // self.mem_ctrl_area,
+
+        if exp_config.tech_config.DRAM.num_stacks:
+            self.num_stacks = exp_config.tech_config.DRAM.num_stacks
+        else:
+            self.num_stacks = int(
+                min(
+                    self.tot_area // self.area_per_stack,
+                    self.tot_mem_ctrl_area // self.mem_ctrl_area,
+                )
             )
-        )
+
         self.num_links_per_mm = exp_config.tech_config.DRAM.num_links_per_mm
         self.num_links_per_stack = exp_config.tech_config.DRAM.num_links_per_stack
 
@@ -375,13 +391,21 @@ class DRAM(Memory):
         self.calcSize()
         self.calcActiveEnergy()
 
-        self.nominal_power = (
-            self.dynamic_energy_per_bit * self.num_links * self.nominal_freq
-        )
+        self.nominal_power = self.dynamic_energy_per_bit * self.num_links * self.nominal_freq
+
         if self.dynamic_power > 0 and self.nominal_power > 0:
-            self.calcOperatingVoltageFrequency()
+            self.calcOperatingVoltage()
+            if exp_config.tech_config.DRAM.operating_frequency:
+                self.operating_freq = exp_config.tech_config.DRAM.operating_frequency
+            else:
+                self.calcOperatingFrequency()
         else:
             self.operating_freq = 0
+
+        # if self.dynamic_power > 0 and self.nominal_power > 0:
+        #     self.calcOperatingVoltageFrequency()
+        # else:
+        #     self.operating_freq = 0
 
         self.calcThroughput()
 
@@ -392,8 +416,7 @@ class DRAM(Memory):
         self.calcSize()
         self.calcTileDim()
 
-    def calcOperatingVoltageFrequency(self):
-        self.frequency_scaling_factor = 1
+    def calcOperatingVoltage(self):
         self.operating_voltage = self.solve_poly(
             p0=1,
             p1=-2 * self.threshold_voltage,
@@ -404,6 +427,24 @@ class DRAM(Memory):
             * self.nominal_voltage
             * (self.nominal_voltage - self.threshold_voltage) ** 2,
         )
+
+        self.frequency_scaling_factor = 1
+        self.max_freq = None
+        if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
+            self.scaled_voltage = self.threshold_voltage + self.margin_voltage
+            self.frequency_scaling_factor = (self.operating_voltage / self.scaled_voltage) ** 2
+            self.operating_voltage = self.scaled_voltage
+        elif self.operating_voltage > self.max_voltage:
+            self.max_freq = self.operating_freq * (
+                ((self.max_voltage - self.threshold_voltage) ** 2 / (self.max_voltage))
+                / (
+                    (self.operating_voltage - self.threshold_voltage) ** 2
+                    / self.operating_voltage
+                )
+            )
+            self.operating_voltage = self.max_voltage
+
+    def calcOperatingFrequency(self):
         # operating frequency at minimum voltage
         self.operating_freq = self.nominal_freq * (
             (
@@ -415,25 +456,9 @@ class DRAM(Memory):
                 / self.nominal_voltage
             )
         )
-        self.frequency_scaling_factor = 1
-        if self.operating_voltage < (self.threshold_voltage + self.margin_voltage):
-            self.scaled_voltage = self.threshold_voltage + self.margin_voltage
-            self.frequency_scaling_factor = (
-                self.operating_voltage / self.scaled_voltage
-            ) ** 2
-            self.operating_freq = self.frequency_scaling_factor * self.operating_freq
-            self.operating_voltage = self.scaled_voltage
-
-        elif self.operating_voltage > self.max_voltage:
-            self.max_freq = self.operating_freq * (
-                ((self.max_voltage - self.threshold_voltage) ** 2 / (self.max_voltage))
-                / (
-                    (self.operating_voltage - self.threshold_voltage) ** 2
-                    / self.operating_voltage
-                )
-            )
+        self.operating_freq = self.frequency_scaling_factor * self.operating_freq
+        if self.max_freq:
             self.operating_freq = self.max_freq
-            self.operating_voltage = self.max_voltage
 
     def calcActiveEnergy(self):
         self.dynamic_power = (
