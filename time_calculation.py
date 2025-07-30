@@ -14,7 +14,7 @@ from topology import Topology
 from simulate import Graph
 import util
 from hw_component import Core, MemoryHierarchy, Network
-from model import Model_LSTM
+from model import Model_LSTM, Model_GEMM, Model_Transformer 
 from tile import TiledGEMM, formatBytes
 
 algByte = False  # algorithmic ops false
@@ -23,32 +23,22 @@ validating_v100 = True
 
 
 class TimeCalculation:
-    def __init__(self, exp_config):
-        # Model Parameters
-        self.model = Model_LSTM(exp_config)
-        self.B = self.model.batch_size
-        self.V = self.model.vocab_size
-        self.L = self.model.num_layers
-        self.D = self.model.hidden_dim
-        self.projection = self.model.projection
-        self.S = self.model.seq_len
-        self.G = self.model.num_gates
-        self.NL = self.model.num_non_linear
-        self.A = self.model.num_add
-        self.P = self.model.num_pointwise
+    def __init__(self, hw_config, model_config, mode):
+# Mode parameter
+        
 
         # Software Parameters
-        self.O = exp_config.sw_config.kernel_launch_overhead
-        self.precision = exp_config.sw_config.precision
+        self.O = hw_config.sw_config.kernel_launch_overhead
+        self.precision = hw_config.sw_config.precision
         self.attached = True
 
         # Hardware Parameters
-        self.core = Core(exp_config)
+        self.core = Core(hw_config)
         self.th = self.core.getThroughput()
         self.FMA_dims = self.core.FMA_dims  # (FMA_x, FMA_y)
         self.dataflow = self.core.dataflow
 
-        self.memoryHierarchy = MemoryHierarchy(exp_config)
+        self.memoryHierarchy = MemoryHierarchy(hw_config)
         self.num_levels = self.memoryHierarchy.num_levels
         self.memLayer = self.memoryHierarchy.memLayer
         self.tileSpace = self.generateTileSpace()
@@ -56,23 +46,24 @@ class TimeCalculation:
         # TODO: move this to config file
         self.H2Dbw = 12.4 * 1024 * 1024 * 1024
 
-        # System Parameters
-        self.num_wafer = exp_config.system_config.num_wafers
-        self.num_workers = exp_config.system_config.num_workers
 
-        self.network = Network(exp_config)
+        # System Parameters
+        self.num_wafer = hw_config.system_config.num_wafers
+        self.num_workers = hw_config.system_config.num_workers
+
+        self.network = Network(hw_config)
 
         intra_throughput, inter_throughput = self.network.calcThroughput()
         intra_latency, inter_latency = self.network.calcLatency()
 
-        inter_derate = exp_config.system_config.inter_derate
-        intra_derate = exp_config.system_config.intra_derate
-        par2cross = exp_config.system_config.par2cross
+        inter_derate = hw_config.system_config.inter_derate
+        intra_derate = hw_config.system_config.intra_derate
+        par2cross = hw_config.system_config.par2cross
 
         derated_inter_throughput = -1
         derated_intra_throughput = -1
 
-        # inter-wafercommunications will pass through intra links too
+        # inter-wafer communications will pass through intra links too
         if self.num_wafer > 1 and self.num_workers > 1:
             if intra_derate != 0:
                 derated_inter_throughput = min(
@@ -110,7 +101,7 @@ class TimeCalculation:
         )
 
         # Scheduling Parameters
-        par = Parallelism(exp_config)
+        par = Parallelism(hw_config)
         par.findParallelStrategy()
         self.autoPar = par.autoPar
         self.lp = par.lp
@@ -127,17 +118,121 @@ class TimeCalculation:
         self.kp_softmax_type = par.kp_softmax_type  # 1: CR, 2: RC
         self.kp_embedding_type = par.kp_embedding_type  # 1: CR, 2: RC
         self.kp_projection_type = par.kp_projection_type  # 1: CR, 2: RC
-
-        # Define miniBatch size
-        self.miniB = math.ceil(self.B / self.dp)
+        self.t = par.t  # type of parallelism, e.g., "CR", "RC", "none"
+        self.kp1= par.kp1  # first parallelism parameter
+        self.kp2 = par.kp2  # second parallelism parameter
+        
+        self.updateParParams(self.t, self.kp1, self.kp2)
+        # # Define miniBatch size
+        # self.miniB = math.ceil(self.B / self.dp)
 
         # Statistics Param
         self.tot_flop = 0
         self.tot_mem = 0
         self.tot_time = 0
-        self.debug = False  #############################
+        self.debug = False
         self.validating_GEMM = False
+        
+        self.mode = mode
+        
+        # Dynamically select and instantiate the model class
+        model_class = self.get_model_class(mode)
+        self.model = model_class(model_config)  # Instantiate the model class
 
+
+        # Model Parameters
+        # self.model = self.get_model_class(mode)
+        if mode == "LSTM":
+            self.B = self.model.batch_size
+            self.V = self.model.vocab_size
+            self.L = self.model.num_layers
+            self.D = self.model.hidden_dim
+            self.projection = self.model.projection
+            self.S = self.model.seq_len
+            self.G = self.model.num_gates
+            self.NL = self.model.num_non_linear
+            self.A = self.model.num_add
+            self.P = self.model.num_pointwise
+            # Define miniBatch size
+            self.miniB = math.ceil(self.B / self.dp)
+
+        if mode == "GEMM":
+            
+            self.M = self.model.M
+            self.K = self.model.K
+            self.N = self.model.N
+            
+        if mode == "Transformer":
+            self.batch_size = self.model.batch_size
+            self.vocab_size = self.model.vocab_size
+            self.num_layers = self.model.num_layers
+            self.hidden_dim = self.model.hidden_dim
+            self.seq_len = self.model.seq_len
+            self.num_heads = self.model.num_heads
+            self.h_MLP1 = self.model.h_MLP1
+            self.n_tokens = self.model.n_tokens
+            self.communication_time = self.model.communication_time
+            self.N_PP = self.model.N_PP
+            
+    
+    def get_model_class(self, model_type):
+        """Return the appropriate model class based on the model type."""
+        model_classes = {
+            "LSTM": Model_LSTM,
+            "GEMM": Model_GEMM,
+            "Transformer": Model_Transformer,  # Assuming Transformer uses the same structure as LSTM
+            # Add other model types here as needed
+        }
+        if model_type not in model_classes:
+            raise ValueError(f"Unsupported model type: {model_type}")
+        return model_classes[model_type]
+        
+    def updateParParams(
+        self,
+        t,
+        kp1,
+        kp2,
+    ):
+
+        self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
+        # self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
+        self.kp_hidden_dim2 = kp2 if kp2 != None else self.kp_hidden_dim2
+        self.kp_hidden_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_hidden_type)
+        )
+
+        # TODO: decide if we want kp1, kp2 to control other layers besides hidden layer
+        self.kp_softmax_dim1 = kp1 if kp1 != None else self.kp_softmax_dim1
+        self.kp_softmax_dim2 = kp2 if kp2 != None else self.kp_softmax_dim2
+        self.kp_softmax_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_softmax_type)
+        )
+
+        self.kp_embedding_dim1 = kp1 if kp1 != None else self.kp_embedding_dim1
+        self.kp_embedding_dim2 = kp2 if kp2 != None else self.kp_embedding_dim2
+        self.kp_embedding_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_embedding_type)
+        )
+
+        self.kp_projection_dim1 = kp1 if kp1 != None else self.kp_projection_dim1
+        self.kp_projection_dim2 = kp2 if kp2 != None else self.kp_projection_dim2
+        self.kp_projection_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_projection_type)
+        )
+
+        # TODO: need to change all equations to be a function of m,n and k
+        # self.D              = n//4
+
+        print("kp1: {}".format(self.kp_hidden_dim1))
+        print("kp2: {}".format(self.kp_hidden_dim2))
+        # TODO: It is a hacky way of capturing assymetry across links within V100
+        # move this to network topology and distinguish between inter and intra network
+        if validating_v100:
+            self.IBK1 = util.scale_down(self.IBK1, self.kp_hidden_dim1, "kp1")
+            self.IBK2 = util.scale_down(self.IBK2, self.kp_hidden_dim2, "kp2")
+            self.IBD = util.scale_down(self.IBD, self.dp, "dp")
+            self.IBL = util.scale_down(self.IBL, self.lp, "lp")
+            
     def updateParams(
         self,
         debug,
@@ -218,7 +313,7 @@ class TimeCalculation:
         tot_param = embedding + hidden + projection + softmax
         return tot_param
 
-    def printSysConfig(self, exp_config, output_file):
+    def printSysConfig(self, exp_hw_config, exp_model_config, output_file):
         kiloByte = 1024
         megaByte = kiloByte * 1024
         gigaByte = megaByte * 1024
@@ -276,7 +371,8 @@ class TimeCalculation:
                 act_mem,
                 point_mem,
             ) = util.getTotMemReq(
-                exp_config,
+                exp_hw_config,
+                exp_model_config,
                 batch_size=self.B,
                 hidden_dim=self.D,
                 vocab_size=self.V,
@@ -333,7 +429,8 @@ class TimeCalculation:
                 act_mem,
                 point_mem,
             ) = util.getMemUsagePerCore(
-                exp_config,
+                exp_hw_config,
+                exp_model_config,
                 batch_size=self.B,
                 hidden_dim=self.D,
                 vocab_size=self.V,
@@ -2189,181 +2286,3 @@ class TimeCalculation:
 
     def getTime(self):
         return self.tot_time
-
-
-def callPerf(exp_config, exp_dir, debug):
-    exp_path = os.path.expandvars(os.path.expanduser(exp_config))
-    exp_config = config.parse_config(exp_path)
-
-    # try:
-    #    #print("Removing directory:" + exp_dir)
-    #    shutil.rmtree(exp_dir)
-    # except:
-    #    pass
-    # os.makedirs(exp_dir)
-
-    TC = TimeCalculation(exp_config)
-    TC.debug = debug
-    tot_time, tot_param = TC.calcTime()
-
-    output_file = exp_dir + "/summary.txt"
-
-    TC.printSysConfig(exp_config, output_file)
-
-    with open(output_file, "a+") as f:
-        f.write("Time: {0:.8f}\n".format(tot_time))
-        f.write("Params (Billion): {0:.8f}\n".format(tot_param / 1e9))
-
-
-@click.command("standalone")
-@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=True, type=bool, required=False)
-@click.option("--exp_config", help="Path to experiment config", default="configs/new-configs/a100_80GB.yaml", required=True)
-@click.option("--exp_dir", help="Checkpoint/log directory", required=True)
-@click.option("--debug", help="debug", default=False, type=bool)
-@click.option(
-    "--m", help="input dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
-@click.option(
-    "--n", help="output dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--k", help="input dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--t",
-    help="parallelism strategy (RC or CR)",
-    default="None",
-    type=str,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--kp1",
-    help="RC:parallelism along input dimension, CR: parallelism along inner dimension",
-    default=None,
-    type=int,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--kp2",
-    help="RC:parallelism along output dimension",
-    default=None,
-    type=int,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--batch_size", help="Total Batch Size", default=2048, type=int, required=False
-)
-@click.option(
-    "--hidden_dim",
-    help="Hidden Dimension per LSTM layer",
-    default=19968,
-    type=int,
-    required=False,
-)
-@click.option(
-    "--seq_len",
-    help="Number of times to unroll LSTM",
-    default=20,
-    type=int,
-    required=False,
-)
-@click.option(
-    "--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False
-)
-@click.option(
-    "--num_layer", help="number of lstm layers", default=2, type=int, required=False
-)
-@click.option(
-    "--dp", help="data parallelism", default=None, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--lp", help="layer parallelism", default=None, type=int, required=False
-)  # only use for GEMM validation
-
-def main(
-    exp_config,
-    exp_dir,
-    debug,
-    m,
-    n,
-    k,
-    t,
-    kp1,
-    kp2,
-    gemm,
-    batch_size,
-    hidden_dim,
-    seq_len,
-    vocab_size,
-    num_layer,
-    dp,
-    lp,
-    args_input=False,
-):
-    exp_path = os.path.expandvars(os.path.expanduser(exp_config))
-    exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" % (
-        m,
-        n,
-        k,
-    ) 
-    # create output dir if it doesn't exist
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
-
-    TC = TimeCalculation(exp_config)
-    if args_input:
-        TC.updateParams(
-            debug,
-            m,
-            n,
-            k,
-            t,
-            kp1,
-            kp2,
-            dp,
-            lp,
-            gemm,
-            batch_size,
-            hidden_dim,
-            seq_len,
-            vocab_size,
-            num_layer,
-        )
-
-    # Report GEMM time on fw path
-    if TC.validating_GEMM:
-        if kp1 == 1 and kp2 == 1:  # no parallelism
-            gemm_time = TC.getCf(m, k, n)
-        elif t == "CR":
-            gemm_time = TC.getDistGEMM_f_kp1(m, k, n, kp1, "Cf_CR")
-        elif t == "RC":
-            gemm_time = TC.getDistGEMM_f_kp2(m, k, n, kp1, kp2, "Cf_RC")
-        else:
-            print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
-            sys.exit()
-
-        with open(output_file, "w") as f:
-            f.write("Best Order: {}\n".format(gemm_time[1]))
-            f.write("Best Tile: {}\n".format(gemm_time[2]))
-            f.write("Time: {}\n".format(gemm_time[0]))
-            for i in range(len(gemm_time[3])):
-                f.write(f"L{i}: {formatBytes(gemm_time[3][i])}\n")
-        return
-
-    tot_time, tot_param = TC.calcTime()
-    TC.printSysConfig(exp_config, output_file)
-
-    with open(output_file, "a+") as f:
-        f.write("\n\n==============================================\n")
-        f.write("Performance Results\n")
-        f.write("==============================================\n")
-        f.write("Time: {0:.8f}\n".format(tot_time))
-        f.write("Params (Billion): {0:.8f}\n".format(tot_param / 1e9))
-
-
-if __name__ == "__main__":
-    main()

@@ -1,0 +1,11 @@
+model_param:
+    batch_size: 1024  # Batch size
+    seq_len: 8
+    hidden_dim: 8192
+    num_heads: 64
+    h_MLP1: 32768  # First FFN layer output dimension, typically 4 * D
+    vocab_size: 800000  # Vocabulary size
+    num_layers: 64  # Number of layers
+    n_tokens: 1000000000000  # Number of tokens to train on. Set to 1T for now.
+    communication_time: 1  # Communication time in seconds
+    N_PP: 1  # Number of parallel processing units

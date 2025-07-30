@@ -361,7 +361,7 @@ class MemoryHierarchyConfig:
         )
 
 
-ModelConfig = _namedtuple(
+ModelLSTMConfig = _namedtuple(
     "model_param",
     [
         "batch_size",
@@ -374,9 +374,34 @@ ModelConfig = _namedtuple(
         "num_non_linear",
         "num_add",
         "data_scale",
+    
     ],
 )
-
+GEMMConfig = _namedtuple(
+    "model_param",
+    [
+        
+        "M",
+        "K",
+        "N",
+    ],
+)
+TransformerConfig = _namedtuple(
+    "model_param",
+    [
+        
+        "num_layers",
+        "hidden_dim",
+        "num_heads",
+        "batch_size",
+        "seq_len",
+        "h_MLP1",
+        "vocab_size",
+        "n_tokens",
+        "communication_time",
+        "N_PP",
+    ],
+)
 SWConfig = _namedtuple("sw_param", ["kernel_launch_overhead", "precision"])
 
 SchedulingConfig = _namedtuple(
@@ -397,6 +422,9 @@ SchedulingConfig = _namedtuple(
         "kp_softmax_type",
         "kp_embedding_type",
         "kp_projection_type",
+        "t",
+        "kp1",
+        "kp2",
     ],
 )
 
@@ -413,6 +441,30 @@ FullConfig = _namedtuple(
         "system_config",
         "memory_hierarchy",
         "network_topology",
+    ],
+)
+
+HWConfig = _namedtuple(
+    "HWConfig",
+    [
+        
+        "sw_config",
+        "tech_config",
+        "power_breakdown",
+        "sch_config",
+        "area_breakdown",
+        "perimeter_breakdown",
+        "system_config",
+        "memory_hierarchy",
+        "network_topology",
+    ],
+)
+
+MODELConfig = _namedtuple(
+    "MODELConfig",
+    [
+        "model_config",
+        
     ],
 )
 
@@ -463,7 +515,7 @@ def convert(d):
                             d[key1][key2][key3] = new_val
 
 
-def parse_config(filename):
+def parse_config(filename, config_type):
     """Parse a yaml configuration file for this experiment.
     Args:
             filename (str): Path to the configuration file
@@ -473,34 +525,62 @@ def parse_config(filename):
     """
     with open(filename, "r") as f:
         config_dict = _yaml.load(f, Loader=_ruamel.yaml.Loader)
+        # print(config_dict) 
         convert(config_dict)
+    if config_type == "hardware":
+        sw_config = SWConfig(**config_dict["sw_param"])
+        sch_config = SchedulingConfig(**config_dict["scheduling_param"])
+        tech_config = TechConfig.from_dict(config_dict["tech_param"])
+        power_config = PowerBreakdownConfig.from_dict(config_dict["power_breakdown"])
+        area_config = AreaBreakdownConfig.from_dict(config_dict["area_breakdown"])
+        perimeter_config = PerimeterBreakdownConfig.from_dict(
+            config_dict["perimeter_breakdown"]
+        )
+        system_config = SystemHierarchyConfig.from_dict(config_dict["system_hierarchy"])
+        memory_hierarchy_config = MemoryHierarchyConfig.from_dict(
+            config_dict["memory_hierarchy"]
+        )
+        network_topology_config = NetworkTopologyConfig.from_dict(
+            config_dict["network_topology"]
+        )
+        config = HWConfig(
+            sw_config=sw_config,
+            tech_config=tech_config,
+            power_breakdown=power_config,
+            sch_config=sch_config,
+            area_breakdown=area_config,
+            perimeter_breakdown=perimeter_config,
+            system_config=system_config,
+            memory_hierarchy=memory_hierarchy_config,
+            network_topology=network_topology_config,
+        )
+    elif config_type == "LSTM":
+        model_config = ModelLSTMConfig(**config_dict["model_param"])
+        config = MODELConfig(model_config=model_config)
+    elif config_type == "GEMM":
+        model_config = GEMMConfig(**config_dict["model_param"])
+        config = MODELConfig(model_config=model_config)
+    elif config_type == "Transformer":
+        model_config = TransformerConfig(**config_dict["model_param"])
+        config = MODELConfig(model_config=model_config)
+    else:
+        raise ValueError("Invalid config type: {}".format(config_type))
+    
+    # model_config = ModelConfig(**config_dict["model_param"])
+    # sw_config = SWConfig(**config_dict["sw_param"])
+    # sch_config = SchedulingConfig(**config_dict["scheduling_param"])
+    # tech_config = TechConfig.from_dict(config_dict["tech_param"])
+    # power_config = PowerBreakdownConfig.from_dict(config_dict["power_breakdown"])
+    # area_config = AreaBreakdownConfig.from_dict(config_dict["area_breakdown"])
+    # perimeter_config = PerimeterBreakdownConfig.from_dict(
+    #     config_dict["perimeter_breakdown"]
+    # )
+    # system_config = SystemHierarchyConfig.from_dict(config_dict["system_hierarchy"])
+    # memory_hierarchy_config = MemoryHierarchyConfig.from_dict(
+    #     config_dict["memory_hierarchy"]
+    # )
+    # network_topology_config = NetworkTopologyConfig.from_dict(
+    #     config_dict["network_topology"]
+    # )
 
-    model_config = ModelConfig(**config_dict["model_param"])
-    sw_config = SWConfig(**config_dict["sw_param"])
-    sch_config = SchedulingConfig(**config_dict["scheduling_param"])
-    tech_config = TechConfig.from_dict(config_dict["tech_param"])
-    power_config = PowerBreakdownConfig.from_dict(config_dict["power_breakdown"])
-    area_config = AreaBreakdownConfig.from_dict(config_dict["area_breakdown"])
-    perimeter_config = PerimeterBreakdownConfig.from_dict(
-        config_dict["perimeter_breakdown"]
-    )
-    system_config = SystemHierarchyConfig.from_dict(config_dict["system_hierarchy"])
-    memory_hierarchy_config = MemoryHierarchyConfig.from_dict(
-        config_dict["memory_hierarchy"]
-    )
-    network_topology_config = NetworkTopologyConfig.from_dict(
-        config_dict["network_topology"]
-    )
-
-    return FullConfig(
-        model_config=model_config,
-        sw_config=sw_config,
-        sch_config=sch_config,
-        tech_config=tech_config,
-        power_breakdown=power_config,
-        area_breakdown=area_config,
-        perimeter_breakdown=perimeter_config,
-        system_config=system_config,
-        memory_hierarchy=memory_hierarchy_config,
-        network_topology=network_topology_config,
-    )
+    return config

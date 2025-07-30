@@ -1,5 +1,6 @@
 import config
 import util
+import math
 
 class Parallelism():
     def __init__(self, exp_config):
@@ -19,6 +20,9 @@ class Parallelism():
         self.kp_embedding_type  =  exp_config.sch_config.kp_embedding_type #1: CR, 2: RC
         self.kp_projection_type  =  exp_config.sch_config.kp_projection_type #1: CR, 2: RC
         self.exp_config = exp_config
+        self.t = exp_config.sch_config.t  # type of parallelism, e.g., "CR", "RC", "none"
+        self.kp1 = exp_config.sch_config.kp1  # first parallelism parameter
+        self.kp2 = exp_config.sch_config.kp2  # second parallelism parameter
 
     def findParallelStrategy(self):
         if (self.autoPar == None or self.autoPar == False):

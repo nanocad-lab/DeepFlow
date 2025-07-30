@@ -57,19 +57,19 @@ def getEmbeddingMem(B, S, V, D, precision):
 
     return embedding_mem, embedding_act, embedding_wt, embedding_point
 
-def getTotMemReq(exp_config, **kwargs):
+def getTotMemReq(exp_hw_config, exp_model_config, **kwargs):
     #Model Params
-    B                   = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
-    D                   = int(kwargs.get('hidden_dim', exp_config.model_config.layer_size))
-    V                   = int(kwargs.get('vocab_size', exp_config.model_config.vocab_size))
-    L                   = int(kwargs.get('num_layer', exp_config.model_config.num_layers))
-    projection          = exp_config.model_config.projection 
-    S                   = int(kwargs.get('seq_len', exp_config.model_config.seq_len))
-    G                   = exp_config.model_config.num_gates
-    precision           = exp_config.sw_config.precision
+    B                   = int(kwargs.get('batch_size', exp_model_config.model_config.batch_size))
+    D                   = int(kwargs.get('hidden_dim', exp_model_config.model_config.layer_size))
+    V                   = int(kwargs.get('vocab_size', exp_model_config.model_config.vocab_size))
+    L                   = int(kwargs.get('num_layer', exp_model_config.model_config.num_layers))
+    projection          = exp_model_config.model_config.projection 
+    S                   = int(kwargs.get('seq_len', exp_model_config.model_config.seq_len))
+    G                   = exp_model_config.model_config.num_gates
+    precision           = exp_hw_config.sw_config.precision
    
     #MiniBatch
-    dp                  = int(kwargs.get('dp', exp_config.sch_config.dp))
+    dp                  = int(kwargs.get('dp', exp_hw_config.sch_config.dp))
     miniB               = math.ceil(B / dp)
 
     hidden_mem, hidden_act, hidden_wt, hidden_point =  getHiddenMem(L=L, 
@@ -107,35 +107,35 @@ def getTotMemReq(exp_config, **kwargs):
     return tot_mem, embedding_mem, hidden_mem, softmax_mem, projection_mem, wt_mem, act_mem, point_mem
 
 
-def getMemUsagePerCore(exp_config, **kwargs):
+def getMemUsagePerCore(exp_hw_config, exp_model_config, **kwargs):
     #Model params
-    B                   = int(kwargs.get('batch_size', exp_config.model_config.batch_size))
-    D                   = int(kwargs.get('hidden_dim', exp_config.model_config.layer_size))
-    V                   = int(kwargs.get('vocab_size', exp_config.model_config.vocab_size))
-    L                   = int(kwargs.get('num_layer', exp_config.model_config.num_layers))
-    projection          = exp_config.model_config.projection 
-    S                   = int(kwargs.get('seq_len', exp_config.model_config.seq_len))
-    G                   = exp_config.model_config.num_gates
-    precision           = exp_config.sw_config.precision
+    B                   = int(kwargs.get('batch_size', exp_model_config.model_config.batch_size))
+    D                   = int(kwargs.get('hidden_dim', exp_model_config.model_config.layer_size))
+    V                   = int(kwargs.get('vocab_size', exp_model_config.model_config.vocab_size))
+    L                   = int(kwargs.get('num_layer', exp_model_config.model_config.num_layers))
+    projection          = exp_model_config.model_config.projection 
+    S                   = int(kwargs.get('seq_len', exp_model_config.model_config.seq_len))
+    G                   = exp_model_config.model_config.num_gates
+    precision           = exp_hw_config.sw_config.precision
 
     #Parallelism Params
-    dp                  = int(kwargs.get('dp', exp_config.sch_config.dp))
-    lp                  = int(kwargs.get('lp', exp_config.sch_config.lp))
+    dp                  = int(kwargs.get('dp', exp_hw_config.sch_config.dp))
+    lp                  = int(kwargs.get('lp', exp_hw_config.sch_config.lp))
     
-    kp_hidden_dim1      = int(kwargs.get('kp1', exp_config.sch_config.kp_hidden_dim1))
-    kp_softmax_dim1     = int(kwargs.get('kp1', exp_config.sch_config.kp_softmax_dim1))
-    kp_embedding_dim1   = int(kwargs.get('kp1', exp_config.sch_config.kp_embedding_dim1))
-    kp_projection_dim1  = int(kwargs.get('kp1', exp_config.sch_config.kp_projection_dim1))
+    kp_hidden_dim1      = int(kwargs.get('kp1', exp_hw_config.sch_config.kp_hidden_dim1))
+    kp_softmax_dim1     = int(kwargs.get('kp1', exp_hw_config.sch_config.kp_softmax_dim1))
+    kp_embedding_dim1   = int(kwargs.get('kp1', exp_hw_config.sch_config.kp_embedding_dim1))
+    kp_projection_dim1  = int(kwargs.get('kp1', exp_hw_config.sch_config.kp_projection_dim1))
 
-    kp_hidden_dim2      = int(kwargs.get('kp2', exp_config.sch_config.kp_hidden_dim2))
-    kp_softmax_dim2     = int(kwargs.get('kp2', exp_config.sch_config.kp_softmax_dim2))
-    kp_embedding_dim2   = int(kwargs.get('kp2', exp_config.sch_config.kp_embedding_dim2))
-    kp_projection_dim2  = int(kwargs.get('kp2', exp_config.sch_config.kp_projection_dim2))
+    kp_hidden_dim2      = int(kwargs.get('kp2', exp_hw_config.sch_config.kp_hidden_dim2))
+    kp_softmax_dim2     = int(kwargs.get('kp2', exp_hw_config.sch_config.kp_softmax_dim2))
+    kp_embedding_dim2   = int(kwargs.get('kp2', exp_hw_config.sch_config.kp_embedding_dim2))
+    kp_projection_dim2  = int(kwargs.get('kp2', exp_hw_config.sch_config.kp_projection_dim2))
     
-    kp_hidden_type      = int(kwargs.get('kp_type', exp_config.sch_config.kp_hidden_type)) #1: CR, 2: RC
-    kp_softmax_type     = int(kwargs.get('kp_type', exp_config.sch_config.kp_softmax_type)) #1: CR, 2: RC
-    kp_embedding_type   = int(kwargs.get('kp_type', exp_config.sch_config.kp_embedding_type)) #1: CR, 2: RC
-    kp_projection_type  = int(kwargs.get('kp_type', exp_config.sch_config.kp_projection_type)) #1: CR, 2: RC
+    kp_hidden_type      = int(kwargs.get('kp_type', exp_hw_config.sch_config.kp_hidden_type)) #1: CR, 2: RC
+    kp_softmax_type     = int(kwargs.get('kp_type', exp_hw_config.sch_config.kp_softmax_type)) #1: CR, 2: RC
+    kp_embedding_type   = int(kwargs.get('kp_type', exp_hw_config.sch_config.kp_embedding_type)) #1: CR, 2: RC
+    kp_projection_type  = int(kwargs.get('kp_type', exp_hw_config.sch_config.kp_projection_type)) #1: CR, 2: RC
     
     #miniBatch
     miniB               = math.ceil(B / dp)
