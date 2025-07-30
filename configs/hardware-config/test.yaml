@@ -1,14 +1,3 @@
-model_param:
-    batch_size: 4096
-    vocab_size: 800000
-    num_layers: 2
-    layer_size: 19968
-    projection: 2048
-    seq_len: 20
-    num_gates: 4
-    num_non_linear: 5
-    num_add: 8
-    data_scale: 100 
 
 sw_param:
     kernel_launch_overhead: 9e-6 #9us
@@ -23,7 +12,7 @@ tech_param:
         nominal_voltage: 0.8 
         threshold_voltage: 0.2 
         margin_voltage: 0.35
-        operating_area_per_mcu: 0.38
+        operating_area_per_mcu: 0.11
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
         FMA_d1: 4            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
         FMA_d2: 4
@@ -33,7 +22,7 @@ tech_param:
         dynamic_energy_per_bit: 4.2e-12
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
-        stack_capacity: 4 GB
+        stack_capacity: 24 GB
         area_per_stack: 100 #mm2
         latency: 100e-9
         mem_ctrl_area: 5 #mm2 
@@ -49,7 +38,7 @@ tech_param:
         dynamic_energy_per_bit: 3.5e-15
         static_power_per_bit: 8.4e-12
         area_per_bit: 6.4e-8 #mm2
-        bank_capacity: 32 KB
+        bank_capacity: 128 KB
         controller_area_per_link: 0.004 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0
@@ -59,7 +48,7 @@ tech_param:
         dynamic_energy_per_bit: 2e-15
         static_power_per_bit: 8e-12
         area_per_bit: 8e-8 #mm2
-        bank_capacity: 32 KB
+        bank_capacity: 64 KB
         controller_area_per_link: 0.004 #mm2 
         controller_power_per_link: 0.04 #W
         latency: 0
@@ -69,7 +58,7 @@ tech_param:
         dynamic_energy_per_bit: 2e-15
         static_power_per_bit: 9e-12
         area_per_bit: 8e-8 #mm2
-        bank_capacity: 16 KB
+        bank_capacity: 32 KB
         controller_area_per_link: 0.00 #mm2 
         controller_power_per_link: 0.0 #W
         latency: 0 
@@ -96,7 +85,8 @@ tech_param:
           threshold_voltage: 0.35
           margin_voltage: 0.5
           util: 0.96
-area_breakdown:
+          
+area_breakdown: # no longer treated as fraction
     device_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
     core: 244.5
@@ -105,30 +95,30 @@ area_breakdown:
     reg_mem: 17.93
     DRAM: 20.212
     network:
-      intra_node: 0.0
-      inter_node: 0.0
+      intra_node: 81.5
+      inter_node: 81.5
 
 power_breakdown:
     TDP: 300
-    core: 112.35 #0.4927 if 0.171W per core #0.0189 for 15.7Tflops #0.1504 for 125TFLOps
+    core: 112.35
     DRAM: 48
-    L2: 2.4
-    L1: 31.23
-    reg_mem: 90.66
+    L2: 0.0651
+    L1: 0.48
+    reg_mem: 1.65
     network:
-      intra_node: 0.0
-      inter_node: 0.0
+      intra_node: 30
+      inter_node: 30
 
 perimeter_breakdown:
     DRAM: 0.5
-    inter_node: 0.0
-    intra_node: 0.0
+    inter_node: 0.3
+    intra_node: 0.2
 
 system_hierarchy:
-    num_devices_per_node: 1
+    num_devices_per_node: 4
     num_nodes: 1
     inter_derate: 1
-    intra_derate: 0
+    intra_derate: 1
     kp1_inter: False
     kp2_inter: False
     dp_inter: False
@@ -154,7 +144,7 @@ memory_hierarchy:
 
 scheduling_param:
     auto: False 
-    dp: 1
+    dp: 4
     lp: 1
     kp_hidden_dim1: 1
     kp_hidden_dim2: 1

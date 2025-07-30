@@ -144,9 +144,9 @@ if __name__ == "__main__":
     config_LSTM_model_path = "configs/model-config/LSTM.yaml"
     config_GEMM_path = "configs/model-config/GEMM.yaml"
 
-    mode= "Transformer"  
+    # mode= "Transformer"  
     # mode= "GEMM"  
-    # mode= "LSTM"  #ONLY MODIFY THIS LINE TO CHANGE THE MODEL TYPE
+    mode= "LSTM"  #ONLY MODIFY THIS LINE TO CHANGE THE MODEL TYPE
     
     script_dir = os.path.dirname(os.path.abspath(__file__))  
     output_dir = os.path.join(script_dir, "output")

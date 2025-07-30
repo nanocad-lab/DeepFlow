@@ -1,3 +1,5 @@
-#Runs peformance model in GEMM mode
-
-python perf.py --exp_config configs/new-configs/exp_config_new_MCM.yaml --exp_dir debug --debug False --gemm True --t RC --kp1 1 --kp2 1 --m 16384 --n 16384 --k 16384 --args_input True
+# Runs performance model in GEMM mode
+# Setup model parameter in configs/model-config/GEMM.yaml
+# Setup hardware parameter in configs/hardware-config/waferscale_20v100_80hbm.yaml
+# in perf_modes.py set the mode to "GEMM" and set the config_hardware_path to "configs/hardware-config/waferscale_20v100_80hbm.yaml" config_GEMM_path to "configs/model-config/GEMM.yaml"
+# run the python file
