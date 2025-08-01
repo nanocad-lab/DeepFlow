@@ -69,3 +69,5 @@ lib/
 bin/
 output/
 mat_dims_llm.txt
+output3/
+venv/

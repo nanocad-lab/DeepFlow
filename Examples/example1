@@ -1,5 +1,7 @@
-# Runs performance model in GEMM mode
-# Setup model parameter in configs/model-config/GEMM.yaml
+# Runs performance model in LSTM mode
+# Setup model parameter in configs/model-config/LSTM.yaml
 # Setup hardware parameter in configs/hardware-config/waferscale_20v100_80hbm.yaml
-# in perf_modes.py set the mode to "GEMM" and set the config_hardware_path to "configs/hardware-config/waferscale_20v100_80hbm.yaml" config_GEMM_path to "configs/model-config/GEMM.yaml"
-# run the python file
+
+
+python run_perf.py --hardware_config configs/hardware-config/waferscale_20v100_80hbm.yaml --model_config configs/model-config/LSTM.yaml --output_dir output
+                  

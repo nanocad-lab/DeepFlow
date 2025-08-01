@@ -364,6 +364,7 @@ class MemoryHierarchyConfig:
 ModelLSTMConfig = _namedtuple(
     "model_param",
     [
+        "mode",
         "batch_size",
         "vocab_size",
         "num_layers",
@@ -380,22 +381,23 @@ ModelLSTMConfig = _namedtuple(
 GEMMConfig = _namedtuple(
     "model_param",
     [
-        
+        "mode",
         "M",
         "K",
         "N",
     ],
 )
-TransformerConfig = _namedtuple(
+LLMConfig = _namedtuple(
     "model_param",
     [
-        
+        "mode",
         "num_layers",
         "hidden_dim",
         "num_heads",
         "batch_size",
         "seq_len",
-        "h_MLP1",
+        "ffn_dim",
+        "ffn_mult",
         "vocab_size",
         "n_tokens",
         "communication_time",
@@ -560,8 +562,8 @@ def parse_config(filename, config_type):
     elif config_type == "GEMM":
         model_config = GEMMConfig(**config_dict["model_param"])
         config = MODELConfig(model_config=model_config)
-    elif config_type == "Transformer":
-        model_config = TransformerConfig(**config_dict["model_param"])
+    elif config_type == "LLM":
+        model_config = LLMConfig(**config_dict["model_param"])
         config = MODELConfig(model_config=model_config)
     else:
         raise ValueError("Invalid config type: {}".format(config_type))

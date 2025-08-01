@@ -1,4 +1,5 @@
 model_param:
+    mode: "LSTM"
     batch_size: 2048
     vocab_size: 800000
     num_layers: 2

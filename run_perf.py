@@ -1,27 +1,45 @@
 #!/tools/lm-venv/py3.6-tf-1.3.0-svail/bin/python
-
+import argparse
 import os
 import sys
 import config
 import pandas as pd
-
+import yaml
+import shutil
 from tile import TiledGEMM, formatBytes
 from time_calculation import TimeCalculation
-from transformer_util import  process_gemm_shapes, caltime
+from LLM_util import  process_gemm_shapes, caltime
 
 algByte = False  # algorithmic ops false
 proj = False  # consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
 validating_v100 = True
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Run performance analysis for LSTM, GEMM, or LLM models.")
+    parser.add_argument("--hardware_config", required=True, help="Path to the hardware configuration file.")
+    parser.add_argument("--model_config", required=True, help="Path to the model configuration file.")
+    # parser.add_argument("--mode", required=False, choices=["LSTM", "GEMM", "LLM"], help="Mode of operation.")
+    parser.add_argument("--output_dir", required=False, help="Directory to save the output files.")
+    return parser.parse_args()
 
-
-
+def get_mode_from_config(model_config_path):
+    """Read the mode from the model configuration file."""
+    with open(model_config_path, "r") as f:
+        config_data = yaml.safe_load(f)  # Parse the YAML file
     
+    # Access 'mode' under 'model_param'
+    model_param = config_data.get("model_param")
+    if not model_param or "mode" not in model_param:
+        raise ValueError("Error: 'mode' is not specified in the model configuration file under 'model_param'.")
+    
+    return model_param["mode"]
+
 def run_LSTM(
     exp_hw_config_path,
     exp_model_config_path,
     exp_dir,
     mode
 ):
+    
     # exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     exp_hw_path = os.path.expandvars(os.path.expanduser(exp_hw_config_path))
     exp_model_path = os.path.expandvars(os.path.expanduser(exp_model_config_path))
@@ -56,21 +74,20 @@ def run_GEMM(
     exp_model_path = os.path.expandvars(os.path.expanduser(exp_model_config_path))
     exp_hw_config = config.parse_config(exp_hw_path, config_type="hardware")
     exp_model_config = config.parse_config(exp_model_path, config_type=mode)
-    
-    
+
     # exp_path = os.path.expandvars(os.path.expanduser(exp_config))
     # exp_config = config.parse_config(exp_path)
     # output_file = exp_dir + "/summary_GEMM_m%s_n%s_k%s.txt" % (
     #     m,
     #     n,
     #     k,
-    # ) 
+    # )
     # create output dir if it doesn't exist
     # if not os.path.exists(exp_dir):
     #     os.makedirs(exp_dir)
 
     TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
-    
+
     TC.validating_GEMM = True
     # Report GEMM time on fw path
 
@@ -83,10 +100,8 @@ def run_GEMM(
     else:
         print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
         sys.exit()
-        
-    output_file = exp_dir + "/summary_mode%s_M%s_K%s_N%s.txt" % (
-        mode, TC.M, TC.K, TC.N
-    ) 
+
+    output_file = exp_dir + "/summary_mode%s_M%s_K%s_N%s.txt" % (mode, TC.M, TC.K, TC.N)
     with open(output_file, "w") as f:
         f.write("Best Order: {}\n".format(gemm_time[1]))
         f.write("Best Tile: {}\n".format(gemm_time[2]))
@@ -97,17 +112,18 @@ def run_GEMM(
     return
 
 
-def run_Transformer(
+def run_LLM(
     exp_hw_config_path,
     exp_model_config_path,
     exp_dir,
     mode):
+    
     exp_hw_path = os.path.expandvars(os.path.expanduser(exp_hw_config_path))
     exp_model_path = os.path.expandvars(os.path.expanduser(exp_model_config_path))
     exp_hw_config = config.parse_config(exp_hw_path, config_type="hardware")
     exp_model_config = config.parse_config(exp_model_path, config_type=mode)
     TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
-    gemm_shapes_4d,gemm_3d=process_gemm_shapes(TC.batch_size, TC.seq_len, TC.hidden_dim, TC.num_heads, TC.h_MLP1, output_file="mat_dims_llm.txt", option="multiply_batch_into_m")
+    gemm_shapes_4d,gemm_3d=process_gemm_shapes(TC.batch_size, TC.seq_len, TC.hidden_dim, TC.num_heads, TC.ffn_dim, output_file="mat_dims_llm.txt", option="multiply_batch_into_m")
     print(gemm_3d) #m,k,n
     for i, (m, k, n) in enumerate(gemm_3d):
         print(f"Running main for GEMM dimensions: M={m}, K={k}, N={n} (Layer {i + 1})")
@@ -132,33 +148,38 @@ def run_Transformer(
             f.write("Best Tile: {}\n".format(gemm_time[2]))
             f.write("Time: {}\n".format(gemm_time[0]))
             
-            
-    caltime(TC.num_layers ,TC.batch_size, TC.seq_len,TC.n_tokens, TC.communication_time, TC.N_PP, exp_dir)
+    # output_dir_LLM = os.path.join(exp_dir, "output_LLM")
+    caltime(TC.num_layers ,TC.batch_size, TC.seq_len,TC.n_tokens, TC.communication_time, TC.N_PP, exp_dir, exp_dir)
+    
     return
 
 
 if __name__ == "__main__":
+    args = parse_arguments()
+    # Load configurations
+    config_hardware_path = args.hardware_config
+    config_model_path = args.model_config
+    output_dir = args.output_dir if args.output_dir else "output"
 
-    config_hardware_path = "configs/hardware-config/waferscale_20v100_80hbm.yaml"
-    config_Transformer_model_path = "configs/model-config/Transformer.yaml"
-    config_LSTM_model_path = "configs/model-config/LSTM.yaml"
-    config_GEMM_path = "configs/model-config/GEMM.yaml"
 
-    # mode= "Transformer"  
-    # mode= "GEMM"  
-    mode= "LSTM"  #ONLY MODIFY THIS LINE TO CHANGE THE MODEL TYPE
+    # Read mode from the model configuration file
+    mode = get_mode_from_config(config_model_path)
+    # mode= "LSTM"  #ONLY MODIFY THIS LINE TO CHANGE THE MODEL TYPE
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))  
-    output_dir = os.path.join(script_dir, "output")
+    # script_dir = os.path.dirname(os.path.abspath(__file__))  
+    # output_dir = os.path.join(script_dir, "output")
     exp_dir = os.path.join(output_dir, mode)
+    # Check if the directory exists and delete it if it does
+    if os.path.exists(exp_dir):
+        shutil.rmtree(exp_dir)
     os.makedirs(exp_dir, exist_ok=True)
     
     
-    if mode == "Transformer":
-        print("Using Transformer parameters for computation...")
-        run_Transformer(
+    if mode == "LLM":
+        print("Using LLM parameters for computation...")
+        run_LLM(
             exp_hw_config_path=config_hardware_path,
-            exp_model_config_path=config_Transformer_model_path,
+            exp_model_config_path=config_model_path,
             exp_dir=exp_dir,
             mode=mode,
         )
@@ -167,7 +188,7 @@ if __name__ == "__main__":
         print("Using LSTM parameters for computation...")
         run_LSTM(
             exp_hw_config_path=config_hardware_path,
-            exp_model_config_path=config_LSTM_model_path,
+            exp_model_config_path=config_model_path,
             exp_dir=exp_dir,
             mode=mode,
         
@@ -176,10 +197,9 @@ if __name__ == "__main__":
         print("Using GEMM parameters for computation...")
         run_GEMM(
             exp_hw_config_path=config_hardware_path,
-            exp_model_config_path=config_GEMM_path,
+            exp_model_config_path=config_model_path,
             exp_dir=exp_dir,
             mode=mode,
         )
     else:
-        print("Invalid mode selected. Please choose 'Transformer', 'LSTM', or 'GEMM'.")
-
+        print("Invalid mode selected. Please choose 'LLM', 'LSTM', or 'GEMM'.")

@@ -14,7 +14,7 @@ from topology import Topology
 from simulate import Graph
 import util
 from hw_component import Core, MemoryHierarchy, Network
-from model import Model_LSTM, Model_GEMM, Model_Transformer 
+from model import Model_LSTM, Model_GEMM, Model_LLM 
 from tile import TiledGEMM, formatBytes
 
 algByte = False  # algorithmic ops false
@@ -162,14 +162,19 @@ class TimeCalculation:
             self.K = self.model.K
             self.N = self.model.N
             
-        if mode == "Transformer":
+        if mode == "LLM":
             self.batch_size = self.model.batch_size
             self.vocab_size = self.model.vocab_size
             self.num_layers = self.model.num_layers
             self.hidden_dim = self.model.hidden_dim
             self.seq_len = self.model.seq_len
             self.num_heads = self.model.num_heads
-            self.h_MLP1 = self.model.h_MLP1
+            self.ffn_mult = self.model.ffn_mult
+            if self.ffn_mult is not None:
+                # self.ffn_mult = self.model.ffn_mult
+                self.ffn_dim = self.model.hidden_dim * self.ffn_mult
+            else:
+                self.ffn_dim = self.model.ffn_dim
             self.n_tokens = self.model.n_tokens
             self.communication_time = self.model.communication_time
             self.N_PP = self.model.N_PP
@@ -180,7 +185,7 @@ class TimeCalculation:
         model_classes = {
             "LSTM": Model_LSTM,
             "GEMM": Model_GEMM,
-            "Transformer": Model_Transformer,  # Assuming Transformer uses the same structure as LSTM
+            "LLM": Model_LLM, 
             # Add other model types here as needed
         }
         if model_type not in model_classes:

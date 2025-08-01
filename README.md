@@ -2,7 +2,7 @@
 
 Pre-requirement: Python3
 
-**Step 1**. git clone https://github.com/baidu-research/DeepFlow.git 
+**Step 1**. git clone https://github.com/nanocad-lab/DeepFlow.git
 
 **Step 2**. cd DeepFlow
 
@@ -12,11 +12,10 @@ Pre-requirement: Python3
 	* source [/path/to/new/virtual/environment]/bin/activate
 	* pip install --upgrade pip
 	* pip install -r requirements.txt
-	* mkdir -p output
 
 **Step 4**. Test if the installation has been successful:
 
-	* python perf_modes.py 
+	* python run_perf.py --hardware_config configs/hardware-config/waferscale_20v100_80hbm.yaml --model_config configs/model-config/LSTM.yaml --output_dir output
 	* check the output result: vim output/LSTM/summary_LSTM.txt
 
 
@@ -29,20 +28,22 @@ DeepFlow can be used in 6 different modes:
  **How**: 
 * Specify the GEMM parameters in configs/model-config/GEMM.yaml
 * Specify the Hardware parameters in configs/hardware-config/[config.yaml]
-* in perf_modes.py set the mode to "GEMM" and set the config_hardware_path to configs/hardware-config/[config.yaml] config_GEMM_path to "configs/model-config/GEMM.yaml"
-* python perf_modes.py
+* python run_perf.py --hardware_config configs/hardware-config/[config.yaml] --model_config configs/model-config/GEMM.yaml --output_dir [/path/to/output/directory]
 
 (2) Performance Prediction Mode (LSTM End-2-End Application)
+ **When to use**: Use for End-2-End LSTM prediction
+ **How**: 
 * Specify the LSTM parameters in configs/model-config/LSTM.yaml
 * Specify the Hardware parameters in configs/hardware-config/[config.yaml]
-* in perf_modes.py set the mode to "LSTM" and set the config_hardware_path to configs/hardware-config/[config.yaml] config_LSTM_model_path to "configs/model-config/LSTM.yaml"
-* python perf_modes.py
+* python run_perf.py --hardware_config configs/hardware-config/[config.yaml] --model_config configs/model-config/LSTM.yaml --output_dir [/path/to/output/directory]
+        
 
-(3) Performance Prediction Mode (Transformer mode)
-* Specify the Transformer parameters in configs/model-config/Transformer.yaml
+(3) Performance Prediction Mode (LLM mode)
+ **When to use**: Use for End-2-End LLM prediction
+ **How**: 
+* Specify the LLM parameters in configs/model-config/LLM.yaml
 * Specify the Hardware parameters in configs/hardware-config/[config.yaml]
-* in perf_modes.py set the mode to "Transformer" and set the config_hardware_path to configs/hardware-config/[config.yaml] config_Transformer_model_path to "configs/model-config/Transformer.yaml
-* python perf_modes.py
+* python run_perf.py --hardware_config configs/hardware-config/[config.yaml] --model_config configs/model-config/LLM.yaml --output_dir [/path/to/output/directory]
 
 (4) Performance Prediction Mode (using main.py standalone argument; this is somewhat equivalent of option 2, for running on slurm)
 * python main.py stand_alone --exp_dir [/path/to/output/result/directory] --exp_config configs/[config.yaml]

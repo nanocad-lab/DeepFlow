@@ -45,7 +45,7 @@ def reshape_gemm_to_3d(arg,options=None):
     return M, K, N
 
 
-def multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, h_MLP1):
+def multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, ffn_dim):
     """
     Generate GEMM shapes [M, K, N] for a multi-head Transformer decoder block.
 
@@ -54,7 +54,7 @@ def multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, h_MLP1):
         seq_len (int): sequence length (S)
         d_model (int): hidden size (D)
         num_heads (int): number of attention heads (H)
-        h_MLP1 (int): first FFN layer output dimension (typically 4 * D)
+        ffn_dim (int): first FFN layer output dimension (typically 4 * D)
 
     Returns:
         List of tuples: (level_name, GEMM spec), where GEMM spec is either
@@ -86,15 +86,15 @@ def multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, h_MLP1):
     gemms.append([batch_size , seq_len, d_model, d_model])
 
     # 5. FFN layer 1
-    gemms.append([batch_size , seq_len, d_model, h_MLP1])
+    gemms.append([batch_size , seq_len, d_model, ffn_dim])
 
     # 6. FFN layer 2
-    gemms.append([batch_size , seq_len, h_MLP1, d_model])
+    gemms.append([batch_size , seq_len, ffn_dim, d_model])
 
     return list(zip(levels, gemms))
 
 
-def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, h_MLP1, output_file="mat_dims_llm.txt",option="multiply_batch_into_m"):
+def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, ffn_dim, output_file="mat_dims_llm.txt",option="multiply_batch_into_m"):
     """
     Process GEMM shapes, reshape them, and write both 4D and 3D GEMM shapes to a file.
 
@@ -103,11 +103,11 @@ def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, h_MLP1, output_
         seq_len (int): Sequence length.
         d_model (int): Hidden size.
         num_heads (int): Number of attention heads.
-        h_MLP1 (int): First FFN layer output dimension.
+        ffn_dim (int): First FFN layer output dimension.
         output_file (str): File to write the GEMM shapes.
     """
     # Generate GEMM shapes in 4D
-    gemm_shapes_4d = multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, h_MLP1)
+    gemm_shapes_4d = multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, ffn_dim)
 
     # Reshape GEMM shapes to 3D
     gemm_3d = [reshape_gemm_to_3d(shape, option) for _, shape in gemm_shapes_4d]
@@ -126,35 +126,80 @@ def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, h_MLP1, output_
             # print(f"Layer {i + 1} ({level}): {shape}") 
     return gemm_shapes_4d, gemm_3d
 
-def caltime(N_L, B, S, ntokens, comm_time, N_PP, directory):
+def caltime(N_L, B, S, ntokens, comm_time, N_PP, directory, output_dir):
 
     
     # Directory containing the files
     # directory = "output/Trans/"
+    
+    # os.makedirs(output_dir, exist_ok=True)
+     # Ensure the output directory exists
+    os.makedirs(output_dir, exist_ok=True)
 
+    # Define the output log file
+    log_file = os.path.join(output_dir, "summary_LLM.txt")
+    
+    
     t_elapsed =0.0
-    print("Time spent in different GEMMs")
+    # print("Time spent in different GEMMs")
+    
+    
+    with open(log_file, "w") as log:
+        t_elapsed = 0.0
+        log.write("Time spent in different GEMMs:\n")
+        print("Time spent in different GEMMs")
+
+        # Loop through files in the directory
+        for filename in os.listdir(directory):
+            if filename.endswith(".txt") and filename != "summary_LLM.txt":  # Exclude the log file
+                file_path = os.path.join(directory, filename)
+
+                data = pd.read_csv(file_path, sep=':', header=None, names=['Field', 'Value'], skipinitialspace=True)
+                # Extract the time value
+                time_row = data[data['Field'] == 'Time']
+                if not time_row.empty:
+                    time_value = float(time_row['Value'].iloc[0])
+                    print(time_value)
+                    log.write(f"{filename}: {time_value} seconds\n")
+                else:
+                    print("Time value not found in the file.")
+                
+                t_elapsed += time_value
+
+        t_elapsed *= 3.0  # FW pass + BW pass (~2x FW pass)
+        comp_time = t_elapsed
+        nbatch = ntokens / (S * B)
+        time = N_L * nbatch * t_elapsed / N_PP + comm_time
+
+        # Log and print the results
+        log.write(f"\nTotal computation time (FW + BW): {comp_time} seconds\n")
+        log.write(f"Number of tokens: {ntokens}\n")
+        log.write(f"Time to exhaust all tokens: {time} seconds ({time / 3600.0 / 24.0} days)\n")
+
+    
+    
     # Loop through files in the directory
-    for filename in os.listdir(directory):
-        if filename.endswith(".txt"):  # You can adjust the file extension as needed
-            file_path = os.path.join(directory, filename)
+    # for filename in os.listdir(directory):
+    #     if filename.endswith(".txt"):  # You can adjust the file extension as needed
+    #         file_path = os.path.join(directory, filename)
 
-            data = pd.read_csv(file_path, sep=':', header=None, names=['Field', 'Value'], skipinitialspace=True)
-            # Extract the time value
-            time_row = data[data['Field'] == 'Time']
-            if not time_row.empty:
-                time_value = float(time_row['Value'].iloc[0])
-                print(time_value)
-            else:
-                print("Time value not found in the file.")
+    #         data = pd.read_csv(file_path, sep=':', header=None, names=['Field', 'Value'], skipinitialspace=True)
+    #         # Extract the time value
+    #         time_row = data[data['Field'] == 'Time']
+    #         if not time_row.empty:
+    #             time_value = float(time_row['Value'].iloc[0])
+    #             print(time_value)
+    #         else:
+    #             print("Time value not found in the file.")
             
-            t_elapsed += time_value
+    #         t_elapsed += time_value
 
-    t_elapsed = t_elapsed*3.0 #FW pass + BW pass (~ 2x FW pass)
-    comp_time = t_elapsed
-    #comm_time = 8.85 # (hours) comes from AMPED
-    nbatch = ntokens/(S*B)
-    time = N_L*nbatch*t_elapsed/N_PP + comm_time
+    # t_elapsed = t_elapsed*3.0 #FW pass + BW pass (~ 2x FW pass)
+    # comp_time = t_elapsed
+    # #comm_time = 8.85 # (hours) comes from AMPED
+    # nbatch = ntokens/(S*B)
+    # time = N_L*nbatch*t_elapsed/N_PP + comm_time
 
     print("number of tokens:", ntokens, " | time to exhaust all tokens:", time, "(s)", " or ", time/3600.0/24.0, " days")
+    print("Performance Results written to {}".format(log_file))
 

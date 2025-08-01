@@ -1,4 +1,5 @@
 model_param:
+    mode: "GEMM"
     M: 524288
     K: 128
     N: 8
