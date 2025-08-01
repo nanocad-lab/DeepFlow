@@ -171,7 +171,6 @@ class TimeCalculation:
             self.num_heads = self.model.num_heads
             self.ffn_mult = self.model.ffn_mult
             if self.ffn_mult is not None:
-                # self.ffn_mult = self.model.ffn_mult
                 self.ffn_dim = self.model.hidden_dim * self.ffn_mult
             else:
                 self.ffn_dim = self.model.ffn_dim

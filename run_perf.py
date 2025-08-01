@@ -17,7 +17,6 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Run performance analysis for LSTM, GEMM, or LLM models.")
     parser.add_argument("--hardware_config", required=True, help="Path to the hardware configuration file.")
     parser.add_argument("--model_config", required=True, help="Path to the model configuration file.")
-    # parser.add_argument("--mode", required=False, choices=["LSTM", "GEMM", "LLM"], help="Mode of operation.")
     parser.add_argument("--output_dir", required=False, help="Directory to save the output files.")
     return parser.parse_args()
 
@@ -75,21 +74,10 @@ def run_GEMM(
     exp_hw_config = config.parse_config(exp_hw_path, config_type="hardware")
     exp_model_config = config.parse_config(exp_model_path, config_type=mode)
 
-    # exp_path = os.path.expandvars(os.path.expanduser(exp_config))
-    # exp_config = config.parse_config(exp_path)
-    # output_file = exp_dir + "/summary_GEMM_m%s_n%s_k%s.txt" % (
-    #     m,
-    #     n,
-    #     k,
-    # )
-    # create output dir if it doesn't exist
-    # if not os.path.exists(exp_dir):
-    #     os.makedirs(exp_dir)
 
     TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
 
     TC.validating_GEMM = True
-    # Report GEMM time on fw path
 
     if TC.kp1 == 1 and TC.kp2 == 1:  # no parallelism
         gemm_time = TC.getCf(TC.M, TC.K, TC.N)
@@ -164,10 +152,6 @@ if __name__ == "__main__":
 
     # Read mode from the model configuration file
     mode = get_mode_from_config(config_model_path)
-    # mode= "LSTM"  #ONLY MODIFY THIS LINE TO CHANGE THE MODEL TYPE
-    
-    # script_dir = os.path.dirname(os.path.abspath(__file__))  
-    # output_dir = os.path.join(script_dir, "output")
     exp_dir = os.path.join(output_dir, mode)
     # Check if the directory exists and delete it if it does
     if os.path.exists(exp_dir):

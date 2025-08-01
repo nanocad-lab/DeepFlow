@@ -24,23 +24,23 @@ Pre-requirement: Python3
 DeepFlow can be used in 6 different modes:
 
 (1) Peformance Prediction Mode (GEMM) 
- **When to use**: Use for distributed GEMM prediction
- **How**: 
+ **When to use**: Use for distributed GEMM prediction  
+ **How**:   
 * Specify the GEMM parameters in configs/model-config/GEMM.yaml
 * Specify the Hardware parameters in configs/hardware-config/[config.yaml]
 * python run_perf.py --hardware_config configs/hardware-config/[config.yaml] --model_config configs/model-config/GEMM.yaml --output_dir [/path/to/output/directory]
 
 (2) Performance Prediction Mode (LSTM End-2-End Application)
- **When to use**: Use for End-2-End LSTM prediction
- **How**: 
+ **When to use**: Use for End-2-End LSTM prediction  
+ **How**:   
 * Specify the LSTM parameters in configs/model-config/LSTM.yaml
 * Specify the Hardware parameters in configs/hardware-config/[config.yaml]
 * python run_perf.py --hardware_config configs/hardware-config/[config.yaml] --model_config configs/model-config/LSTM.yaml --output_dir [/path/to/output/directory]
         
 
 (3) Performance Prediction Mode (LLM mode)
- **When to use**: Use for End-2-End LLM prediction
- **How**: 
+ **When to use**: Use for End-2-End LLM prediction  
+ **How**:   
 * Specify the LLM parameters in configs/model-config/LLM.yaml
 * Specify the Hardware parameters in configs/hardware-config/[config.yaml]
 * python run_perf.py --hardware_config configs/hardware-config/[config.yaml] --model_config configs/model-config/LLM.yaml --output_dir [/path/to/output/directory]
