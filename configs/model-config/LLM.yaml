@@ -9,5 +9,5 @@ model_param:
     vocab_size: 800000  # Vocabulary size
     num_layers: 64  # Number of layers
     n_tokens: 1000000000000  # Number of tokens to train on. Set to 1T for now.
-    communication_time: 1  # Communication time in seconds
-    N_PP: 1  # Number of parallel processing units
+    communication_time: 0  # Communication time in seconds
+    N_PP: 1  # pipeline degree
