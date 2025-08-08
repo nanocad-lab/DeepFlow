@@ -41,7 +41,7 @@ class TimeCalculation:
         self.memoryHierarchy = MemoryHierarchy(hw_config)
         self.num_levels = self.memoryHierarchy.num_levels
         self.memLayer = self.memoryHierarchy.memLayer
-        self.tileSpace = self.generateTileSpace()
+        self.tileSpace = None
 
         # TODO: move this to config file
         self.H2Dbw = 12.4 * 1024 * 1024 * 1024
@@ -514,7 +514,7 @@ class TimeCalculation:
 
             self.network.printStats(f)
 
-    def roofline(self, flop, mem_access_, name=""):
+    def roofline(self, flop, mem_access_, name="", info=False):
         # print("Roofline: entered {}".format(name))
         mem_access = []
         if isinstance(mem_access_, int):
@@ -563,29 +563,28 @@ class TimeCalculation:
 
         max_time = max(time)
 
-        # if self.debug:
-        #     print("{}: {}".format(name, max_time))
-        #     print("GEMM flops: {:,}".format(flop))
-        #     for i in range(0, num_level):
-        #         print("L{}".format(i))
-        #         print("inflection_point: {:.2f}".format(inflection_point[i]))
-        #         print("comp_int: {:.2f}".format(comp_int[i]))
-        #         print("time: {}".format(time[i]))
-        #         print(
-        #             "Throughput = ",
-        #             self.th,
-        #             "BW = ",
-        #             self.memLayer[i].getThroughput(),
-        #             "mem_latency=",
-        #             self.memLayer[i].getLatency(),
-        #         )  ################
-        #         print()
+        if info:
+            print(f"--- {name}: {(max_time * 1e3):.2f} ms, {flop:,} ---")
+            for i in range(0, num_level):
+                compare = ("memory", "<") if comp_int[i] < inflection_point[i] else ("compute", ">")
+                print(f"L{i}: {comp_int[i]:.2f} {compare[1]} {inflection_point[i]} [{compare[0]}-bound]")
+                print(f"time: {time[i] * 1e3} ms")
+                print(
+                    "Throughput = ",
+                    self.th,
+                    "BW = ",
+                    self.memLayer[i].getThroughput(),
+                    "mem_latency=",
+                    self.memLayer[i].getLatency(),
+                )  ################
+                print()
 
         # print("Roofline: exited {}".format(name))
         return max_time
 
 
-    def getGEMMTime(self, dim1, dim2, dim3, name):
+    def getGEMMTime(self, dim1, dim2, dim3, name, original=False):
+        self.tileSpace = self.generateTileSpace(dim1, dim2, dim3, original=True)
         tile2time = {}
         gemm_dict = {}
         orderSpace = self.generateOrder(dim1, dim2, dim3, name)
@@ -601,18 +600,38 @@ class TimeCalculation:
                     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
                     print("tile: {}".format(tile_dims))
                     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-                # GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
-                gemm = TiledGEMM(
-                    order_dims, tile_dims, self.core, self.precision
-                )  # assumes 4 levels of memory hierarchy
+                
+                if original:
+                    GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
+                    gemm_dict[(order_dims, tile_dims)] = None
+                else:
+                    gemm = TiledGEMM(
+                        order_dims, tile_dims, self.core, self.memLayer, self.precision
+                    )  # assumes 4 levels of memory hierarchy
+                    GEMM_flop = gemm.GEMM_flop
+                    mem_access = gemm.mem_accesses
+                    gemm_dict[(order_dims, tile_dims)] = gemm
 
-                GEMM_flop = gemm.GEMM_flop()
-                mem_access = gemm.mem_accesses()
-                GEMM_time = self.roofline(GEMM_flop, mem_access, name) + self.O
+                mem_access_per_sm = mem_access
+
+                reuse_M = math.ceil(dim1 / tile_dims[-2][0])
+                reuse_K = math.ceil(dim2 / tile_dims[-2][1])
+                reuse_N = math.ceil(dim3 / tile_dims[-2][2])
+                mem_access_per_sm[1] = mem_access_per_sm[1] / min(self.core.num_bundle, reuse_M * reuse_K * reuse_N)
+
+                GEMM_time = self.roofline(GEMM_flop, mem_access_per_sm, name) + self.O
+
                 tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access)
                 gemm_dict[(order_dims, tile_dims)] = gemm
 
         best_tile = min(tile2time, key=tile2time.get)
+        best_time, _ = tile2time[best_tile]
+
+        best_tile = min(
+            (tile for tile, (time, mem) in tile2time.items() if time == best_time),
+            key=lambda tile: math.hypot(tile2time[tile][1][3], tile2time[tile][1][2])
+        )
+
         best_time, mem_access = tile2time[best_tile]
         best_gemm = gemm_dict[best_tile]
 
@@ -672,14 +691,17 @@ class TimeCalculation:
 
         return order
 
-    def generateTileSpace(self):
+    def generateTileSpace(self, dim1=None, dim2=None, dim3=None, original=False):
         tile_space = []
         tiles = [None] * self.num_levels
 
         for level in range(0, self.num_levels - 1):
             memory = self.memLayer[level]
             # tiles[level] = self.getTileDims(memory)
-            tiles[level] = memory.getTileDims()
+            if not original and level == 2:
+                tiles[level] = memory.getGEMMBasedTileDims(dim1, dim2, dim3)
+            else:
+                tiles[level] = memory.getTileDims()
 
         if self.num_levels == 1:
             tile_space = []
@@ -688,17 +710,18 @@ class TimeCalculation:
         elif self.num_levels == 3:
             tile_space = [(x, y) for x in tiles[0] for y in tiles[1]]
         elif self.num_levels == 4:
-            tile_space = [
-                (x, y, z) for x in tiles[0] for y in tiles[1] for z in tiles[2]
-            ]
+            tile_space = []
+            for x in tiles[2]:
+                t1, t2, t3 = x
+                if not original:
+                    tiles[1] = self.memLayer[1].getGEMMBasedTileDims(t1, t2, t3)
+                tile_strategy = [
+                    (x, y, z) for y in tiles[1] for z in tiles[2]
+                ]
+                tile_space.extend(tile_strategy)
         else:
             raise NotImplementedError()
-
-        # inject tile size
-        # tile_space = [
-        #     ((8, 4, 8), (16, 32, 16), (128,32,128)),
-        # ]
-
+        
         return tile_space
 
     def getTileSize(self, lid):
@@ -902,16 +925,17 @@ class TimeCalculation:
                 raise NotImplementedError()
 
             # TODO: make sure to model underutilized systolic array
+            num_accesses[0] = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/(2 * self.FMA_dims[0]) * self.precision
 
-            num_accesses[0] = (
-                GEMM_flop
-                * (
-                    2 * reuse * self.FMA_dims[0] * self.FMA_dims[1]
-                    + self.FMA_dims[0] ** 2
-                )
-                / (2 * reuse * self.FMA_dims[0] * (self.FMA_dims[1] - 1))
-                * self.precision
-            )
+            # num_accesses[0] = (
+            #     GEMM_flop
+            #     * (
+            #         2 * reuse * self.FMA_dims[0] * self.FMA_dims[1]
+            #         + self.FMA_dims[0] ** 2
+            #     )
+            #     / (2 * reuse * self.FMA_dims[0] * (self.FMA_dims[1] - 1))
+            #     * self.precision
+            # )
             # num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision
             # num_accesses[0]    = GEMM_flop * ((2 * reuse + self.FMA_width) / (2 * reuse)) * 1/self.FMA_width * self.precision
 
@@ -1507,6 +1531,7 @@ class TimeCalculation:
 
         return GEMM_time, reduction_time
 
+    # all-reduce across M // kp1 GPUs
     def getDistGEMM_f_kp2(self, m, k, n, dim1, dim2, name):
         GEMM_time = self.getGEMMTime(m // dim1, k, n // dim2, name)
         reduction_time = self.getR(
