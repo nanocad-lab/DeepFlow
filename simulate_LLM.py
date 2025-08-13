@@ -1,6 +1,7 @@
 import math
 from heapq import heappush, heappop
 from graphviz import Digraph
+import os
 class Node:
 
     def __init__(self, name, op_id, hw_id, duration):
@@ -189,8 +190,8 @@ class Graph:
 
         for l in range(1, self.num_layer):
             # for t in range(self.num_seq):
-            prev_ffn2 = xform_node[l-1][t][-1]        # previous layer's ffn2
-            curr_qkv  = xform_node[l][t][0]            # current layer's qkv_proj
+            prev_ffn2 = xform_node[l-1][0][-1]        # previous layer's ffn2
+            curr_qkv  = xform_node[l][0][0]            # current layer's qkv_proj
 
             if prev_ffn2.hw_id == curr_qkv.hw_id:
                 edge = Edge("cross_layer", op_id, -1, 0)  
@@ -495,7 +496,27 @@ class Graph:
                 #        print "A",
                 # print
         return time
-
+    def save_graph(self, output_folder = "output_graph/"):
+        fw_roots = self.construct_fwd_graph()
+        time_fw = self.simulate(fw_roots[0], 0)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        
+        filename = "fwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
+        filename_bwd = "bwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
+        dot_fw = visualize_graph(fw_roots[0], filename=filename)
+        dot_fw.render(output_folder + filename, format="png", cleanup=True)
+        print("Forward graph saved to %s%s.png" % (output_folder , filename))
+        print("Forward simulation time: {}".format(time_fw))
+        
+        bw_roots = self.construct_bwd_graph()
+        time_bw = self.simulate(bw_roots[0], self.lp - 1)   
+        dot_bw = visualize_graph(bw_roots[0], filename=filename + "_bwd")
+        dot_bw.render(output_folder + filename_bwd , format="png", cleanup=True)
+        print("Backward graph saved to %s%s.png" % (output_folder , filename_bwd))
+        
+        print("Backward simulation time: {}".format(time_bw))
+        return time_fw , time_bw
 
 # dedeepyo : 27-May-25 : Print DFS traversal of the graph.
 def print_graph(root_nodes, visited=None):
@@ -557,6 +578,9 @@ def visualize_graph(root, filename="graph", visited=None, dot=None):
         visualize_graph(child, filename, visited, dot)
 
     return dot
+
+    
+    
 # dedeepyo : 27-May-25
 
 def main():
@@ -604,27 +628,11 @@ def main():
         # Rs=5,
     )
 
-    fw_roots = g.construct_fwd_graph()
-    time_fw = g.simulate(fw_roots[0], 0)
-    
-    filename = "fwd_graph_s%s_l%s_lp%s" % (g.num_seq, g.num_layer, g.lp)
-    dot_fw = visualize_graph(fw_roots[0], filename=filename)
-    dot_fw.render(filename, format="png", cleanup=True)
-    print("Forward graph saved to %s.png" % filename)
-    print("Forward simulation time: {}".format(time_fw))
-    
-    bw_roots = g.construct_bwd_graph()
-    time_bw = g.simulate(bw_roots[0], g.lp - 1)   
-    dot_bw = visualize_graph(bw_roots[0], filename=filename + "_bwd")
-    dot_bw.render(filename + "_bwd", format="png", cleanup=True)
-    print("Backward graph saved to %s_bwd.png" % filename)
-    
-    print("Backward simulation time: {}".format(time_bw))
-    # return time_fw + time_bw
+    g.save_graph()
+
     
     
     
-    # print("time_fw: {}, time_bw: {}".format(time_fw, time_bw))
 
 if __name__ == "__main__":
     main()

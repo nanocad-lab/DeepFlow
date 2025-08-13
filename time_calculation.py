@@ -177,6 +177,7 @@ class TimeCalculation:
             self.n_tokens = self.model.n_tokens
             self.communication_time = self.model.communication_time
             self.N_PP = self.model.N_PP
+            self.miniB = math.ceil(self.batch_size / self.dp)
             
     
     def get_model_class(self, model_type):
