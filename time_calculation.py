@@ -1094,7 +1094,7 @@ class TimeCalculation:
             or self.kp_hidden_dim2 == 2
             or self.kp_hidden_dim2 == 1
         )
-        assert self.miniB % self.kp_hidden_dim1 == 0
+        assert self.miniB % self.kp_hidden_dim1 == 0 
         assert self.G * self.D % self.kp_hidden_dim2 == 0
 
         GEMM_time, reduction_time = self.getDistGEMM_f_kp2(
