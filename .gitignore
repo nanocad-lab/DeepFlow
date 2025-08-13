@@ -67,20 +67,3 @@ case_study/perf_model/energy_per_membit
 case_study/perf_model/energy_per_flop/*
 lib/
 bin/
-output/
-mat_dims_llm.txt
-venv/
-backward_graph.png
-fwd_
-fwd_graph_s7_l1_lp1_bwd.png
-fwd_graph_s7_l1_lp1.png
-fwd_graph_s20_l1_lp1_bwd.png
-fwd_graph_s20_l1_lp1.png
-fwd_graph_s2048_l1_lp1_bwd.png
-fwd_graph_s2048_l1_lp1.png
-simulate_graph.py
-simulate_LLM copy.py
-simulate_lstm.py
-transformer_benchmarking.py
-transformer_model.py
-output3/GEMM/summary_modeGEMM_M524288_K128_N8.txt
