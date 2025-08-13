@@ -14,7 +14,7 @@ from topology import Topology
 from simulate import Graph
 import util
 from hw_component import Core, MemoryHierarchy, Network
-from model import Model
+from model import Model_LSTM, Model_GEMM, Model_LLM 
 from tile import TiledGEMM, formatBytes
 
 algByte = False  # algorithmic ops false
@@ -23,56 +23,47 @@ validating_v100 = True
 
 
 class TimeCalculation:
-    def __init__(self, exp_config):
-        # Model Parameters
-        self.model = Model(exp_config)
-        self.B = self.model.batch_size
-        self.V = self.model.vocab_size
-        self.L = self.model.num_layers
-        self.D = self.model.hidden_dim
-        self.projection = self.model.projection
-        self.S = self.model.seq_len
-        self.G = self.model.num_gates
-        self.NL = self.model.num_non_linear
-        self.A = self.model.num_add
-        self.P = self.model.num_pointwise
+    def __init__(self, hw_config, model_config, mode):
+# Mode parameter
+        
 
         # Software Parameters
-        self.O = exp_config.sw_config.kernel_launch_overhead
-        self.precision = exp_config.sw_config.precision
+        self.O = hw_config.sw_config.kernel_launch_overhead
+        self.precision = hw_config.sw_config.precision
         self.attached = True
 
         # Hardware Parameters
-        self.core = Core(exp_config)
+        self.core = Core(hw_config)
         self.th = self.core.getThroughput()
         self.FMA_dims = self.core.FMA_dims  # (FMA_x, FMA_y)
         self.dataflow = self.core.dataflow
 
-        self.memoryHierarchy = MemoryHierarchy(exp_config)
+        self.memoryHierarchy = MemoryHierarchy(hw_config)
         self.num_levels = self.memoryHierarchy.num_levels
         self.memLayer = self.memoryHierarchy.memLayer
-        self.tileSpace = self.generateTileSpace()
+        self.tileSpace = None
 
         # TODO: move this to config file
         self.H2Dbw = 12.4 * 1024 * 1024 * 1024
 
-        # System Parameters
-        self.num_wafer = exp_config.system_config.num_wafers
-        self.num_workers = exp_config.system_config.num_workers
 
-        self.network = Network(exp_config)
+        # System Parameters
+        self.num_wafer = hw_config.system_config.num_wafers
+        self.num_workers = hw_config.system_config.num_workers
+
+        self.network = Network(hw_config)
 
         intra_throughput, inter_throughput = self.network.calcThroughput()
         intra_latency, inter_latency = self.network.calcLatency()
 
-        inter_derate = exp_config.system_config.inter_derate
-        intra_derate = exp_config.system_config.intra_derate
-        par2cross = exp_config.system_config.par2cross
+        inter_derate = hw_config.system_config.inter_derate
+        intra_derate = hw_config.system_config.intra_derate
+        par2cross = hw_config.system_config.par2cross
 
         derated_inter_throughput = -1
         derated_intra_throughput = -1
 
-        # inter-wafercommunications will pass through intra links too
+        # inter-wafer communications will pass through intra links too
         if self.num_wafer > 1 and self.num_workers > 1:
             if intra_derate != 0:
                 derated_inter_throughput = min(
@@ -110,7 +101,7 @@ class TimeCalculation:
         )
 
         # Scheduling Parameters
-        par = Parallelism(exp_config)
+        par = Parallelism(hw_config)
         par.findParallelStrategy()
         self.autoPar = par.autoPar
         self.lp = par.lp
@@ -127,17 +118,125 @@ class TimeCalculation:
         self.kp_softmax_type = par.kp_softmax_type  # 1: CR, 2: RC
         self.kp_embedding_type = par.kp_embedding_type  # 1: CR, 2: RC
         self.kp_projection_type = par.kp_projection_type  # 1: CR, 2: RC
-
-        # Define miniBatch size
-        self.miniB = math.ceil(self.B / self.dp)
+        self.t = par.t  # type of parallelism, e.g., "CR", "RC", "none"
+        self.kp1= par.kp1  # first parallelism parameter
+        self.kp2 = par.kp2  # second parallelism parameter
+        
+        self.updateParParams(self.t, self.kp1, self.kp2)
+        # # Define miniBatch size
+        # self.miniB = math.ceil(self.B / self.dp)
 
         # Statistics Param
         self.tot_flop = 0
         self.tot_mem = 0
         self.tot_time = 0
-        self.debug = False  #############################
+        self.debug = False
         self.validating_GEMM = False
+        
+        self.mode = mode
+        
+        # Dynamically select and instantiate the model class
+        model_class = self.get_model_class(mode)
+        self.model = model_class(model_config)  # Instantiate the model class
 
+
+        # Model Parameters
+        # self.model = self.get_model_class(mode)
+        if mode == "LSTM":
+            self.B = self.model.batch_size
+            self.V = self.model.vocab_size
+            self.L = self.model.num_layers
+            self.D = self.model.hidden_dim
+            self.projection = self.model.projection
+            self.S = self.model.seq_len
+            self.G = self.model.num_gates
+            self.NL = self.model.num_non_linear
+            self.A = self.model.num_add
+            self.P = self.model.num_pointwise
+            # Define miniBatch size
+            self.miniB = math.ceil(self.B / self.dp)
+
+        if mode == "GEMM":
+            
+            self.M = self.model.M
+            self.K = self.model.K
+            self.N = self.model.N
+            
+        if mode == "LLM":
+            self.batch_size = self.model.batch_size
+            self.vocab_size = self.model.vocab_size
+            self.num_layers = self.model.num_layers
+            self.hidden_dim = self.model.hidden_dim
+            self.seq_len = self.model.seq_len
+            self.num_heads = self.model.num_heads
+            self.ffn_mult = self.model.ffn_mult
+            if self.ffn_mult is not None:
+                self.ffn_dim = self.model.hidden_dim * self.ffn_mult
+            else:
+                self.ffn_dim = self.model.ffn_dim
+            self.n_tokens = self.model.n_tokens
+            self.communication_time = self.model.communication_time
+            self.N_PP = self.model.N_PP
+            
+    
+    def get_model_class(self, model_type):
+        """Return the appropriate model class based on the model type."""
+        model_classes = {
+            "LSTM": Model_LSTM,
+            "GEMM": Model_GEMM,
+            "LLM": Model_LLM, 
+            # Add other model types here as needed
+        }
+        if model_type not in model_classes:
+            raise ValueError(f"Unsupported model type: {model_type}")
+        return model_classes[model_type]
+        
+    def updateParParams(
+        self,
+        t,
+        kp1,
+        kp2,
+    ):
+
+        self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
+        # self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
+        self.kp_hidden_dim2 = kp2 if kp2 != None else self.kp_hidden_dim2
+        self.kp_hidden_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_hidden_type)
+        )
+
+        # TODO: decide if we want kp1, kp2 to control other layers besides hidden layer
+        self.kp_softmax_dim1 = kp1 if kp1 != None else self.kp_softmax_dim1
+        self.kp_softmax_dim2 = kp2 if kp2 != None else self.kp_softmax_dim2
+        self.kp_softmax_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_softmax_type)
+        )
+
+        self.kp_embedding_dim1 = kp1 if kp1 != None else self.kp_embedding_dim1
+        self.kp_embedding_dim2 = kp2 if kp2 != None else self.kp_embedding_dim2
+        self.kp_embedding_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_embedding_type)
+        )
+
+        self.kp_projection_dim1 = kp1 if kp1 != None else self.kp_projection_dim1
+        self.kp_projection_dim2 = kp2 if kp2 != None else self.kp_projection_dim2
+        self.kp_projection_type = (
+            2 if t == "RC" else (1 if t == "CR" else self.kp_projection_type)
+        )
+
+        # TODO: need to change all equations to be a function of m,n and k
+        # self.D              = n//4
+
+        print("kp1: {}".format(self.kp_hidden_dim1))
+        print("kp2: {}".format(self.kp_hidden_dim2))
+        # TODO: It is a hacky way of capturing assymetry across links within V100
+        # move this to network topology and distinguish between inter and intra network
+        if validating_v100:
+            self.IBK1 = util.scale_down(self.IBK1, self.kp_hidden_dim1, "kp1")
+            self.IBK2 = util.scale_down(self.IBK2, self.kp_hidden_dim2, "kp2")
+            self.IBD = util.scale_down(self.IBD, self.dp, "dp")
+            self.IBL = util.scale_down(self.IBL, self.lp, "lp")
+            
     def updateParams(
         self,
         debug,
@@ -218,7 +317,7 @@ class TimeCalculation:
         tot_param = embedding + hidden + projection + softmax
         return tot_param
 
-    def printSysConfig(self, exp_config, output_file):
+    def printSysConfig(self, exp_hw_config, exp_model_config, output_file):
         kiloByte = 1024
         megaByte = kiloByte * 1024
         gigaByte = megaByte * 1024
@@ -276,7 +375,8 @@ class TimeCalculation:
                 act_mem,
                 point_mem,
             ) = util.getTotMemReq(
-                exp_config,
+                exp_hw_config,
+                exp_model_config,
                 batch_size=self.B,
                 hidden_dim=self.D,
                 vocab_size=self.V,
@@ -333,7 +433,8 @@ class TimeCalculation:
                 act_mem,
                 point_mem,
             ) = util.getMemUsagePerCore(
-                exp_config,
+                exp_hw_config,
+                exp_model_config,
                 batch_size=self.B,
                 hidden_dim=self.D,
                 vocab_size=self.V,
@@ -413,7 +514,7 @@ class TimeCalculation:
 
             self.network.printStats(f)
 
-    def roofline(self, flop, mem_access_, name=""):
+    def roofline(self, flop, mem_access_, name="", info=False):
         # print("Roofline: entered {}".format(name))
         mem_access = []
         if isinstance(mem_access_, int):
@@ -462,61 +563,28 @@ class TimeCalculation:
 
         max_time = max(time)
 
-        # if self.debug:
-        #     print("{}: {}".format(name, max_time))
-        #     print("GEMM flops: {:,}".format(flop))
-        #     for i in range(0, num_level):
-        #         print("L{}".format(i))
-        #         print("inflection_point: {:.2f}".format(inflection_point[i]))
-        #         print("comp_int: {:.2f}".format(comp_int[i]))
-        #         print("time: {}".format(time[i]))
-        #         print(
-        #             "Throughput = ",
-        #             self.th,
-        #             "BW = ",
-        #             self.memLayer[i].getThroughput(),
-        #             "mem_latency=",
-        #             self.memLayer[i].getLatency(),
-        #         )  ################
-        #         print()
+        if info:
+            print(f"--- {name}: {(max_time * 1e3):.2f} ms, {flop:,} ---")
+            for i in range(0, num_level):
+                compare = ("memory", "<") if comp_int[i] < inflection_point[i] else ("compute", ">")
+                print(f"L{i}: {comp_int[i]:.2f} {compare[1]} {inflection_point[i]} [{compare[0]}-bound]")
+                print(f"time: {time[i] * 1e3} ms")
+                print(
+                    "Throughput = ",
+                    self.th,
+                    "BW = ",
+                    self.memLayer[i].getThroughput(),
+                    "mem_latency=",
+                    self.memLayer[i].getLatency(),
+                )  ################
+                print()
 
         # print("Roofline: exited {}".format(name))
         return max_time
 
-    # Convert GEMM into sqaure tiles
-    # def getGEMMTime(self, A_, B_, C_, name):
-    #
-    #     #A = util.power2RoundUp(A_)
-    #     #B = util.power2RoundUp(B_)
-    #     #C = util.power2RoundUp(C_)
-    #     A = A_
-    #     B = B_
-    #     C = C_
 
-    #     #return False, self.GEMM_wrapper(A, B, C, name)
-    #     dim        = min(min(A, B), C)
-    #     Af         = math.ceil(A / dim)
-    #     Bf         = math.ceil(B / dim)
-    #     Cf         = math.ceil(C / dim)
-
-    #     time       = (Af * Bf * Cf) * self.GEMM_Strassen(dim, name) + (Af * Cf * (Bf-1)) * self.getAddTime(dim, dim, name)
-    #     return False, time
-
-    # def GEMM_Strassen(self, dim, name):
-    #     if dim <= 512:
-    #         time = self.GEMM_wrapper(dim, dim, dim, name)
-    #         return time
-    #     else:
-    #         time = 7 * self.GEMM_Strassen(dim // 2, name) #+ 18 * self.getAddTime(dim // 2, dim // 2, name)
-    #         return time
-    #
-    # def getAddTime(self, A, B, name):
-    #     ADD_flop  = A * B
-    #     ADD_gmem  = 3 * A * B * self.precision
-    #     ADD_time  = self.roofline(ADD_flop, ADD_gmem, name='FMA addition') + self.O
-    #     return ADD_time
-
-    def getGEMMTime(self, dim1, dim2, dim3, name):
+    def getGEMMTime(self, dim1, dim2, dim3, name, original=False):
+        self.tileSpace = self.generateTileSpace(dim1, dim2, dim3, original=True)
         tile2time = {}
         gemm_dict = {}
         orderSpace = self.generateOrder(dim1, dim2, dim3, name)
@@ -532,18 +600,38 @@ class TimeCalculation:
                     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
                     print("tile: {}".format(tile_dims))
                     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-                # GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
-                gemm = TiledGEMM(
-                    order_dims, tile_dims, self.core, self.precision
-                )  # assumes 4 levels of memory hierarchy
+                
+                if original:
+                    GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
+                    gemm_dict[(order_dims, tile_dims)] = None
+                else:
+                    gemm = TiledGEMM(
+                        order_dims, tile_dims, self.core, self.memLayer, self.precision
+                    )  # assumes 4 levels of memory hierarchy
+                    GEMM_flop = gemm.GEMM_flop
+                    mem_access = gemm.mem_accesses
+                    gemm_dict[(order_dims, tile_dims)] = gemm
 
-                GEMM_flop = gemm.GEMM_flop()
-                mem_access = gemm.mem_accesses()
-                GEMM_time = self.roofline(GEMM_flop, mem_access, name) + self.O
+                mem_access_per_sm = mem_access
+
+                reuse_M = math.ceil(dim1 / tile_dims[-2][0])
+                reuse_K = math.ceil(dim2 / tile_dims[-2][1])
+                reuse_N = math.ceil(dim3 / tile_dims[-2][2])
+                mem_access_per_sm[1] = mem_access_per_sm[1] / min(self.core.num_bundle, reuse_M * reuse_K * reuse_N)
+
+                GEMM_time = self.roofline(GEMM_flop, mem_access_per_sm, name) + self.O
+
                 tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access)
                 gemm_dict[(order_dims, tile_dims)] = gemm
 
         best_tile = min(tile2time, key=tile2time.get)
+        best_time, _ = tile2time[best_tile]
+
+        best_tile = min(
+            (tile for tile, (time, mem) in tile2time.items() if time == best_time),
+            key=lambda tile: math.hypot(tile2time[tile][1][3], tile2time[tile][1][2])
+        )
+
         best_time, mem_access = tile2time[best_tile]
         best_gemm = gemm_dict[best_tile]
 
@@ -603,14 +691,17 @@ class TimeCalculation:
 
         return order
 
-    def generateTileSpace(self):
+    def generateTileSpace(self, dim1=None, dim2=None, dim3=None, original=False):
         tile_space = []
         tiles = [None] * self.num_levels
 
         for level in range(0, self.num_levels - 1):
             memory = self.memLayer[level]
             # tiles[level] = self.getTileDims(memory)
-            tiles[level] = memory.getTileDims()
+            if not original and level == 2:
+                tiles[level] = memory.getGEMMBasedTileDims(dim1, dim2, dim3)
+            else:
+                tiles[level] = memory.getTileDims()
 
         if self.num_levels == 1:
             tile_space = []
@@ -619,17 +710,18 @@ class TimeCalculation:
         elif self.num_levels == 3:
             tile_space = [(x, y) for x in tiles[0] for y in tiles[1]]
         elif self.num_levels == 4:
-            tile_space = [
-                (x, y, z) for x in tiles[0] for y in tiles[1] for z in tiles[2]
-            ]
+            tile_space = []
+            for x in tiles[2]:
+                t1, t2, t3 = x
+                if not original:
+                    tiles[1] = self.memLayer[1].getGEMMBasedTileDims(t1, t2, t3)
+                tile_strategy = [
+                    (x, y, z) for y in tiles[1] for z in tiles[2]
+                ]
+                tile_space.extend(tile_strategy)
         else:
             raise NotImplementedError()
-
-        # inject tile size
-        # tile_space = [
-        #     ((8, 4, 8), (16, 32, 16), (128,32,128)),
-        # ]
-
+        
         return tile_space
 
     def getTileSize(self, lid):
@@ -833,16 +925,17 @@ class TimeCalculation:
                 raise NotImplementedError()
 
             # TODO: make sure to model underutilized systolic array
+            num_accesses[0] = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/(2 * self.FMA_dims[0]) * self.precision
 
-            num_accesses[0] = (
-                GEMM_flop
-                * (
-                    2 * reuse * self.FMA_dims[0] * self.FMA_dims[1]
-                    + self.FMA_dims[0] ** 2
-                )
-                / (2 * reuse * self.FMA_dims[0] * (self.FMA_dims[1] - 1))
-                * self.precision
-            )
+            # num_accesses[0] = (
+            #     GEMM_flop
+            #     * (
+            #         2 * reuse * self.FMA_dims[0] * self.FMA_dims[1]
+            #         + self.FMA_dims[0] ** 2
+            #     )
+            #     / (2 * reuse * self.FMA_dims[0] * (self.FMA_dims[1] - 1))
+            #     * self.precision
+            # )
             # num_accesses[0]    = GEMM_flop * ((2 * reuse + 1) / (2 * reuse)) * 1/self.FMA_width * self.precision
             # num_accesses[0]    = GEMM_flop * ((2 * reuse + self.FMA_width) / (2 * reuse)) * 1/self.FMA_width * self.precision
 
@@ -1438,6 +1531,7 @@ class TimeCalculation:
 
         return GEMM_time, reduction_time
 
+    # all-reduce across M // kp1 GPUs
     def getDistGEMM_f_kp2(self, m, k, n, dim1, dim2, name):
         GEMM_time = self.getGEMMTime(m // dim1, k, n // dim2, name)
         reduction_time = self.getR(
@@ -2221,180 +2315,3 @@ class TimeCalculation:
 
     def getTime(self):
         return self.tot_time
-
-
-def callPerf(exp_config, exp_dir, debug):
-    exp_path = os.path.expandvars(os.path.expanduser(exp_config))
-    exp_config = config.parse_config(exp_path)
-
-    # try:
-    #    #print("Removing directory:" + exp_dir)
-    #    shutil.rmtree(exp_dir)
-    # except:
-    #    pass
-    # os.makedirs(exp_dir)
-
-    TC = TimeCalculation(exp_config)
-    TC.debug = debug
-    tot_time, tot_param = TC.calcTime()
-
-    output_file = exp_dir + "/summary.txt"
-
-    TC.printSysConfig(exp_config, output_file)
-
-    with open(output_file, "a+") as f:
-        f.write("Time: {0:.8f}\n".format(tot_time))
-        f.write("Params (Billion): {0:.8f}\n".format(tot_param / 1e9))
-
-
-@click.command("standalone")
-@click.option("--args_input", help="Shall it read the args from the input command (True) or from exp_config (False)", default=True, type=bool, required=False)
-@click.option("--exp_config", help="Path to experiment config", default="configs/new-configs/a100_80GB.yaml", required=True)
-@click.option("--exp_dir", help="Checkpoint/log directory", required=True)
-@click.option("--debug", help="debug", default=False, type=bool)
-@click.option(
-    "--m", help="input dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation. This allows arbitrary choice of dimension. For LSTM, dimensions are fixed at m=mini_batch, k=2*D and n=4*D.
-@click.option(
-    "--n", help="output dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--k", help="input dimension", default=32768, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--t",
-    help="parallelism strategy (RC or CR)",
-    default="None",
-    type=str,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--kp1",
-    help="RC:parallelism along input dimension, CR: parallelism along inner dimension",
-    default=None,
-    type=int,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--kp2",
-    help="RC:parallelism along output dimension",
-    default=None,
-    type=int,
-    required=False,
-)  # only use for GEMM validation
-@click.option(
-    "--gemm", help="report ONLY GEMM time", default=False, type=bool, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--batch_size", help="Total Batch Size", default=2048, type=int, required=False
-)
-@click.option(
-    "--hidden_dim",
-    help="Hidden Dimension per LSTM layer",
-    default=19968,
-    type=int,
-    required=False,
-)
-@click.option(
-    "--seq_len",
-    help="Number of times to unroll LSTM",
-    default=20,
-    type=int,
-    required=False,
-)
-@click.option(
-    "--vocab_size", help="Vocabulary Size", default=800000, type=int, required=False
-)
-@click.option(
-    "--num_layer", help="number of lstm layers", default=2, type=int, required=False
-)
-@click.option(
-    "--dp", help="data parallelism", default=None, type=int, required=False
-)  # only use for GEMM validation
-@click.option(
-    "--lp", help="layer parallelism", default=None, type=int, required=False
-)  # only use for GEMM validation
-def main(
-    exp_config,
-    exp_dir,
-    debug,
-    m,
-    n,
-    k,
-    t,
-    kp1,
-    kp2,
-    gemm,
-    batch_size,
-    hidden_dim,
-    seq_len,
-    vocab_size,
-    num_layer,
-    dp,
-    lp,
-    args_input=False,
-):
-    exp_path = os.path.expandvars(os.path.expanduser(exp_config))
-    exp_config = config.parse_config(exp_path)
-    output_file = exp_dir + "/summary_m%s_n%s_k%s.txt" % (
-        m,
-        n,
-        k,
-    ) 
-    # create output dir if it doesn't exist
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
-
-    TC = TimeCalculation(exp_config)
-    if args_input:
-        TC.updateParams(
-            debug,
-            m,
-            n,
-            k,
-            t,
-            kp1,
-            kp2,
-            dp,
-            lp,
-            gemm,
-            batch_size,
-            hidden_dim,
-            seq_len,
-            vocab_size,
-            num_layer,
-        )
-
-    # Report GEMM time on fw path
-    if TC.validating_GEMM:
-        if kp1 == 1 and kp2 == 1:  # no parallelism
-            gemm_time = TC.getCf(m, k, n)
-        elif t == "CR":
-            gemm_time = TC.getDistGEMM_f_kp1(m, k, n, kp1, "Cf_CR")
-        elif t == "RC":
-            gemm_time = TC.getDistGEMM_f_kp2(m, k, n, kp1, kp2, "Cf_RC")
-        else:
-            print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
-            sys.exit()
-
-        with open(output_file, "w") as f:
-            f.write("Best Order: {}\n".format(gemm_time[1]))
-            f.write("Best Tile: {}\n".format(gemm_time[2]))
-            f.write("Time: {}\n".format(gemm_time[0]))
-            for i in range(len(gemm_time[3])):
-                f.write(f"L{i}: {formatBytes(gemm_time[3][i])}\n")
-        return
-
-    tot_time, tot_param = TC.calcTime()
-    TC.printSysConfig(exp_config, output_file)
-
-    with open(output_file, "a+") as f:
-        f.write("\n\n==============================================\n")
-        f.write("Performance Results\n")
-        f.write("==============================================\n")
-        f.write("Time: {0:.8f}\n".format(tot_time))
-        f.write("Params (Billion): {0:.8f}\n".format(tot_param / 1e9))
-
-
-if __name__ == "__main__":
-    main()

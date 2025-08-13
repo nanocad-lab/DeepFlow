@@ -1,17 +1,6 @@
 # Config that models 20 V100 GPUs in a node.
 # We are ignoring NVLINK2.0 controller area for now.
 
-model_param:
-    batch_size: 2000
-    vocab_size: 800000
-    num_layers: 2
-    layer_size: 19968
-    projection: 2048
-    seq_len: 20
-    num_gates: 4
-    num_non_linear: 5
-    num_add: 8
-    data_scale: 100 
 
 sw_param:
     kernel_launch_overhead: 9e-6 #9us
@@ -124,8 +113,8 @@ area_breakdown: # No longer fractions. Absolute values in mm^2.
     reg_mem: 17.93
     DRAM: 20.212 # This is the Memory controller area of the compute chip. IMPORTANT: Used to compute no. of DRAM stacks!
     network:
-      intra_node: 81.5 # This is the intra-node I/O controller area of the compute chip.
-      inter_node: 0.0 # This is the inter-node I/O controller area of the compute chip.
+      intra_node: 0.0 # This is the intra-node I/O controller area of the compute chip.
+      inter_node: 81.5 # This is the inter-node I/O controller area of the compute chip.
 
 power_breakdown: # Absolute values in W. TDP is total power.
     TDP: 300
@@ -141,22 +130,22 @@ power_breakdown: # Absolute values in W. TDP is total power.
 
 perimeter_breakdown: # out of the compute die, what fraction of the perimeter is dedicated to IO links to each component
     DRAM: 0.5
-    intra_node: 0.5
-    inter_node: 0.0
+    intra_node: 0.0
+    inter_node: 0.5
 
 system_hierarchy:
-    num_devices_per_node: 20 # devices per package essentially
-    num_nodes: 1 # one package
+    num_devices_per_node: 1 # devices per package essentially
+    num_nodes: 20 # one package
     intra_derate: 0 # derate is just a scaling down factor for the throughput of the links
     inter_derate: 1
-    kp1_inter: False
-    kp2_inter: False
+    kp1_inter: True
+    kp2_inter: True
     dp_inter: False
     lp_inter: False
 
 network_topology:
-    intra_node: "mesh"
     inter_node: "none" #mesh, torus, crossbar, custom, hierarchical
+    intra_node: "mesh"
 
 memory_hierarchy:
     l0: #Register Memory
@@ -188,3 +177,8 @@ scheduling_param:
     kp_softmax_type: -1
     kp_embedding_type: -1
     kp_projection_type: -1
+    t: "RC" #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
+    kp1: 10
+    kp2: 2
+
+

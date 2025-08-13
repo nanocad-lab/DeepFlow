@@ -5,17 +5,7 @@
 # [GTC 2021] https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s33322/
 # die shot area estimates: https://locuza.substack.com/p/nvidias-ada-lineup-configurations
 
-model_param:
-    batch_size: 64
-    vocab_size: 40000
-    num_layers: 1
-    layer_size: 4096
-    projection: 2048
-    seq_len: 10
-    num_gates: 4
-    num_non_linear: 5
-    num_add: 8
-    data_scale: 100 
+
 
 sw_param:
     kernel_launch_overhead: 9e-6 # (s)
@@ -84,7 +74,7 @@ tech_param:
         util: 1
     SRAM-R:
         size: 27 MB # register file memory per SM * number of SMs [NVIDIA]
-        bandwidth: 122 TB # traffic for 2 reads and 1 write for GEMMs computed per clock
+        bandwidth: 122 TB # traffic for 2 reads and 1 write for 8x4x8 tensor core computed per clock
         dynamic_energy_per_bit: 110e-15
         static_power_per_bit: 9e-12
         area_per_bit: 12.78e-8 # (mm^2)
@@ -187,3 +177,6 @@ scheduling_param:
     kp_softmax_type: -1
     kp_embedding_type: -1
     kp_projection_type: -1
+    t: "RC" #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
+    kp1: 1
+    kp2: 1

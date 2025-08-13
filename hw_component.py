@@ -63,19 +63,39 @@ class Memory(Base):
         return self.getPower2TileDims()
         # return self.getArbitraryTileDims(self):
 
-    def getGPUTileDims(self, M, K, N):
-        tile_dim_candidates = set()
-        mem_size = self.size_per_bundle / self.precision
-        for exp in range(5, math.floor(math.log2(M))):
-            m = 2 ** exp
-            for n in [m // 2, m, m * 2]:
-                for k in [16, 32, 64]:
-                    working_set_size = n * k + m * k + m * n
-                    if working_set_size > mem_size:
-                        continue
-                    tile_dim = (m, n, k)
-                    tile_dim_candidates.add(tile_dim)
-        return list(tile_dim_candidates)
+    def getGEMMBasedTileDims(self, M, K, N):
+        m_dims = [ M >> i for i in range(M.bit_length()) if (M >> i) >= 1 ]
+        k_dims = [ K >> i for i in range(K.bit_length()) if (K >> i) >= 1 ]
+        n_dims = [ N >> i for i in range(N.bit_length()) if (N >> i) >= 1 ]
+
+        valid_tiles = []
+        for m in m_dims[::-1]:
+            for k in k_dims[::-1]:
+                for n in n_dims[::-1]:
+                    bytes_required = self.precision * (m * k + k * n + m * n)
+                    if bytes_required <= self.size_per_bundle:
+                        valid_tiles.append((m, k, n))
+        final_tiles = set()
+        for candidate in valid_tiles:
+            is_dominated = False
+            for tile in final_tiles:
+                m, k, n = candidate
+                if ((m, k) == tile[:2] and n < tile[2]
+                    or (k, n) == tile[1:] and m < tile[0]
+                    or (m, n) == (tile[0], tile[2]) and k < tile[1]):
+                    is_dominated = True
+                    break
+
+            if not is_dominated:
+                to_remove = {
+                    tile for tile in final_tiles
+                    if ((m, k) == tile[:2] and n > tile[2]
+                        or (k, n) == tile[1:] and m > tile[0]
+                        or (m, n) == (tile[0], tile[2]) and k > tile[1])
+                }
+                final_tiles.difference_update(to_remove)
+                final_tiles.add(candidate)
+        return final_tiles
 
     def getPower2TileDims(self):
         np.random.seed(1)

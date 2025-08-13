@@ -1,3 +1,7 @@
-#Runs peformance model in GEMM mode
+# Runs performance model in LSTM mode
+# Setup model parameter in configs/model-config/LSTM.yaml
+# Setup hardware parameter in configs/hardware-config/waferscale_20v100_80hbm.yaml
 
-python perf.py --exp_config configs/new-configs/exp_config_new_MCM.yaml --exp_dir debug --debug False --gemm True --t RC --kp1 1 --kp2 1 --m 16384 --n 16384 --k 16384 --args_input True
+
+python run_perf.py --hardware_config configs/hardware-config/waferscale_20v100_80hbm.yaml --model_config configs/model-config/LSTM.yaml --output_dir output
+                  
