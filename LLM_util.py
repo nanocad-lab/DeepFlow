@@ -91,8 +91,13 @@ def multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, ffn_dim):
     # 6. FFN layer 2
     gemms.append([batch_size , seq_len, ffn_dim, d_model])
 
-    return list(zip(levels, gemms))
 
+
+    return list(zip(levels, gemms))
+def linear_gemm(batch_size, seq_len, d_model, vocab_size):
+    # linear softmax
+    gemm = [batch_size * seq_len, d_model, vocab_size]
+    return gemm
 
 def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, ffn_dim, option="multiply_batch_into_m"):
     """

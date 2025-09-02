@@ -72,9 +72,10 @@ class Graph:
         # Cb,
         
         Tb,
-        # Re,
-        # Rc,
-        # Rs,
+        T_reduction_transformer,
+        T_reduction_embedding,
+        T_reduction_linear_softmax,
+
     ):
         self.num_seq = num_seq
         self.num_layer = num_layer
@@ -115,9 +116,9 @@ class Graph:
         # self.Cb = Cb
         # self.Sb = Sb
         self.Tb = Tb
-        # self.Re = Re
-        # self.Rc = Rc
-        # self.Rs = Rs
+        self.T_reduction_transformer = T_reduction_transformer
+        self.T_reduction_embedding = T_reduction_embedding
+        self.T_reduction_linear_softmax = T_reduction_linear_softmax
 
     def construct_fwd_graph(self):
         embedding_node = []
@@ -128,33 +129,23 @@ class Graph:
         edge_list = []
 
         op_id = 0  # operation ID, used to distinguish nodes and edges
-        # ① Create ONE embedding node 
+        # ① Create ONE embedding node
         emb = Node("embeddding", op_id, 0, self.T_embedding_f)      # hw_id = 0
         op_id += 1
         embedding_node = [emb]      # 
         linear_softmax = Node("linear_softmax", op_id, self.lp-1, self.T_linear_softmax_f); op_id += 1
-            
 
         # ② Create ONE softmax node (batch × sequence)
         # soft = Node("softmax", op_id, self.lp - 1, self.Sf)  # hw_id = lp-1
         # op_id += 1
-        softmax_node = [linear_softmax]      # 
-        # for t in range(self.num_seq):
-        #     softmax_node.append(Node("softmax", op_id, self.lp - 1, self.Sf))
-        #     op_id += 1
-
-        # for t in range(self.num_seq):
-        #   embedding_node.append(Node("embedding", t, 0,          self.Ef))
-        #   softmax_node  .append(Node("softmax",   t, self.lp-1,  self.Sf))
-
+        softmax_node = [linear_softmax]      
         for l in range(self.num_layer):
             xform_node.append([])
 
-            
             hw_id = min(l // self.layer_per_device + 1, self.lp - 1)
-            
+
             # for t in range(self.num_seq):
-                # 6 gemm nodes
+            # 6 gemm nodes
             qkv_proj  = Node("qkv_proj",  op_id, hw_id, self.T_qkv_f);  op_id += 1
             attn_score = Node("attn_score", op_id, hw_id, self.T_attn_score_f); op_id += 1
             attn_scale_softmax = Node("attn_scale_softmax", op_id, hw_id, self.T_attn_S_f); op_id += 1  # Add softmax node
@@ -162,16 +153,12 @@ class Graph:
             output_proj = Node("output_proj", op_id, hw_id, self.T_out_f); op_id += 1
             residual1 = Node("residual1", op_id, hw_id, self.T_residual1_f); op_id += 1  # Add residual node
             layer_norm1 = Node("layer_norm1", op_id, hw_id, self.T_layer_norm1_f); op_id += 1  # Add layer norm node
-            
+
             ffn1 = Node("ffn1", op_id, hw_id, self.T_ffn1_f); op_id += 1
             ffn2 = Node("ffn2", op_id, hw_id, self.T_ffn2_f); op_id += 1
             residual2 = Node("residual2", op_id, hw_id, self.T_residual2_f); op_id += 1  # Add residual node
             layer_norm2 = Node("layer_norm2", op_id, hw_id, self.T_layer_norm2_f); op_id += 1
-            
-            
-            
 
-            
             qkv_proj.add_child(attn_score)  ; edge_list.append((qkv_proj, attn_score))
             attn_score.add_child(attn_scale_softmax) ; edge_list.append((attn_score, attn_scale_softmax))
             attn_scale_softmax.add_child(attn_out) ; edge_list.append((attn_scale_softmax, attn_out))
@@ -182,9 +169,7 @@ class Graph:
             ffn1.add_child(ffn2) ; edge_list.append((ffn1, ffn2))
             ffn2.add_child(residual2) ; edge_list.append((ffn2, residual2))
             residual2.add_child(layer_norm2) ; edge_list.append((residual2, layer_norm2))
-                # layer_norm2.add_child(linear_softmax) ; edge_list.append((layer_norm2, linear_softmax))
-            
-                    
+            # layer_norm2.add_child(linear_softmax) ; edge_list.append((layer_norm2, linear_softmax))
 
             xform_node[l].append([qkv_proj, attn_score, attn_scale_softmax, attn_out, output_proj, residual1, layer_norm1, ffn1, ffn2, residual2, layer_norm2])
 
@@ -201,7 +186,6 @@ class Graph:
 
             prev_ffn2.add_child(edge); edge.add_child(curr_qkv)
 
-        # for t in range(self.num_seq):
         qkv_0_t = xform_node[0][0][0]     # first layer's qkv_proj
         if qkv_0_t.hw_id == emb.hw_id:
             edge = Edge("Emb_qkv0", op_id, -1, 0)
@@ -210,10 +194,9 @@ class Graph:
         op_id += 1
         emb.add_child(edge)
         edge.add_child(qkv_0_t)
-            
 
         # for t in range(self.num_seq):
-            
+
         prev_ffn2 = xform_node[-1][0][-1]  # last layer's ffn2
         if prev_ffn2.hw_id == softmax_node[0].hw_id:
             ffn2_Softmax = Edge("ffn2_Softmax", op_id, -1, 0)  # same GPU
@@ -224,163 +207,120 @@ class Graph:
         ffn2_Softmax.add_child(softmax_node[0])
 
         return embedding_node
-
     def construct_bwd_graph(self):
-        """
-    Build the backward DAG for a decoder-only Transformer whose forward path
-    is: qkv_proj -> attn_score -> attn out -> output proj -> ffn1 -> ffn2.
+        embedding_node = []
+        softmax_node = []
 
-    """
+        #######
+        xform_node = []  # 
+        edge_list = []
 
-        op_id = 0
-
-        # ---------- 0. Containers ----------
-        qkv_projection_b   = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        
-        attention_score_b  = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        attention_scale_softmax_b = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        attention_output_b = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        output_proj_b      = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        residual1_b        = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        layer_norm1_b      = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        ffn1_b  = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        ffn2_b  = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        residual2_b        = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        layer_norm2_b      = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        # linear_softmax_b = [[None for _ in range(self.num_seq)] for _ in range(self.num_layer)]
-        
-        # reduce_ = [None for _ in range(self.num_layer)]              # one per layer
-
-        linear_softmax_b = []     # return value
-
-        # ---------- 1. Softmax-B roots ----------
-        # for t in range(self.num_seq):
-        n = Node("linear_softmax_b", op_id, self.lp - 1, self.T_linear_softmax_b)       # last GPU
+        op_id = 0  # operation ID, used to distinguish nodes and edges
+        # ① Create ONE embedding node
+        emb = Node("embeddding", op_id, 0, self.T_embedding_b)      # hw_id = 0
         op_id += 1
-        linear_softmax_b.append(n)
+        embedding_node = [emb]      # 
+        linear_softmax = Node("linear_softmax", op_id, self.lp-1, self.T_linear_softmax_b); op_id += 1
 
-        # ---------- 2. Per-layer, per-token backward nodes ----------
-        for l in reversed(range(self.num_layer)):                    # top → bottom
-            # hw_id = l // self.layer_per_device + 1                  # same GPU as fwd
+        # ② Create ONE softmax node (batch × sequence)
+        # soft = Node("softmax", op_id, self.lp - 1, self.Sf)  # hw_id = lp-1
+        # op_id += 1
+        softmax_node = [linear_softmax]    
+        while len(xform_node) <= self.num_layer :
+            xform_node.append([])  
+        for l in reversed(range(self.num_layer)):         
+            # xform_node.append([])
+
             hw_id = min(l // self.layer_per_device + 1, self.lp - 1)
 
-            # add one All-Reduce node for this layer (sync grads)
-            # reduce_node = Node("reduce_layer{}".format(l), op_id, hw_id, self.Rc)
-            # op_id += 1
-            # reduce_[l] = reduce_node
-
             # for t in range(self.num_seq):
-                # ---------- 2-a. intra-layer forward order ----------
-                # create nodes for this layer, this token
-                # (note: these are in reverse order of forward path)
-            layer_n_2_b = Node("layer_norm2_b", op_id, hw_id, self.T_layer_norm2_b); op_id += 1
-            r2b = Node("residual2_b", op_id, hw_id, self.T_residual2_b); op_id += 1
-            f2b = Node("ffn2_b", op_id, hw_id, self.T_ffn2_b); op_id += 1
-            f1b = Node("ffn1_b", op_id, hw_id, self.T_ffn1_b); op_id += 1
-            a_out_b = Node("attn_out_b", op_id, hw_id, self.T_attn_out_b); op_id += 1
-            o_p_b  = Node("output_proj_b", op_id, hw_id, self.T_out_b); op_id += 1
-            r1b = Node("residual1_b", op_id, hw_id, self.T_residual1_b); op_id += 1
-            layer_n_1_b = Node("layer_norm1_b", op_id, hw_id, self.T_layer_norm1_b); op_id += 1
-            attn_scale_soft_b = Node("attn_scale_softmax_b", op_id, hw_id, self.T_attn_S_b); op_id += 1
-            attn_score_b  = Node("attn_score_b",  op_id, hw_id, self.T_attn_score_b); op_id += 1
-            qb  = Node("qkv_b",   op_id, hw_id, self.T_qkv_b);  op_id += 1
+            # 6 gemm nodes
+            qkv_proj  = Node("qkv_proj",  op_id, hw_id, self.T_qkv_b);  op_id += 1
+            attn_score = Node("attn_score", op_id, hw_id, self.T_attn_score_b); op_id += 1
+            attn_scale_softmax = Node("attn_scale_softmax", op_id, hw_id, self.T_attn_S_b); op_id += 1  # Add softmax node
+            attn_out  = Node("attn_out", op_id, hw_id, self.T_attn_out_b); op_id += 1
+            output_proj = Node("output_proj", op_id, hw_id, self.T_out_b); op_id += 1
+            residual1 = Node("residual1", op_id, hw_id, self.T_residual1_b); op_id += 1  # Add residual node
+            layer_norm1 = Node("layer_norm1", op_id, hw_id, self.T_layer_norm1_b); op_id += 1  # Add layer norm node
 
-            # store for later vertical edges
-            
-            ffn2_b[l][0] = f2b
-            ffn1_b[l][0] = f1b
-            attention_score_b[l][0] = attn_score_b
-            qkv_projection_b[l][0] = qb
-            attention_output_b[l][0] = a_out_b
-            output_proj_b[l][0] = o_p_b
-            residual2_b[l][0], layer_norm2_b[l][0] = r2b, layer_n_2_b
-            residual1_b[l][0], layer_norm1_b[l][0] = r1b, layer_n_1_b
-            attention_scale_softmax_b[l][0] = attn_scale_soft_b
+            ffn1 = Node("ffn1", op_id, hw_id, self.T_ffn1_b); op_id += 1
+            ffn2 = Node("ffn2", op_id, hw_id, self.T_ffn2_b); op_id += 1
+            residual2 = Node("residual2", op_id, hw_id, self.T_residual2_b); op_id += 1  # Add residual node
+            layer_norm2 = Node("layer_norm2", op_id, hw_id, self.T_layer_norm2_b); op_id += 1
 
-            # ---------- 2-a. intra-layer backward order ----------
-            layer_n_2_b.add_child(r2b)
-            r2b.add_child(f2b)
-            f2b.add_child(f1b)
-            f1b.add_child(layer_n_1_b)
-            layer_n_1_b.add_child(r1b)
-            r1b.add_child(o_p_b)
-            o_p_b.add_child(a_out_b)
-            a_out_b.add_child(attn_scale_soft_b)
-            attn_scale_soft_b.add_child(attn_score_b)
-            attn_score_b.add_child(qb)
-                
-                # attn_out_b.add_child(output_proj_b)
-                # output_proj_b.add_child(r1b)
-                # # f1b.add_child(ob)
-                # output_proj_b.add_child(attn_out_b)
-                # # aob.add_child(asb)
-                # attn_score_b.add_child(qb)
+            attn_score.add_child(qkv_proj)  ; edge_list.append((attn_score,qkv_proj ))
+            attn_scale_softmax.add_child(attn_score) ; edge_list.append((attn_scale_softmax, attn_score))
+            attn_out.add_child(attn_scale_softmax) ; edge_list.append((attn_out, attn_scale_softmax))
+            output_proj.add_child(attn_out) ; edge_list.append((output_proj, attn_out))
+            residual1.add_child(output_proj) ; edge_list.append((residual1, output_proj))
+            layer_norm1.add_child(residual1) ; edge_list.append((layer_norm1, residual1))
+            ffn1.add_child(layer_norm1) ; edge_list.append((ffn1, layer_norm1))
+            ffn2.add_child(ffn1) ; edge_list.append((ffn2, ffn1))
+            residual2.add_child(ffn2) ; edge_list.append((residual2, ffn2))
+            layer_norm2.add_child(residual2) ; edge_list.append((layer_norm2, residual2))
 
-                # send parameter grads to All-Reduce
-                # qb.add_child(reduce_node)
+            # qkv_proj.add_child(attn_score)  ; edge_list.append((qkv_proj, attn_score))
+            # attn_score.add_child(attn_scale_softmax) ; edge_list.append((attn_score, attn_scale_softmax))
+            # attn_scale_softmax.add_child(attn_out) ; edge_list.append((attn_scale_softmax, attn_out))
+            # attn_out.add_child(output_proj) ; edge_list.append((attn_out, output_proj))
+            # output_proj.add_child(residual1) ; edge_list.append((output_proj, residual1))
+            # residual1.add_child(layer_norm1) ; edge_list.append((residual1, layer_norm1))
+            # layer_norm1.add_child(ffn1) ; edge_list.append((layer_norm1, ffn1))
+            # ffn1.add_child(ffn2) ; edge_list.append((ffn1, ffn2))
+            # ffn2.add_child(residual2) ; edge_list.append((ffn2, residual2))
+            # residual2.add_child(layer_norm2) ; edge_list.append((residual2, layer_norm2))
+            # layer_norm2.add_child(linear_softmax) ; edge_list.append((layer_norm2, linear_softmax))
 
-                # ---------- 2-b. connect to Softmax_b (only for top layer) ----------
-                # if l == self.num_layer - 1:
-                #     softmax_b_roots[t].add_child(f2b)   # gradient starts here
+            xform_node[l].append([layer_norm2, residual2, ffn2, ffn1, layer_norm1, residual1, output_proj, attn_out, attn_scale_softmax, attn_score, qkv_proj     ])
 
-                # for t in range(self.num_seq):
-                #     # Add backward softmax
-                #     scale_softmax_b = Node("scale_softmax_b", op_id, hw_id, self.T_attn_S_b)
-                #     op_id += 1
-                #     attn_score_b.add_child(scale_softmax_b)
-                #     scale_softmax_b.add_child(attn_out_b)
+        for l in reversed(range(1, self.num_layer)):
+            # for t in range(self.num_seq):
+            curr_qkv = xform_node[l][0][-1]         # current layer's qkv_proj.
+            next_ffn2  = xform_node[l-1][0][0]            # next layer's layernorm.
 
-                #     # Add backward residual connection
-                #     residual_1_b = Node("residual_1_b", op_id, hw_id, self.T_residual1_b)
-                #     op_id += 1
-                #     layer_n_1_b.add_child(residual_1_b)
-                #     residual_1_b.add_child(output_proj_b)
-                #     output_proj_b.add_child(attn_out_b)
-                    
-                #     residual2_b 
-
-        # ---------- 3. vertical cross-layer edges ----------
-        for l in reversed(range(1, self.num_layer)):                # (L-1) → 1
-            prev_qkv_b = qkv_projection_b[l][0]     # any token is fine – same hw_id
-            curr_layer_n_2_b = layer_norm2_b[l-1][0]  # previous layer's layer_norm2
-            # curr_ffn2_b = ffn2_b[l-1][0]
-
-            same_gpu = prev_qkv_b.hw_id == curr_layer_n_2_b.hw_id
-            edge = Edge("cross_layer_b", op_id,
-                    -1 if same_gpu else 0,
-                    0  if same_gpu else self.Tb)
+            if curr_qkv.hw_id == next_ffn2.hw_id:
+                edge = Edge("cross_layer", op_id, -1, 0)  
+            else:
+                edge = Edge("cross_layer", op_id, -1, self.Tf)  
             op_id += 1
-            prev_qkv_b.add_child(edge)
-            edge.add_child(curr_layer_n_2_b)
 
-        # ---------- 4. Embedding backward sink ----------
-        emb_b = Node("embedding_b", op_id, 0, self.T_embedding_b); op_id += 1
-        # connect every layer-0 qkv_b(t) to embedding_b
-        # for t in range(self.num_seq):
-        if qkv_projection_b[0][0].hw_id == emb_b.hw_id:
-            edge = Edge("qkv0_emb_b", op_id, -1, 0)
-        else:
-            edge = Edge("qkv0_emb_b", op_id, -1, self.Tb)
-        op_id += 1
-        # connect qkv_b(t) to embedding_b
-        qkv_projection_b[0][0].add_child(edge)
-        edge.add_child(emb_b)
-        # for t in range(self.num_seq):
-            # connect every softmax_b(t) to embedding_b
-        if linear_softmax_b[0].hw_id == emb_b.hw_id:
-            edge = Edge("softmax_layer_n_b", op_id, -1, 0)
-        else:
-            edge = Edge("softmax_layer_n_b", op_id, -1, self.Tb)
-        op_id += 1
-        # connect softmax_b(t) to embedding_b
-        linear_softmax_b[0].add_child(edge)
-        edge.add_child(layer_n_2_b)  # connect to qkv_b(t) for embedding gradient
-        # optional: Embedding gradient All-Reduce
-        # emb_reduce = Node("reduce_emb", op_id, 0, self.Re); op_id += 1
-        # emb_b.add_child(emb_reduce)
+            curr_qkv.add_child(edge); edge.add_child(next_ffn2)
 
-        # ---------- 5. return the list of backward roots ----------
-        return linear_softmax_b
+        qkv_0_t = xform_node[0][0][-1]     # first layer's qkv_proj
+        if qkv_0_t.hw_id == emb.hw_id:
+            edge = Edge("Emb_qkv0", op_id, -1, 0)
+        else:
+            edge = Edge("Emb_qkv0", op_id, -1, self.Tf)
+        op_id += 1
+        qkv_0_t.add_child(edge)
+        edge.add_child(emb)
+
+        # for t in range(self.num_seq):
+
+        prev_layer_norm2 = xform_node[self.num_layer-1][0][0]  # last layer's layernorm2
+        if prev_layer_norm2.hw_id == softmax_node[0].hw_id:
+            layernorm_Softmax = Edge("layernorm2_Softmax", op_id, -1, 0)  # same GPU
+        else:
+            layernorm_Softmax = Edge("layernorm2_Softmax", op_id, -1, self.Tf)
+        op_id += 1
+        softmax_node[0].add_child(layernorm_Softmax)
+        layernorm_Softmax.add_child(prev_layer_norm2)
+        # all-reduce
+        R_edge = []
+
+        R_edge.append(Edge("Reduce_Embedding", 0, self.lp - 1, self.T_reduction_embedding))
+
+        for i in range(0, self.num_layer):
+            R_edge.append(Edge("Reduce_transformer", i, (0 if self.lp == 1 else int(i // self.layer_per_device) + self.lp) , self.T_reduction_transformer))
+
+        R_edge.append(Edge("Reduce_Softmax", 0, 2 * self.lp - 2, self.T_reduction_linear_softmax))
+    # Attach All-Reduce Edges
+        softmax_node[0].add_child(R_edge[self.num_layer + 1])
+        embedding_node[0].add_child(R_edge[0])
+        for i in range(0, self.num_layer):
+            xform_node[i][0][-1].add_child(R_edge[i + 1])
+
+        return softmax_node
 
     def simulate(self, root, gid):
         time = 0
@@ -501,20 +441,20 @@ class Graph:
         time_fw = self.simulate(fw_roots[0], 0)
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
-        
+
         filename = "fwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
         filename_bwd = "bwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
         dot_fw = visualize_graph(fw_roots[0], filename=filename)
         dot_fw.render(output_folder + filename, format="png", cleanup=True)
         print("Forward graph saved to %s%s.png" % (output_folder , filename))
         print("Forward simulation time: {}".format(time_fw))
-        
+
         bw_roots = self.construct_bwd_graph()
         time_bw = self.simulate(bw_roots[0], self.lp - 1)   
         dot_bw = visualize_graph(bw_roots[0], filename=filename + "_bwd")
         dot_bw.render(output_folder + filename_bwd , format="png", cleanup=True)
         print("Backward graph saved to %s%s.png" % (output_folder , filename_bwd))
-        
+
         print("Backward simulation time: {}".format(time_bw))
         return time_fw , time_bw
 
@@ -579,14 +519,13 @@ def visualize_graph(root, filename="graph", visited=None, dot=None):
 
     return dot
 
-    
-    
+
 # dedeepyo : 27-May-25
 
 def main():
     g = Graph(
         num_seq=7,
-        num_layer=1,
+        num_layer=3,
         lp=1,
         T_qkv_projection_f=1,
         T_qkv_projection_b=1,
@@ -616,23 +555,19 @@ def main():
         
         T_embedding_f=5,
         
-        # Cf=2,
+
         
         Tf=3,
         T_embedding_b=5,
-        # Cb=2,
         
         Tb=3,
-        # Re=5,
-        # Rc=10,
-        # Rs=5,
+        T_reduction_transformer=2,
+        T_reduction_embedding=2,
+        T_reduction_linear_softmax=2,
     )
 
     g.save_graph()
 
-    
-    
-    
 
 if __name__ == "__main__":
     main()

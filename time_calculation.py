@@ -69,8 +69,10 @@ class TimeCalculation:
                 derated_inter_throughput = min(
                     intra_throughput / intra_derate, inter_throughput / inter_derate
                 )
+                # print(f'intra_throughput / intra_derate: {intra_throughput / intra_derate}, inter_throughput / inter_derate: {inter_throughput / inter_derate}')
             else:
                 derated_inter_throughput = inter_throughput / inter_derate
+                # print(f'inter_throughput / inter_derate: {inter_throughput / inter_derate}')
         else:
             derated_inter_throughput = 0
 
@@ -89,7 +91,7 @@ class TimeCalculation:
             if par2cross["kp2"]
             else (derated_intra_throughput, intra_latency)
         )
-        self.IBD, self.LLD = (
+        self.IBD, self.LLD = ( #interconnect bandwidth and latency for data parallelism
             (derated_inter_throughput, inter_latency)
             if par2cross["dp"]
             else (derated_intra_throughput, intra_latency)
@@ -99,6 +101,8 @@ class TimeCalculation:
             if par2cross["lp"]
             else (derated_intra_throughput, intra_latency)
         )
+        
+
 
         # Scheduling Parameters
         par = Parallelism(hw_config)
@@ -125,7 +129,20 @@ class TimeCalculation:
         self.updateParParams(self.t, self.kp1, self.kp2)
         # # Define miniBatch size
         # self.miniB = math.ceil(self.B / self.dp)
-
+        
+        
+        #check parallelism parameters
+        if self.kp1 != None and self.kp2 != None:
+            if self.dp * self.lp * self.kp1 * self.kp2 != self.num_workers :
+                raise ValueError("Product of dp, lp, kp1 and kp2 must be equal to number of workers")
+        else:
+            if self.dp * self.lp  != self.num_workers :
+                raise ValueError("Product of dp, lp must be equal to number of workers")
+            
+        if self.dp >1 and par2cross["dp"] ==False:
+            raise ValueError("Data parallelism requires dp_inter to be True")
+        
+        
         # Statistics Param
         self.tot_flop = 0
         self.tot_mem = 0
@@ -228,8 +245,9 @@ class TimeCalculation:
         # TODO: need to change all equations to be a function of m,n and k
         # self.D              = n//4
 
-        print("kp1: {}".format(self.kp_hidden_dim1))
-        print("kp2: {}".format(self.kp_hidden_dim2))
+        # print("kp1: {}".format(self.kp_hidden_dim1))
+        # print("kp2: {}".format(self.kp_hidden_dim2))
+
         # TODO: It is a hacky way of capturing assymetry across links within V100
         # move this to network topology and distinguish between inter and intra network
         if validating_v100:
@@ -298,8 +316,8 @@ class TimeCalculation:
         # TODO: need to change all equations to be a function of m,n and k
         # self.D              = n//4
 
-        print("kp1: {}".format(self.kp_hidden_dim1))
-        print("kp2: {}".format(self.kp_hidden_dim2))
+        # print("kp1: {}".format(self.kp_hidden_dim1))
+        # print("kp2: {}".format(self.kp_hidden_dim2))
         # TODO: It is a hacky way of capturing assymetry across links within V100
         # move this to network topology and distinguish between inter and intra network
         if validating_v100:
@@ -1330,7 +1348,7 @@ class TimeCalculation:
         # If small data transfers, just broadcast
         # NOTE: Keep threshold zero to avoid if loop
         threshold = 0
-        data_tranfer = 0
+        data_transfer = 0
         data_prep = 0
 
         # FIXME: Here I assumed point-2-point links exist across all nodes
@@ -1689,7 +1707,10 @@ class TimeCalculation:
                 name=name,
             )
             apply_grad_time = self.applyGrad(Dim0=k, Dim1=n, name=name)
-
+        if self.debug:
+            print(f"reduction_time_wt_kp: {reduction_time_wt_kp}")
+            print(f"reduction_time_wt_dp: {reduction_time_wt_dp}")
+            print(f"apply_grad_time: {apply_grad_time}")
         reduction_time = reduction_time_wt_kp + reduction_time_wt_dp + apply_grad_time
         return reduction_time
 

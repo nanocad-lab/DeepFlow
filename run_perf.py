@@ -50,10 +50,12 @@ def run_LSTM(
 
 
     TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
-    
+    TC.debug = False
 
     tot_time, tot_param = TC.calcTime()
     TC.printSysConfig(exp_hw_config, exp_model_config, output_file)
+    # print(f'IBD: {TC.IBD}, LLD: {TC.LLD}')
+    # print(f'num_workers: {TC.num_workers}, num_wafer: {TC.num_wafer}')
 
     with open(output_file, "a+") as f:
         f.write("\n\n==============================================\n")
