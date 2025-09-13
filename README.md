@@ -45,6 +45,8 @@ DeepFlow can be used in 6 different modes:
 * Specify the Hardware parameters in configs/hardware-config/[config.yaml]
 * python run_perf.py --hardware_config configs/hardware-config/[config.yaml] --model_config configs/model-config/LLM.yaml --output_dir [/path/to/output/directory]
 
+LLM Mode is WIP. Not all parallelism configs are supported, and limited validation has been performed.
+
 (4) Performance Prediction Mode (using main.py standalone argument; this is somewhat equivalent of option 2, for running on slurm)
 * python main.py stand_alone --exp_dir [/path/to/output/result/directory] --exp_config configs/[config.yaml]
 
