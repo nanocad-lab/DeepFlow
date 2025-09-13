@@ -1,11 +1,8 @@
 # DeepFlow configuration for NVIDIA A100 PCIe 80 GB
 # specifications from the following sources:
-# [NVIDIA] https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf
-# [TPU] https://www.techpowerup.com/gpu-specs/a100-pcie-80-gb.c3821
-# [GTC 2021] https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s33322/
-# die shot area estimates: https://locuza.substack.com/p/nvidias-ada-lineup-configurations
-
-
+# [NVIDIA] https://resources.nvidia.com/en-us-hopper-architecture/nvidia-h100-tensor-c
+# [TPU] https://www.techpowerup.com/gpu-specs/h100-sxm5-80-gb.c3900
+# [Semi] https://semianalysis.com/2025/06/23/nvidia-tensor-core-evolution-from-volta-to-blackwell/#4th-generation-tensor-core-warpgroup-level-asynchronous-mma
 
 sw_param:
     kernel_launch_overhead: 9e-6 # (s)
@@ -13,26 +10,26 @@ sw_param:
 
 tech_param:
     core:
-        operating_frequency: 1.41e9 # (Hz) GPU boost clock frequency [NVIDIA]
-        num_bundles: 108 # number of bundles (SMs) [NVIDIA]
-        nominal_flop_rate_per_mcu: 512 # each tensor core executes 256 FP16 FMA operations per clock [NVIDIA]
+        operating_frequency: 1.98e9 # (Hz) GPU boost clock frequency [TPU]
+        num_bundles: 132 # number of bundles (SMs) [TPU]
+        nominal_flop_rate_per_mcu: 1024 # F16 FLOP / cycle / SM is 4096 [Semi]
         nominal_power_per_mcu: 0.13 # (W)
-        # nominal_area_per_mcu: 1.006 # (mm^2)
-        # nominal_frequency: 1.23e9 # (Hz)
+        nominal_area_per_mcu: 1.006 # (mm^2)
+        nominal_frequency: 1.23e9 # (Hz)
         nominal_voltage: 0.8 # (V)
         threshold_voltage: 0.2 # (V)
         margin_voltage: 0.35 # (V)
         operating_area_per_mcu: 1.006 # (mm^2) # operating area should match nominal area for scaling
-        num_mcu_per_bundle: 4 # number of tensorcores per SM [NVIDIA]
+        num_mcu_per_bundle: 4 # number of tensorcores per SM [TPU]
         FMA_d1: 8            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
         FMA_d2: 4
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
         util: 0.75 #util should be 0.75 (12/16) for tensorcore
     DRAM:
         size: 80 GB # [TPU]
-        bandwidth: 1986 GB # (/s) [TPU]
-        num_stacks: 5 # 5 stacks of HBM2e memory [TPU]
-        operating_frequency: 3.024e9 # (Hz) effective 1.512 GHz DDR memory clock [TPU] 
+        bandwidth: 3440 GB # (/s) [TPU]
+        num_stacks: 5 # 5 stacks of HBM3 memory [TPU]
+        operating_frequency: 5.252e9 # (Hz) effective 1.313 GHz DDR memory clock [TPU] 
         dynamic_energy_per_bit: 4.5e-12 # (J) [https://passlab.github.io/mchpc/mchpc2019/presentations/MCHPC_Pawlowski_keynote.pdf, slide 36]
         static_power_per_bit: 0.6e-12 # (W)
         area_per_bit: 11.54e-10 # (mm^2)
@@ -40,7 +37,7 @@ tech_param:
         area_per_stack: 86 # (mm^2) [die shot]
         latency: 100e-9 # (s)
         mem_ctrl_area: 1.1 # (mm^2) 
-        # nominal_frequency: 2.51E+09 # for 1.5 * 2 GHz memory clock
+        nominal_frequency: 2.51E+09 # for 1.5 * 2 GHz memory clock
         nominal_voltage: 1.2 
         threshold_voltage: 0.4 
         margin_voltage: 0.6
@@ -49,8 +46,8 @@ tech_param:
         num_links_per_stack: 1024
         util: 1
     SRAM-L2:
-        size: 40 MB # [TPU] is incorrect, all Amepere architectures have 40MB L2$ [NVIDIA]
-        bandwidth: 7050 GB # [GTC 2021]
+        size: 50 MB # [TPU]
+        bandwidth: 8138 GB # NCU L2 peak traffic
         dynamic_energy_per_bit: 130e-15
         static_power_per_bit: 8.4e-12
         area_per_bit: 1.45e-7 # (mm^2)
@@ -61,8 +58,8 @@ tech_param:
         overhead: 0.20 # 20% circuitry overhead in cell area
         util: 1
     SRAM-L1:
-        size: 20736 KB # max configurable shared memory per SM * number of SMs [NVIDIA]
-        bandwidth: 18 TB # [GTC 2021]
+        size: 30096 KB # max configurable shared memory per SM * number of SMs [NVIDIA]
+        bandwidth: 22392 GB # NCU L1/TEX peak traffic
         dynamic_energy_per_bit: 130e-15
         static_power_per_bit: 9e-12
         area_per_bit: 1.41e-7 # (mm^2)
@@ -73,8 +70,8 @@ tech_param:
         overhead: 0.20
         util: 1
     SRAM-R:
-        size: 27 MB # register file memory per SM * number of SMs [NVIDIA]
-        bandwidth: 122 TB # traffic for 2 reads and 1 write for 8x4x8 tensor core computed per clock
+        size: 33 MB # register file memory per SM * number of SMs [NVIDIA]
+        bandwidth: 244 TB # traffic for 2 reads and 1 write for GEMMs computed per clock
         dynamic_energy_per_bit: 110e-15
         static_power_per_bit: 9e-12
         area_per_bit: 12.78e-8 # (mm^2)
