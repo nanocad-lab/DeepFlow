@@ -68,5 +68,6 @@ case_study/perf_model/energy_per_flop/*
 lib/
 bin/
 output/
-mat_dims_llm.txt
+output_graph/
 venv/
+mat_dims_llm.txt

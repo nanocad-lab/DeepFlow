@@ -91,10 +91,15 @@ def multihead_decoder_gemm(batch_size, seq_len, d_model, num_heads, ffn_dim):
     # 6. FFN layer 2
     gemms.append([batch_size , seq_len, ffn_dim, d_model])
 
+
+
     return list(zip(levels, gemms))
+def linear_gemm(batch_size, seq_len, d_model, vocab_size):
+    # linear softmax
+    gemm = [batch_size * seq_len, d_model, vocab_size]
+    return gemm
 
-
-def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, ffn_dim, output_file="mat_dims_llm.txt",option="multiply_batch_into_m"):
+def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, ffn_dim, option="multiply_batch_into_m"):
     """
     Process GEMM shapes, reshape them, and write both 4D and 3D GEMM shapes to a file.
 
@@ -113,18 +118,16 @@ def process_gemm_shapes(batch_size, seq_len, d_model, num_heads, ffn_dim, output
     gemm_3d = [reshape_gemm_to_3d(shape, option) for _, shape in gemm_shapes_4d]
 
     # Write both 4D and 3D GEMM shapes to the same file
-    with open(output_file, "w") as f:
-        # Write 4D GEMM shapes
-        for i, (level, shape) in enumerate(gemm_shapes_4d):
-            f.write(f"Layer {i + 1} ({level}): 4D GEMM shape = {shape}\n")
-            # print(f"Layer {i + 1} ({level}): 4D GEMM shape = {shape}")  # Print to console as well
+    # with open(output_file, "w") as f:
+    #     # Write 4D GEMM shapes
+    #     for i, (level, shape) in enumerate(gemm_shapes_4d):
+    #         f.write(f"Layer {i + 1} ({level}): 4D GEMM shape = {shape}\n")
         
-        # Write 3D GEMM shapes
-        f.write("\nGEMM shapes in 3D format:\n")
-        for i, (level, shape) in enumerate(zip(gemm_shapes_4d, gemm_3d)):
-            f.write(f"Layer {i + 1} ({level}): {shape}\n")
-            # print(f"Layer {i + 1} ({level}): {shape}") 
-    return gemm_shapes_4d, gemm_3d
+    #     # Write 3D GEMM shapes
+    #     f.write("\nGEMM shapes in 3D format:\n")
+    #     for i, (level, shape) in enumerate(zip(gemm_shapes_4d, gemm_3d)):
+    #         f.write(f"Layer {i + 1} ({level}): {shape}\n")
+    return  gemm_3d
 
 def caltime(N_L, B, S, ntokens, comm_time, N_PP, directory, output_dir):
 
@@ -203,3 +206,13 @@ def caltime(N_L, B, S, ntokens, comm_time, N_PP, directory, output_dir):
     print("number of tokens:", ntokens, " | time to exhaust all tokens:", time, "(s)", " or ", time/3600.0/24.0, " days")
     print("Performance Results written to {}".format(log_file))
 
+
+if __name__ == "__main__":
+    batch_size = 32
+    seq_len = 128
+    hidden_dim = 1024
+    num_heads = 8
+    ffn_dim = 4096
+    
+    gemm_3d=process_gemm_shapes(batch_size, seq_len, hidden_dim, num_heads, ffn_dim,  option="multiply_batch_into_m")
+    print(gemm_3d) #m,k,n
