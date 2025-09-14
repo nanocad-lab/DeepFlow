@@ -49,7 +49,7 @@ tech_param:
         num_links_per_stack: 1024
         util: 1
     SRAM-L2:
-        size: 40 MB # [TPU] is incorrect, all Amspere architectures have 40MB L2$ [NVIDIA]
+        size: 40 MB # [TPU] is incorrect, all Ampere architectures have 40MB L2$ [NVIDIA]
         bandwidth: 7050 GB # [GTC 2021]
         dynamic_energy_per_bit: 130e-15
         static_power_per_bit: 8.4e-12
