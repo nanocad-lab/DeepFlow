@@ -178,7 +178,7 @@ scheduling_param:
     kp_embedding_type: -1
     kp_projection_type: -1
     t: "RC" #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
-    kp1: 10
-    kp2: 2
+    kp1: 20
+    kp2: 1
 
 
