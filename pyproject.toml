@@ -3,10 +3,17 @@ name = "deepflow"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "click==8.1.8",
-    "numpy==1.24.4",
+    "numpy==2.3.3",
+    "pandas==2.3.1",
+    "protobuf>=6.32.1",
+    "python-dateutil==2.9.0.post0",
+    "pytz==2025.2",
+    "pyyaml==6.0.2",
     "ruamel-yaml==0.17.40",
     "ruamel-yaml-clib==0.2.8",
+    "six==1.17.0",
+    "tzdata==2025.2",
 ]

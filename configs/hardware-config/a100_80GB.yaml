@@ -180,3 +180,18 @@ scheduling_param:
     t: "RC" #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
     kp1: 1
     kp2: 1
+
+# Network backend selection and AstraSim options
+network_backend:
+    model: astra   # Deepflow analytical | astra
+    astra:
+        # Only read when model=astra.
+        backend: analytical  # analytical | ns3 | garnet (only analytical supported for now)
+        mode: isolated  # isolated | snapshot
+        collectives:
+            # auto: Ring fabric -> ring; FullyConnected fabric -> direct (for AG/A2A)
+            # You can explicitly force an algorithm per op kind if desired
+            all_gather: auto       # auto | ring | direct
+            all_reduce: auto       # auto | ring | direct
+            reduce_scatter: auto   # auto | ring | direct
+            all_to_all: auto       # auto | ring | direct

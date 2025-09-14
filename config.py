@@ -446,10 +446,36 @@ FullConfig = _namedtuple(
     ],
 )
 
+NetworkBackendAstraCollectives = _namedtuple(
+    "NetworkBackendAstraCollectives",
+    [
+        "all_gather",
+        "all_reduce",
+        "reduce_scatter",
+        "all_to_all",
+    ],
+)
+
+NetworkBackendAstra = _namedtuple(
+    "NetworkBackendAstra",
+    [
+        "backend",   # analytical | ns3 | garnet
+        "mode",      # isolated | snapshot
+        "collectives",
+    ],
+)
+
+NetworkBackend = _namedtuple(
+    "NetworkBackend",
+    [
+        "model",   # analytical | astra
+        "astra",   # NetworkBackendAstra or None
+    ],
+)
+
 HWConfig = _namedtuple(
     "HWConfig",
     [
-        
         "sw_config",
         "tech_config",
         "power_breakdown",
@@ -459,6 +485,7 @@ HWConfig = _namedtuple(
         "system_config",
         "memory_hierarchy",
         "network_topology",
+        "network_backend",
     ],
 )
 
@@ -545,6 +572,27 @@ def parse_config(filename, config_type):
         network_topology_config = NetworkTopologyConfig.from_dict(
             config_dict["network_topology"]
         )
+        # network backend (optional)
+        nb_dict = config_dict.get("network_backend", {})
+        nb_model = nb_dict.get("model", "analytical")
+        astra_cfg = nb_dict.get("astra", {}) if nb_model == "astra" else None
+        if astra_cfg is not None:
+            coll = astra_cfg.get("collectives", {})
+            coll_cfg = NetworkBackendAstraCollectives(
+                all_gather=coll.get("all_gather", "auto"),
+                all_reduce=coll.get("all_reduce", "auto"),
+                reduce_scatter=coll.get("reduce_scatter", "auto"),
+                all_to_all=coll.get("all_to_all", "auto"),
+            )
+            nb_astra = NetworkBackendAstra(
+                backend=astra_cfg.get("backend", "analytical"),
+                mode=astra_cfg.get("mode", "isolated"),
+                collectives=coll_cfg,
+            )
+        else:
+            nb_astra = None
+        nb = NetworkBackend(model=nb_model, astra=nb_astra)
+
         config = HWConfig(
             sw_config=sw_config,
             tech_config=tech_config,
@@ -555,6 +603,7 @@ def parse_config(filename, config_type):
             system_config=system_config,
             memory_hierarchy=memory_hierarchy_config,
             network_topology=network_topology_config,
+            network_backend=nb,
         )
     elif config_type == "LSTM":
         model_config = ModelLSTMConfig(**config_dict["model_param"])

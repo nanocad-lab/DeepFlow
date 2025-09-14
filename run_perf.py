@@ -48,7 +48,6 @@ def run_LSTM(
         mode,
     ) 
 
-
     TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
     TC.debug = False
 

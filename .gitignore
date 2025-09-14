@@ -70,4 +70,5 @@ bin/
 output/
 output_graph/
 venv/
+astra_cache/
 mat_dims_llm.txt
