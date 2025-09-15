@@ -385,6 +385,7 @@ GEMMConfig = _namedtuple(
         "M",
         "K",
         "N",
+        "backward",
     ],
 )
 LLMConfig = _namedtuple(
@@ -609,7 +610,10 @@ def parse_config(filename, config_type):
         model_config = ModelLSTMConfig(**config_dict["model_param"])
         config = MODELConfig(model_config=model_config)
     elif config_type == "GEMM":
-        model_config = GEMMConfig(**config_dict["model_param"])
+        mp = dict(config_dict["model_param"])  # copy
+        if "backward" not in mp:
+            mp["backward"] = False
+        model_config = GEMMConfig(**mp)
         config = MODELConfig(model_config=model_config)
     elif config_type == "LLM":
         model_config = LLMConfig(**config_dict["model_param"])

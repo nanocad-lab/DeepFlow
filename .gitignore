@@ -46,6 +46,7 @@ launch_code/
 miniBatch_GD_search.py
 oldcode/
 result/
+results/
 results/Sep24/
 scripts/
 search_scripts/explore.sh
@@ -71,4 +72,5 @@ output/
 output_graph/
 venv/
 astra_cache/
+log/
 mat_dims_llm.txt

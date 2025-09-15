@@ -7,6 +7,8 @@
 
 ---
 
+
+
 ## 0) TL;DR
 
 We will integrate **AstraSim** as a **communication‑time oracle** for DeepFlow’s LLM/LSTM paths. We will do this in **three phases**:
@@ -18,6 +20,14 @@ We will integrate **AstraSim** as a **communication‑time oracle** for DeepFlow
 This achieves topology‑portable, contention‑aware communication times **without** replacing DeepFlow’s scheduler or compute model and **without** complex in‑place rollback during execution.
 
 ---
+
+## GEMM‑First Note (M1)
+
+- Focus M1 on GEMMs: When `network_backend.model = astra`, GEMM internal communication in `getR(…)` routes to AstraSim Analytical via `astrasim_integration.run_cache_astrasim` instead of the built‑in ring math.  
+- Scope: Only GEMM paths are switched; LLM/LSTM remain on DeepFlow’s analytical model until M2–M4.  
+- Config: Use existing YAML keys under `network_backend` (e.g., `model: astra`, `astra.backend: analytical`, `astra.mode: isolated`, and optional `astra.collectives`).  
+- Behavior: If AstraSim is unavailable or errors, we automatically fall back to the default calculation to preserve runability.  
+- Deliverable: No change in defaults; enabling the flag affects GEMM comms only.
 
 ## 1) What these tools are (one page each)
 

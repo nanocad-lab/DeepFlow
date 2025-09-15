@@ -35,6 +35,7 @@ class TimeCalculationLLM(TimeCalculation):
 # Mode parameter
         
         super().__init__(hw_config, model_config, mode)
+        self._reduction_total_llm = 0.0
         
 
 
@@ -303,22 +304,32 @@ class TimeCalculationLLM(TimeCalculation):
         # return data_transfer_time + embedding_mem_time
         return embedding_mem_time
     def getDataParallelReduction_LLM(self, d, ffn_dim):
+        # If no data parallelism, still apply gradients locally but no cross-device reduction
+        if not getattr(self, "dp", 1) or self.dp <= 1:
+            apply_grad_time = 0.0
+            apply_grad_time += self.applyGrad(Dim0=d, Dim1=3*d, name="qkv_proj reduction")
+            apply_grad_time += self.applyGrad(Dim0=d, Dim1=d, name="output_proj reduction")
+            apply_grad_time += 2 * self.applyGrad(Dim0=ffn_dim, Dim1=d, name="ffn reduction")
+            if self.debug:
+                print(f"(dp=1) apply_grad_time: {apply_grad_time}")
+            return apply_grad_time
+
         # k = 2 * self.D
         # n = 4 * self.D
         # dim1 = self.kp_hidden_dim1
         # dim2 = self.kp_hidden_dim2
-        w_data = 4*d*d + 2*ffn_dim*d #total parameters need to be reduced
-        reduction_time = 0
-        apply_grad_time = 0
+        w_data = 4*d*d + 2*ffn_dim*d # total parameters need to be reduced
+        reduction_time = 0.0
+        apply_grad_time = 0.0
 
         reduction_time += self.getR(Dim0=d, Dim1=3*d, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="qkv_proj reduction")
         apply_grad_time += self.applyGrad(Dim0=d, Dim1=3*d, name="qkv_proj reduction")
-        
+
         reduction_time += self.getR(Dim0=d, Dim1=d, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="output_proj reduction")
         apply_grad_time += self.applyGrad(Dim0=d, Dim1=d, name="output_proj reduction")
 
-        reduction_time += 2*self.getR(Dim0=ffn_dim, Dim1=d, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="ffn reduction")
-        apply_grad_time += 2*self.applyGrad(Dim0=ffn_dim, Dim1=d, name="ffn reduction")
+        reduction_time += 2 * self.getR(Dim0=ffn_dim, Dim1=d, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="ffn reduction")
+        apply_grad_time += 2 * self.applyGrad(Dim0=ffn_dim, Dim1=d, name="ffn reduction")
 
         if self.debug:
             print(f"reduction_time: {reduction_time}")
@@ -396,6 +407,8 @@ class TimeCalculationLLM(TimeCalculation):
         print(f"Linear Softmax Reduction Time: {R_linear_softmax * m:.1f}{second}")
         print(f"Embedding Reduction Time: {R_embedding * m:.1f}{second}")
         print(f"Data Parallel Reduction Time: {R_transformer * m:.1f}{second}")
+        # Track total reduction for reporting
+        self._reduction_total_llm = R_transformer + R_embedding + R_linear_softmax
         if self.lp == 1:
             Tf = 0
 
@@ -475,7 +488,14 @@ class TimeCalculationLLM(TimeCalculation):
     
         )
 
-        time_fw, time_bw = g.save_graph()
+        # Avoid graph rendering when running under astra_test or when disabled explicitly
+        if os.environ.get("ASTRA_TEST") or os.environ.get("DISABLE_LLM_GRAPH"):
+            fw_roots = g.construct_fwd_graph()
+            time_fw = g.simulate(fw_roots[0], 0)
+            bw_roots = g.construct_bwd_graph()
+            time_bw = g.simulate(bw_roots[0], g.lp - 1)
+        else:
+            time_fw, time_bw = g.save_graph()
         self.tot_time = time_fw + time_bw
         
         
@@ -510,3 +530,6 @@ class TimeCalculationLLM(TimeCalculation):
 
     def getTime(self):
         return self.tot_time
+
+    def getReductionTotal(self):
+        return getattr(self, "_reduction_total_llm", 0.0)

@@ -14,12 +14,13 @@ from topology import Topology
 from simulate import Graph
 import util
 from hw_component import Core, MemoryHierarchy, Network
+from astrasim_integration import run_cache_astrasim
 from model import Model_LSTM, Model_GEMM, Model_LLM 
 from tile import TiledGEMM, formatBytes
 
 algByte = False  # algorithmic ops false
 proj = False  # consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
-validating_v100 = True
+validating_v100 = False
 
 
 class TimeCalculation:
@@ -33,6 +34,7 @@ class TimeCalculation:
         self.attached = True
 
         # Hardware Parameters
+        self.hw_config = hw_config
         self.core = Core(hw_config)
         self.th = self.core.getThroughput()
         self.FMA_dims = self.core.FMA_dims  # (FMA_x, FMA_y)
@@ -139,8 +141,8 @@ class TimeCalculation:
             if self.dp * self.lp  != self.num_workers :
                 raise ValueError("Product of dp, lp must be equal to number of workers")
             
-        if self.dp >1 and par2cross["dp"] ==False:
-            raise ValueError("Data parallelism requires dp_inter to be True")
+        # Allow data parallelism to stay intra-node when dp_inter is False
+        # (previously this raised an error). We now support dp using intra links.
         
         
         # Statistics Param
@@ -1345,58 +1347,107 @@ class TimeCalculation:
             allReduce = True
         if p == 1:
             return 0
-        # If small data transfers, just broadcast
-        # NOTE: Keep threshold zero to avoid if loop
-        threshold = 0
-        data_transfer = 0
-        data_prep = 0
 
-        # FIXME: Here I assumed point-2-point links exist across all nodes
-        # Implement brodcast timing under ring topology
-        if self.precision * Dim0 * Dim1 < threshold:
-            factor = 1 / p if partial else 1
-            data_transfer = (
-                ((self.precision * Dim0 * Dim1) / ib + ll) * factor if p > 1 else 0
+        # Local constants (not configurable)
+        C_RS = 1.0  # local bytes multiplier for reduce(-scatter) work
+        C_AG = 1.0  # local bytes multiplier for gather/concat work
+        print(f"GET_R called: Dim0: {Dim0}, Dim1: {Dim1}, p: {p}, ib: {ib}, ll: {ll}, partial: {partial}, allReduce: {allReduce}, name: {name}")
+        # Optional AstraSim-backed timing for GEMM internal comms when enabled
+        try:
+            nb = getattr(self.hw_config, "network_backend", None)
+            use_astra = (
+                nb is not None
+                and getattr(nb, "model", "analytical") == "astra"
+                and getattr(nb, "astra", None) is not None
             )
-            data_prep_comp = Dim0 * Dim1 * (p - 1) * factor
-            data_prep_mem = int((3 * self.precision * Dim0 * Dim1) * (p - 1) * factor)
-            data_prep = self.roofline(data_prep_comp, data_prep_mem, name="R-prepTime")
+        except Exception:
+            use_astra = False
+
+        if use_astra:
+            # Map flags to collective kind and compute local work (no ring-step loops)
+            S_elems = int(Dim0 * Dim1)
+            S_bytes = int(self.precision * S_elems)
+            if allReduce:
+                if partial:  # RS
+                    comm_kind = "reduce_scatter"
+                    # size_bytes = math.ceil(S_bytes / int(p)) if int(p) else S_bytes
+                    size_bytes = S_bytes
+                    local_bytes = C_RS * S_bytes
+                    local_ops = ((int(p) - 1) / int(p)) * S_elems
+                else:  # AR (RS + AG)
+                    comm_kind = "all_reduce"
+                    size_bytes = S_bytes
+                    local_bytes = (C_RS + C_AG) * S_bytes
+                    local_ops = ((int(p) - 1) / int(p)) * S_elems
+            else:  # AG
+                comm_kind = "all_gather"
+                size_bytes = math.ceil(S_bytes / int(p)) if int(p) else S_bytes
+                local_bytes = C_AG * S_bytes
+                local_ops = 0
+
+            # Execute AstraSim analytical run: network time only
+            _, max_sec = run_cache_astrasim(
+                self.hw_config,
+                comm=comm_kind,
+                npus_count=int(p),
+                size_bytes=int(size_bytes),
+                astra_config_dir="./astra_cache",
+                cache_path="./astra_cache/cache.json",
+            )
+            local_time = self.roofline(local_ops, int(local_bytes), name="comm-local")
+            return float(max_sec) + local_time + self.O
         else:
-            # Assuming point-2-point link between consecutive data partitions
-            # In other words, the network topology assumed is Ring,
-            # therefore all (dp-1) transfers can happen in parallel,
-            # To assume different toplogy data_transfer formulation should change
-            # e.g. assuming bus, data_transfer formulation would change as follows:
-            # data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) *
-            #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
-            factor = 1 if partial or not allReduce else 2
-            mem_access = self.roofline(
-                0,
-                int(2 * self.precision * Dim0 * Dim1 / p),
-                name="Reduction: memory accesses before and after data transfer over network",
-            )
-            data_transfer = (
-                float("inf")
-                if (ib == 0)
-                else ((((self.precision * Dim0 * Dim1) / p) / ib) + mem_access + ll)
-                * factor
-                * (p - 1)
-            )
-            # dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
+            # If small data transfers, just broadcast
+            # NOTE: Keep threshold zero to avoid if loop
+            threshold = 0
+            data_transfer = 0
+            data_prep = 0
 
-            # First round accumlates the updates as going around the ring
-            data_prep_comp = (Dim0 * Dim1) / p
-            data_prep_mem = int(3 * self.precision * Dim0 * Dim1 / p)
-            data_prep = (
-                self.roofline(data_prep_comp, data_prep_mem, name="R-prepTime") + self.O
-            ) * (p - 1)
+            # FIXME: Here I assumed point-2-point links exist across all nodes
+            # Implement brodcast timing under ring topology
+            if self.precision * Dim0 * Dim1 < threshold:
+                factor = 1 / p if partial else 1
+                data_transfer = (
+                    ((self.precision * Dim0 * Dim1) / ib + ll) * factor if p > 1 else 0
+                )
+                data_prep_comp = Dim0 * Dim1 * (p - 1) * factor
+                data_prep_mem = int((3 * self.precision * Dim0 * Dim1) * (p - 1) * factor)
+                data_prep = self.roofline(data_prep_comp, data_prep_mem, name="R-prepTime")
+            else:
+                # Assuming point-2-point link between consecutive data partitions
+                # In other words, the network topology assumed is Ring,
+                # therefore all (dp-1) transfers can happen in parallel,
+                # To assume different toplogy data_transfer formulation should change
+                # e.g. assuming bus, data_transfer formulation would change as follows:
+                # data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) *
+                #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
+                factor = 1 if partial or not allReduce else 2
+                mem_access = self.roofline(
+                    0,
+                    int(2 * self.precision * Dim0 * Dim1 / p),
+                    name="Reduction: memory accesses before and after data transfer over network",
+                )
+                data_transfer = (
+                    float("inf")
+                    if (ib == 0)
+                    else ((((self.precision * Dim0 * Dim1) / p) / ib) + mem_access + ll)
+                    * factor
+                    * (p - 1)
+                )
+                # dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
+                # First round accumlates the updates as going around the ring
+                data_prep_comp = (Dim0 * Dim1) / p
+                data_prep_mem = int(3 * self.precision * Dim0 * Dim1 / p)
+                data_prep = (
+                    self.roofline(data_prep_comp, data_prep_mem, name="R-prepTime") + self.O
+                ) * (p - 1)
 
-            # all-gather-concat
+                # all-gather-concat
 
-            data_concat_mem = 3 * Dim0 * Dim1 * self.precision
-            concat_time = (
-                self.roofline(0, data_concat_mem, name="all-gather-concat") + self.O
-            )
+                data_concat_mem = 3 * Dim0 * Dim1 * self.precision
+                concat_time = (
+                    self.roofline(0, data_concat_mem, name="all-gather-concat") + self.O
+                )
 
             # print("R1: {}, factor: {}\n".format(dt,factor))
         if self.debug:
@@ -1504,6 +1555,11 @@ class TimeCalculation:
 
         return grad_time
 
+
+    # TODO(getDistGEMM_f_kp1):
+    # - Confirm the intended collective is REDUCE-SCATTER (partial=True, allReduce=True).
+    #   * Use RS if downstream consumers expect a sharded C[m, n] along kp1.
+    #   * If the next op needs full C immediately, switch to ALL-REDUCE (partial=False, allReduce=True).
     def getDistGEMM_f_kp1(self, m, k, n, dim1, name):
         GEMM_time = self.getGEMMTime(m, k // dim1, n, name)
 
@@ -1571,6 +1627,14 @@ class TimeCalculation:
         else:
             return GEMM_time[0], reduction_time
 
+
+    # TODO(getDistGEMM_b_kp2):
+    # - Collectives used here should all be ALL-GATHERs (partial=False, allReduce=False):
+    #   * wt1: gather row(A^T) across dim1
+    #   * wt2: gather column grad(A') across dim1
+    #   * act1: gather row grad(A') across dim2
+    #   * act2: gather column(w^T) across dim2
+    # - Remove heuristic "/2" scaling on wt1 and act2. !!!!
     def getDistGEMM_b_kp2(self, m, k, n, dim1, dim2, name):
         ######################################################################################
         # calculate grad wrt. weights (A^T. grad(A'))
