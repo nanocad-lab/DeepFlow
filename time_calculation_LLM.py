@@ -322,13 +322,40 @@ class TimeCalculationLLM(TimeCalculation):
         reduction_time = 0.0
         apply_grad_time = 0.0
 
-        reduction_time += self.getR(Dim0=d, Dim1=3*d, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="qkv_proj reduction")
+        total_bytes = math.ceil(self.precision * d * 3 * d)
+        reduction_time += self.network_model.collective(
+            kind="all_reduce",
+            size_bytes=total_bytes,
+            participants=int(self.dp),
+            ib=self.IBD,
+            ll=self.LLD,
+            local_bytes=0.0,
+            debug_label="qkv_proj reduction",
+        )
         apply_grad_time += self.applyGrad(Dim0=d, Dim1=3*d, name="qkv_proj reduction")
 
-        reduction_time += self.getR(Dim0=d, Dim1=d, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="output_proj reduction")
+        total_bytes = math.ceil(self.precision * d * d)
+        reduction_time += self.network_model.collective(
+            kind="all_reduce",
+            size_bytes=total_bytes,
+            participants=int(self.dp),
+            ib=self.IBD,
+            ll=self.LLD,
+            local_bytes=0.0,
+            debug_label="output_proj reduction",
+        )
         apply_grad_time += self.applyGrad(Dim0=d, Dim1=d, name="output_proj reduction")
 
-        reduction_time += 2 * self.getR(Dim0=ffn_dim, Dim1=d, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="ffn reduction")
+        total_bytes = math.ceil(self.precision * ffn_dim * d)
+        reduction_time += 2 * self.network_model.collective(
+            kind="all_reduce",
+            size_bytes=total_bytes,
+            participants=int(self.dp),
+            ib=self.IBD,
+            ll=self.LLD,
+            local_bytes=0.0,
+            debug_label="ffn reduction",
+        )
         apply_grad_time += 2 * self.applyGrad(Dim0=ffn_dim, Dim1=d, name="ffn reduction")
 
         if self.debug:
@@ -400,10 +427,37 @@ class TimeCalculationLLM(TimeCalculation):
             ffn_dim = ffn_dim
 
         )
-        R_embedding = self.getR(Dim0=vocab_size, Dim1=hidden_dim, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="embedding reduction")
-        R_embedding += self.getR(Dim0=seq_len, Dim1=hidden_dim, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="positional encoding reduction")
+        total_bytes = math.ceil(self.precision * vocab_size * hidden_dim)
+        R_embedding = self.network_model.collective(
+            kind="all_reduce",
+            size_bytes=total_bytes,
+            participants=int(self.dp),
+            ib=self.IBD,
+            ll=self.LLD,
+            local_bytes=0.0,
+            debug_label="embedding reduction",
+        )
+        total_bytes = math.ceil(self.precision * seq_len * hidden_dim)
+        R_embedding += self.network_model.collective(
+            kind="all_reduce",
+            size_bytes=total_bytes,
+            participants=int(self.dp),
+            ib=self.IBD,
+            ll=self.LLD,
+            local_bytes=0.0,
+            debug_label="positional encoding reduction",
+        )
 
-        R_linear_softmax = self.getR(Dim0=hidden_dim, Dim1=vocab_size, p=self.dp, ib=self.IBD, ll=self.LLD, partial=False, allReduce=True, name="softmax reduction")
+        total_bytes = math.ceil(self.precision * hidden_dim * vocab_size)
+        R_linear_softmax = self.network_model.collective(
+            kind="all_reduce",
+            size_bytes=total_bytes,
+            participants=int(self.dp),
+            ib=self.IBD,
+            ll=self.LLD,
+            local_bytes=0.0,
+            debug_label="softmax reduction",
+        )
         print(f"Linear Softmax Reduction Time: {R_linear_softmax * m:.1f}{second}")
         print(f"Embedding Reduction Time: {R_embedding * m:.1f}{second}")
         print(f"Data Parallel Reduction Time: {R_transformer * m:.1f}{second}")

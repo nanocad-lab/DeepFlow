@@ -1,5 +1,6 @@
 #!/tools/lm-venv/py3.6-tf-1.3.0-svail/bin/python
 import argparse
+import math
 import os
 import sys
 import config
@@ -92,29 +93,31 @@ def run_GEMM(
         forward_tuple = TC.getDistGEMM_f_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cf_CR")
         forward_time = forward_tuple[0]
         # Reduction for CR forward: RS over kp1 rows
-        forward_red = TC.getR(
-            Dim0=TC.M,
-            Dim1=TC.N,
-            p=TC.kp1,
+        total_bytes = math.ceil(TC.precision * TC.M * TC.N)
+        forward_red = TC.network_model.collective(
+            kind="reduce_scatter",
+            size_bytes=total_bytes,
+            participants=int(TC.kp1),
             ib=TC.IBK1,
             ll=TC.LLK1,
-            partial=True,
-            allReduce=True,
-            name="Cf_CR",
+            local_bytes=0.0,
+            debug_label="Cf_CR",
         )
     elif TC.t == "RC":
         forward_tuple = TC.getDistGEMM_f_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cf_RC")
         forward_time = forward_tuple[0]
         # Reduction for RC forward: AG over kp2 columns
-        forward_red = TC.getR(
-            Dim0=TC.M // TC.kp1 if TC.kp1 else TC.M,
-            Dim1=TC.N,
-            p=TC.kp2,
+        dim0 = TC.M // TC.kp1 if TC.kp1 else TC.M
+        total_bytes = math.ceil(TC.precision * dim0 * TC.N)
+        size_bytes = math.ceil(total_bytes / TC.kp2)
+        forward_red = TC.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(TC.kp2),
             ib=TC.IBK2,
             ll=TC.LLK2,
-            partial=False,
-            allReduce=False,
-            name="Cf_RC",
+            local_bytes=3 * total_bytes,
+            debug_label="Cf_RC",
         )
     else:
         print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")

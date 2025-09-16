@@ -23,6 +23,175 @@ proj = False  # consider projection layer, turn off for end-2-end validation, as
 validating_v100 = False
 
 
+class NetworkModel:
+    def __init__(self, hw_config, precision, kernel_overhead, roofline_cb):
+        self.hw_config = hw_config
+        self.precision = precision
+        self.O = kernel_overhead
+        self._roofline = roofline_cb
+        nb = getattr(hw_config, "network_backend", None)
+        self._use_astra = (
+            nb is not None
+            and getattr(nb, "model", "analytical") == "astra"
+            and getattr(nb, "astra", None) is not None
+        )
+
+    def _astra_collective(self, kind: str, participants: int, size_bytes: int) -> float:
+        part = int(participants)
+        if part <= 1 or size_bytes <= 0:
+            return 0.0
+        byte_count = int(math.ceil(size_bytes))
+        _, max_sec = run_cache_astrasim(
+            self.hw_config,
+            comm=kind,
+            npus_count=part,
+            size_bytes=byte_count,
+            astra_config_dir="./astra_cache",
+            cache_path="./astra_cache/cache.json",
+        )
+        return float(max_sec)
+
+    def collective(
+        self,
+        *,
+        kind: str,
+        size_bytes: float,
+        participants: int,
+        ib: float,
+        ll: float,
+        local_bytes: float = 0.0,
+        local_ops: float = 0.0,
+        debug_label: str = "",
+    ) -> float:
+        if size_bytes <= 0:
+            return 0.0
+
+        # Handle pipeline transfers (point-to-point, no participants needed)
+        if kind == "pipeline":
+            return self._analytical_pipeline(size_bytes, ib, ll, debug_label)
+
+        if participants is None:
+            return 0.0
+
+        part = int(participants)
+        if part <= 1:
+            return 0.0
+
+        astra_ok = kind in {"all_reduce", "reduce_scatter", "all_gather", "all_to_all"}
+
+        network_bytes = float(math.ceil(size_bytes))
+        local_bytes_int = int(math.ceil(local_bytes)) if local_bytes else 0
+
+        if self._use_astra and astra_ok:
+            network_time = self._astra_collective(kind, part, network_bytes)
+        else:
+            network_time = self._analytical_collective(
+                kind=kind,
+                size_bytes=network_bytes,
+                participants=part,
+                ib=ib,
+                ll=ll,
+                debug_label=debug_label,
+            )
+
+        local_time = 0.0
+        if local_ops or local_bytes:
+            local_time = self._roofline(
+                local_ops,
+                local_bytes_int,
+                name=f"{debug_label}-local",
+            )
+
+        overhead_kinds = {"all_reduce", "reduce_scatter", "all_gather"}
+        overhead = self.O if (network_bytes and kind in overhead_kinds) else 0.0
+
+        return network_time + local_time + overhead
+
+
+    def _analytical_collective(
+        self,
+        *,
+        kind: str,
+        size_bytes: float,
+        participants: int,
+        ib: float,
+        ll: float,
+        debug_label: str,
+    ) -> float:
+        if kind == "all_reduce":
+            return self._analytical_all_reduce(size_bytes, participants, ib, ll, debug_label)
+        if kind == "reduce_scatter":
+            return self._analytical_reduce_scatter(size_bytes, participants, ib, ll, debug_label)
+        if kind == "all_gather":
+            return self._analytical_all_gather(size_bytes, participants, ib, ll, debug_label)
+        if kind == "all_to_all":
+            return self._analytical_all_to_all(size_bytes, participants, ib, ll, debug_label)
+        if kind == "pipeline":
+            return self._analytical_pipeline(size_bytes, ib, ll, debug_label)
+        return self._analytical_point(size_bytes, ib, ll)
+
+    def _analytical_all_reduce(self, size_bytes, participants, ib, ll, label):
+        if ib == 0:
+            return float("inf")
+        per_rank = size_bytes / participants
+        mem_access = self._roofline(
+            0,
+            int(math.ceil(2 * size_bytes / participants)),
+            name=f"{label}-mem",
+        )
+        data_transfer = ((per_rank / ib) + mem_access + ll) * 2 * (participants - 1)
+        prep_comp = per_rank
+        prep_mem = int(math.ceil(3 * size_bytes / participants))
+        data_prep = (
+            self._roofline(prep_comp, prep_mem, name=f"{label}-prep") + self.O
+        ) * (participants - 1)
+        return data_transfer + data_prep
+
+    def _analytical_reduce_scatter(self, size_bytes, participants, ib, ll, label):
+        if ib == 0:
+            return float("inf")
+        per_rank = size_bytes / participants
+        mem_access = self._roofline(
+            0,
+            int(math.ceil(2 * size_bytes / participants)),
+            name=f"{label}-mem",
+        )
+        data_transfer = ((per_rank / ib) + mem_access + ll) * (participants - 1)
+        prep_comp = per_rank
+        prep_mem = int(math.ceil(3 * size_bytes / participants))
+        data_prep = (
+            self._roofline(prep_comp, prep_mem, name=f"{label}-prep") + self.O
+        ) * (participants - 1)
+        return data_transfer + data_prep
+
+    def _analytical_all_gather(self, size_bytes, participants, ib, ll, label):
+        if ib == 0:
+            return float("inf")
+        mem_access = self._roofline(
+            0,
+            int(math.ceil(2 * size_bytes / participants)),
+            name=f"{label}-mem",
+        )
+        data_transfer = ((size_bytes / ib) + mem_access + ll) * (participants - 1)
+        return data_transfer
+
+    def _analytical_all_to_all(self, size_bytes, participants, ib, ll, label):
+        if ib == 0:
+            return float("inf")
+        return ((size_bytes / participants) / ib + ll) * (participants - 1)
+
+    def _analytical_point(self, size_bytes, ib, ll):
+        if ib == 0:
+            return float("inf")
+        return size_bytes / ib + ll
+
+    def _analytical_pipeline(self, size_bytes, ib, ll, label):
+        if size_bytes <= 0:
+            return 0.0
+        mem_time = self._roofline(0, int(2 * size_bytes), name=f"{label}-pipeline")
+        network_time = (float("inf") if ib == 0 else size_bytes / ib) + ll
+        return network_time + mem_time
+
 class TimeCalculation:
     def __init__(self, hw_config, model_config, mode):
 # Mode parameter
@@ -153,6 +322,7 @@ class TimeCalculation:
         self.validating_GEMM = False
         
         self.mode = mode
+        self.network_model = NetworkModel(hw_config, self.precision, self.O, self.roofline)
         
         # Dynamically select and instantiate the model class
         model_class = self.get_model_class(mode)
@@ -1011,17 +1181,15 @@ class TimeCalculation:
         data_size = (
             4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
         )
-        # 4 refers to the number of pointwise ops (mul + add + mul + tanh) on the
-        # critical path whose inputs are located across different GPUs
-        # NOTE:Assuming all communications can happpen in parallel
-        mem_transfer = self.roofline(
-            0,
-            2 * data_size,
-            name="Cf_kp1: memory accesses before and after data transfer over network",
+        point_comm = self.network_model.collective(
+            kind="point",
+            size_bytes=data_size,
+            participants=self.kp_hidden_dim1,
+            ib=self.IBK1,
+            ll=0.0,
+            local_bytes=2 * data_size,
+            debug_label="Cf_kp1",
         )
-        # 2:  one read from the source and one write to the destination memory
-        data_transfer = data_size / self.IBK1
-        point_comm = mem_transfer + data_transfer
 
         point_time = (
             self.roofline(point_flop, point_mem, name="pointwise_cf_kp1")
@@ -1074,13 +1242,15 @@ class TimeCalculation:
         data_size = (
             4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
         )
-        mem_transfer = self.roofline(
-            0,
-            2 * data_size,
-            name="Cb_kp1: memory accesses before and after data transfer over network",
+        point_comm = self.network_model.collective(
+            kind="point",
+            size_bytes=data_size,
+            participants=self.kp_hidden_dim1,
+            ib=self.IBK1,
+            ll=0.0,
+            local_bytes=2 * data_size,
+            debug_label="Cb_kp1",
         )
-        data_transfer = data_size / self.IBK1
-        point_comm = mem_transfer + data_transfer
         # 3 refers to the number of pointwise ops (mul + tanh + mul) on
         # critical path whose inputs are located across different GPUs
         # NOTE:Assuming all communications can happpen in parallel
@@ -1156,13 +1326,15 @@ class TimeCalculation:
 
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
-            mem_transfer = self.roofline(
-                0,
-                2 * data_size,
-                name="Cf_kp2: memory accesses before and after data transfer over network",
+            point_comm = self.network_model.collective(
+                kind="point",
+                size_bytes=data_size,
+                participants=self.kp_hidden_dim2,
+                ib=self.IBK2,
+                ll=0.0,
+                local_bytes=2 * data_size,
+                debug_label="Cf_kp2",
             )
-            data_transfer = data_size / self.IBK2
-            point_comm = mem_transfer + data_transfer
 
         point_time = (
             self.roofline(point_flop, point_mem, name="pointwise_Cf_kp2")
@@ -1206,13 +1378,15 @@ class TimeCalculation:
 
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
-            mem_transfer = self.roofline(
-                0,
-                2 * data_size,
-                name="Cb_kp2:memory accesses before and after data transfer over network",
+            point_comm = self.network_model.collective(
+                kind="point",
+                size_bytes=data_size,
+                participants=self.kp_hidden_dim2,
+                ib=self.IBK2,
+                ll=0.0,
+                local_bytes=2 * data_size,
+                debug_label="Cb_kp2",
             )
-            data_transfer = data_size / self.IBK2
-            point_comm = mem_transfer + data_transfer
 
         point_time = (
             self.roofline(point_flop, point_mem, name="pointwise_Cb_kp2")
@@ -1303,176 +1477,6 @@ class TimeCalculation:
         return GEMM_time + point_time
 
     # Reduction and all-gather time estimation
-    def getR(
-        self,
-        Dim0=None,
-        Dim1=None,
-        p=None,
-        ib=None,
-        ll=None,
-        partial=None,
-        allReduce=None,
-        name=None,
-    ):
-        """Get partail or full reduction or allGather latency"""
-        """Partial reduction means each gpu is only collecting a shard of 
-        reduced data"""
-        """allReduce= False measures allGather latency otherwise allReduce"""
-        """Partial: True, All-reduce:True, half All-reduce"""
-        """Partial: True, All-reduce:False, All-gather"""
-        """Partial: False, All-reduce:True, All-reduce"""
-        """Partial: False, All-reduce:False, All-gather"""
-        if Dim0 == None:
-            # for data parallel reduction,
-            Dim0 = (
-                (2 * self.D // self.kp_hidden_dim)
-                if (self.kp_hidden_type == 1)
-                else (
-                    2 * self.D // self.kp_hidden_dim2
-                    if (self.kp_hidden_type == 2)
-                    else (2 * self.D)
-                )
-            )
-        if Dim1 == None:
-            Dim1 = self.G * self.D
-        if p == None:
-            p = self.dp
-        if ib == None:
-            ib = self.IBD
-        if ll == None:
-            ll = self.LLD
-        if partial == None:
-            partial = False
-        if allReduce == None:
-            allReduce = True
-        if p == 1:
-            return 0
-
-        # Local constants (not configurable)
-        C_RS = 1.0  # local bytes multiplier for reduce(-scatter) work
-        C_AG = 1.0  # local bytes multiplier for gather/concat work
-        print(f"GET_R called: Dim0: {Dim0}, Dim1: {Dim1}, p: {p}, ib: {ib}, ll: {ll}, partial: {partial}, allReduce: {allReduce}, name: {name}")
-        # Optional AstraSim-backed timing for GEMM internal comms when enabled
-        try:
-            nb = getattr(self.hw_config, "network_backend", None)
-            use_astra = (
-                nb is not None
-                and getattr(nb, "model", "analytical") == "astra"
-                and getattr(nb, "astra", None) is not None
-            )
-        except Exception:
-            use_astra = False
-
-        if use_astra:
-            # Map flags to collective kind and compute local work (no ring-step loops)
-            S_elems = int(Dim0 * Dim1)
-            S_bytes = int(self.precision * S_elems)
-            if allReduce:
-                if partial:  # RS
-                    comm_kind = "reduce_scatter"
-                    # size_bytes = math.ceil(S_bytes / int(p)) if int(p) else S_bytes
-                    size_bytes = S_bytes
-                    local_bytes = C_RS * S_bytes
-                    local_ops = ((int(p) - 1) / int(p)) * S_elems
-                else:  # AR (RS + AG)
-                    comm_kind = "all_reduce"
-                    size_bytes = S_bytes
-                    local_bytes = (C_RS + C_AG) * S_bytes
-                    local_ops = ((int(p) - 1) / int(p)) * S_elems
-            else:  # AG
-                comm_kind = "all_gather"
-                size_bytes = math.ceil(S_bytes / int(p)) if int(p) else S_bytes
-                local_bytes = C_AG * S_bytes
-                local_ops = 0
-
-            # Execute AstraSim analytical run: network time only
-            _, max_sec = run_cache_astrasim(
-                self.hw_config,
-                comm=comm_kind,
-                npus_count=int(p),
-                size_bytes=int(size_bytes),
-                astra_config_dir="./astra_cache",
-                cache_path="./astra_cache/cache.json",
-            )
-            local_time = self.roofline(local_ops, int(local_bytes), name="comm-local")
-            return float(max_sec) + local_time + self.O
-        else:
-            # If small data transfers, just broadcast
-            # NOTE: Keep threshold zero to avoid if loop
-            threshold = 0
-            data_transfer = 0
-            data_prep = 0
-
-            # FIXME: Here I assumed point-2-point links exist across all nodes
-            # Implement brodcast timing under ring topology
-            if self.precision * Dim0 * Dim1 < threshold:
-                factor = 1 / p if partial else 1
-                data_transfer = (
-                    ((self.precision * Dim0 * Dim1) / ib + ll) * factor if p > 1 else 0
-                )
-                data_prep_comp = Dim0 * Dim1 * (p - 1) * factor
-                data_prep_mem = int((3 * self.precision * Dim0 * Dim1) * (p - 1) * factor)
-                data_prep = self.roofline(data_prep_comp, data_prep_mem, name="R-prepTime")
-            else:
-                # Assuming point-2-point link between consecutive data partitions
-                # In other words, the network topology assumed is Ring,
-                # therefore all (dp-1) transfers can happen in parallel,
-                # To assume different toplogy data_transfer formulation should change
-                # e.g. assuming bus, data_transfer formulation would change as follows:
-                # data_transfer  = ((self.precision * self.D * self.D) * (self.dp /self.dp)) *
-                #                 (self.G * 2) * (2 * (self.dp - 1))) / self.IBD
-                factor = 1 if partial or not allReduce else 2
-                mem_access = self.roofline(
-                    0,
-                    int(2 * self.precision * Dim0 * Dim1 / p),
-                    name="Reduction: memory accesses before and after data transfer over network",
-                )
-                data_transfer = (
-                    float("inf")
-                    if (ib == 0)
-                    else ((((self.precision * Dim0 * Dim1) / p) / ib) + mem_access + ll)
-                    * factor
-                    * (p - 1)
-                )
-                # dt = ((self.precision * Dim0 * Dim1) / p) * factor * (p - 1)
-                # First round accumlates the updates as going around the ring
-                data_prep_comp = (Dim0 * Dim1) / p
-                data_prep_mem = int(3 * self.precision * Dim0 * Dim1 / p)
-                data_prep = (
-                    self.roofline(data_prep_comp, data_prep_mem, name="R-prepTime") + self.O
-                ) * (p - 1)
-
-                # all-gather-concat
-
-                data_concat_mem = 3 * Dim0 * Dim1 * self.precision
-                concat_time = (
-                    self.roofline(0, data_concat_mem, name="all-gather-concat") + self.O
-                )
-
-            # print("R1: {}, factor: {}\n".format(dt,factor))
-        if self.debug:
-            print("Bandwidth: {:,} GB/s".format(ib / (1024 * 1024 * 1024)))
-            print(
-                "data_transfer_time: {:,}, data_prep_time: {:,}, concat_time: {:,}".format(
-                    data_transfer,
-                    (data_prep if allReduce else 0),
-                    (concat_time if not allReduce else 0),
-                )
-            )
-            print(
-                "(data_prep) allReduce_flop: {:,}, allReduce_mem: {:,}".format(
-                    int(data_prep_comp), int(data_prep_mem)
-                )
-            )
-            print(
-                "(data_transfer) {:,}".format(int(self.precision * Dim0 * Dim1 / (p)))
-            )
-
-        return (
-            data_transfer
-            + (data_prep if allReduce else 0)
-            + (concat_time if not allReduce else 0)
-        )
 
     def gradClipping(self, Dim0=None, Dim1=None, name=None):
         if Dim0 == None:
@@ -1564,15 +1568,15 @@ class TimeCalculation:
         GEMM_time = self.getGEMMTime(m, k // dim1, n, name)
 
         # Sum-Reduce within each row for use in the next time step
-        reduction_time = self.getR(
-            Dim0=m,
-            Dim1=n,
-            p=dim1,
+        total_bytes = math.ceil(self.precision * m * n)
+        reduction_time = self.network_model.collective(
+            kind="reduce_scatter",
+            size_bytes=total_bytes,
+            participants=int(dim1),
             ib=self.IBK1,
             ll=self.LLK1,
-            partial=True,
-            allReduce=True,
-            name=name,
+            local_bytes=0.0,
+            debug_label=name or "comm",
         )
         if self.validating_GEMM:
             print(
@@ -1586,15 +1590,16 @@ class TimeCalculation:
         # calculate grad wrt. act (A'. W^T)
         # gather whole(A') before MM
         # A' is distibuted as columns across different nodes
-        reduction_time = self.getR(
-            Dim0=m,
-            Dim1=n,
-            p=dim1,
+        total_bytes = math.ceil(self.precision * m * n)
+        size_bytes = math.ceil(total_bytes / dim1)
+        reduction_time = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(dim1),
             ib=self.IBK1,
             ll=self.LLK1,
-            partial=False,
-            allReduce=False,
-            name=name,
+            local_bytes=3 * total_bytes,
+            debug_label=name or "comm",
         )
 
         # Multiply full grad_activation with shards of weights
@@ -1609,15 +1614,16 @@ class TimeCalculation:
     # all-reduce across M // kp1 GPUs
     def getDistGEMM_f_kp2(self, m, k, n, dim1, dim2, name):
         GEMM_time = self.getGEMMTime(m // dim1, k, n // dim2, name)
-        reduction_time = self.getR(
-            Dim0=m // dim1,
-            Dim1=n,
-            p=dim2,
+        total_bytes = math.ceil(self.precision * (m // dim1) * n)
+        size_bytes = math.ceil(total_bytes / dim2)
+        reduction_time = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(dim2),
             ib=self.IBK2,
             ll=self.LLK2,
-            partial=False,
-            allReduce=False,
-            name=name,
+            local_bytes=3 * total_bytes,
+            debug_label=name or "comm",
         )
         if self.validating_GEMM:
             print(
@@ -1639,60 +1645,58 @@ class TimeCalculation:
         ######################################################################################
         # calculate grad wrt. weights (A^T. grad(A'))
         # gather row(A^T)
-        reduction_time_wt1 = (
-            self.getR(
-                Dim0=k,
-                Dim1=m,
-                p=dim1,
-                ib=self.IBK1,
-                ll=self.LLK1,
-                partial=False,
-                allReduce=False,
-                name=name,
-            )
-            / 2
-        )
-        # To calculate grad wrt weights (A^T, grad(A')),
-        # gather column grad(A')
-        reduction_time_wt2 = self.getR(
-            Dim0=m,
-            Dim1=n / dim2,
-            p=dim1,
+        total_bytes = math.ceil(self.precision * k * m)
+        size_bytes = math.ceil(total_bytes / dim1)
+        reduction_time_wt1 = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(dim1),
             ib=self.IBK1,
             ll=self.LLK1,
-            partial=False,
-            allReduce=False,
-            name=name,
+            local_bytes=3 * total_bytes,
+            debug_label=name or "comm",
+        ) / 2
+        # To calculate grad wrt weights (A^T, grad(A')),
+        # gather column grad(A')
+        total_bytes = math.ceil(self.precision * m * (n / dim2))
+        size_bytes = math.ceil(total_bytes / dim1)
+        reduction_time_wt2 = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(dim1),
+            ib=self.IBK1,
+            ll=self.LLK1,
+            local_bytes=3 * total_bytes,
+            debug_label=name or "comm",
         )
 
         ########################################################################################
         # calculate grad wrt. act (grad(A'). w^T)
         # gather row grad(A')
-        reduction_time_act1 = self.getR(
-            Dim0=m / dim1,
-            Dim1=n,
-            p=dim2,
+        total_bytes = math.ceil(self.precision * (m / dim1) * n)
+        size_bytes = math.ceil(total_bytes / dim2)
+        reduction_time_act1 = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(dim2),
             ib=self.IBK2,
             ll=self.LLK2,
-            partial=False,
-            allReduce=False,
-            name=name,
+            local_bytes=3 * total_bytes,
+            debug_label=name or "comm",
         )
         # calculate grad wrt. act (grad(A'). w^T)
         # gather col(w^T)
-        reduction_time_act2 = (
-            self.getR(
-                Dim0=k,
-                Dim1=n,
-                p=dim2,
-                ib=self.IBK2,
-                ll=self.LLK2,
-                partial=False,
-                allReduce=False,
-                name=name,
-            )
-            / 2
-        )
+        total_bytes = math.ceil(self.precision * k * n)
+        size_bytes = math.ceil(total_bytes / dim2)
+        reduction_time_act2 = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(dim2),
+            ib=self.IBK2,
+            ll=self.LLK2,
+            local_bytes=3 * total_bytes,
+            debug_label=name or "comm",
+        ) / 2
 
         reduction_time = (
             reduction_time_wt1
@@ -1722,53 +1726,54 @@ class TimeCalculation:
 
         if self.kp_hidden_type == 1:  # CR
             reduction_time_wt_kp = 0
-            reduction_time_wt_dp = self.getR(
-                Dim0=k / dim1,
-                Dim1=n,
-                p=self.dp,
+            total_bytes = math.ceil(self.precision * (k / dim1) * n)
+            reduction_time_wt_dp = self.network_model.collective(
+                kind="all_reduce",
+                size_bytes=total_bytes,
+                participants=int(self.dp),
                 ib=self.IBD,
                 ll=self.LLD,
-                partial=False,
-                allReduce=True,
-                name=name,
+                local_bytes=0.0,
+                debug_label=name or "comm",
             )
             apply_grad_time = self.applyGrad(Dim0=k / dim1, Dim1=n, name=name)
 
         elif self.kp_hidden_type == 2:  # RC
-            reduction_time_wt_dp = self.getR(
-                Dim0=k / dim1,
-                Dim1=n / dim2,
-                p=self.dp,
+            total_bytes = math.ceil(self.precision * (k / dim1) * (n / dim2))
+            reduction_time_wt_dp = self.network_model.collective(
+                kind="all_reduce",
+                size_bytes=total_bytes,
+                participants=int(self.dp),
                 ib=self.IBD,
                 ll=self.LLD,
-                partial=False,
-                allReduce=True,
-                name=name,
+                local_bytes=0.0,
+                debug_label=name or "comm",
             )
 
             # gather col(w)
-            reduction_time_wt_kp = self.getR(
-                Dim0=k,
-                Dim1=n / dim2,
-                p=dim1,
+            total_bytes = math.ceil(self.precision * k * (n / dim2))
+            size_bytes = math.ceil(total_bytes / dim1)
+            reduction_time_wt_kp = self.network_model.collective(
+                kind="all_gather",
+                size_bytes=size_bytes,
+                participants=int(dim1),
                 ib=self.IBK1,
                 ll=self.LLK1,
-                partial=False,
-                allReduce=False,
-                name=name,
+                local_bytes=3 * total_bytes,
+                debug_label=name or "comm",
             )
             apply_grad_time = self.applyGrad(Dim0=k, Dim1=n / dim2, name=name)
         else:
             reduction_time_wt_kp = 0
-            reduction_time_wt_dp = self.getR(
-                Dim0=k,
-                Dim1=n,
-                p=self.dp,
+            total_bytes = math.ceil(self.precision * k * n)
+            reduction_time_wt_dp = self.network_model.collective(
+                kind="all_reduce",
+                size_bytes=total_bytes,
+                participants=int(self.dp),
                 ib=self.IBD,
                 ll=self.LLD,
-                partial=False,
-                allReduce=True,
-                name=name,
+                local_bytes=0.0,
+                debug_label=name or "comm",
             )
             apply_grad_time = self.applyGrad(Dim0=k, Dim1=n, name=name)
         if self.debug:
@@ -1947,15 +1952,16 @@ class TimeCalculation:
         # 1: one for write/extend the reduction result into all cells
         # 3: division needs one for read and one for write.
 
-        point_comm = self.getR(
-            Dim0=self.miniB,
-            Dim1=1,
-            p=self.kp_softmax_dim1,
+        total_bytes = math.ceil(self.precision * self.miniB * 1)
+        size_bytes = math.ceil(total_bytes / self.kp_softmax_dim1)
+        point_comm = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(self.kp_softmax_dim1),
             ib=self.IBK1,
             ll=self.LLK1,
-            partial=False,
-            allReduce=False,
-            name="getSoftmax_f_kp1",
+            local_bytes=3 * total_bytes,
+            debug_label="getSoftmax_f_kp1",
         )
         # communicating partail sum per row from one GPU to all others to perform sum reduce
 
@@ -2064,13 +2070,15 @@ class TimeCalculation:
 
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
-            mem_transfer = self.roofline(
-                0,
-                2 * data_size,
-                name="memory accesses before and after data transfer over network",
+            point_comm = self.network_model.collective(
+                kind="point",
+                size_bytes=data_size,
+                participants=self.kp_softmax_dim2,
+                ib=self.IBK2,
+                ll=0.0,
+                local_bytes=2 * data_size,
+                debug_label="softmax_kp2",
             )
-            data_transfer = data_size / self.IBK2
-            point_comm = mem_transfer + data_transfer
 
         point_time = (
             self.roofline(point_flop, point_mem, name="pointwise-Softmax_f_kp2")
@@ -2163,15 +2171,16 @@ class TimeCalculation:
 
     def getEmbedding_f_kp1(self):
         # Each GPU has only a portion of the activations since each GPU had only a row of the weights
-        reduction_time_act = self.getR(
-            Dim0=self.miniB,
-            Dim1=self.D,
-            p=self.kp_embedding_dim1,
+        total_bytes = math.ceil(self.precision * self.miniB * self.D)
+        size_bytes = math.ceil(total_bytes / self.kp_embedding_dim1)
+        reduction_time_act = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(self.kp_embedding_dim1),
             ib=self.IBK1,
             ll=self.LLK1,
-            partial=False,
-            allReduce=False,
-            name="getEmbedding_f_kp1",
+            local_bytes=3 * total_bytes,
+            debug_label="getEmbedding_f_kp1",
         )
         embedding_mem = 2 * (self.miniB * self.D * self.precision)
         # embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
@@ -2183,15 +2192,16 @@ class TimeCalculation:
     def getEmbedding_b_kp1(self):
         # Activations from previous row arrive in column fasion, they need to be gathered
         # before applying them to the local portion of the embeddings
-        reduction_time_act = self.getR(
-            Dim0=self.miniB,
-            Dim1=self.D,
-            p=self.kp_embedding_dim1,
+        total_bytes = math.ceil(self.precision * self.miniB * self.D)
+        size_bytes = math.ceil(total_bytes / self.kp_embedding_dim1)
+        reduction_time_act = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(self.kp_embedding_dim1),
             ib=self.IBK1,
             ll=self.LLK1,
-            partial=False,
-            allReduce=False,
-            name="getEmbedding_b_kp1",
+            local_bytes=3 * total_bytes,
+            debug_label="getEmbedding_b_kp1",
         )
         # Each GPU would read through the entire actication and write as many at most as many of B rows
         embedding_mem = 2 * self.miniB * self.D * self.precision
@@ -2217,15 +2227,16 @@ class TimeCalculation:
     def getEmbedding_b_kp2(self):
         # Every GPU will update a little tile of the embedding
         # need to be gathered after the update across the rows of each column
-        reduction_time_act = self.getR(
-            Dim0=self.miniB,
-            Dim1=self.D / self.kp_embedding_dim2,
-            p=self.kp_embedding_dim1,
+        total_bytes = math.ceil(self.precision * self.miniB * (self.D / self.kp_embedding_dim2))
+        size_bytes = math.ceil(total_bytes / self.kp_embedding_dim1)
+        reduction_time_act = self.network_model.collective(
+            kind="all_gather",
+            size_bytes=size_bytes,
+            participants=int(self.kp_embedding_dim1),
             ib=self.IBK1,
             ll=self.LLK1,
-            partial=False,
-            allReduce=False,
-            name="getEmbedding_b_kp2",
+            local_bytes=3 * total_bytes,
+            debug_label="getEmbedding_b_kp2",
         )
 
         embedding_mem = (
@@ -2242,15 +2253,6 @@ class TimeCalculation:
             print("(gr) Embedding_mem: {:,}".format(int(embedding_mem / 1e9)))
         return embedding_mem_time + reduction_time_act
 
-    def getInterLayerCommLatency(self, dim1, dim2):
-        w = 0
-        if self.lp > 1:
-            w_size = self.precision * dim1 * dim2
-            transfer_time = w_size / self.IBL + self.LLL
-            mem_time = self.roofline(0, 2 * w_size, name="inter_layer")
-            # 2: read from memory of previous layer and write to the memory of the next layer
-            w = mem_time + transfer_time
-        return w
 
     def dprint(self, string):
         if self.debug:
@@ -2281,17 +2283,39 @@ class TimeCalculation:
         if self.kp_hidden_type == -1:
             Cf = self.getCf(m=B, k=2 * D, n=G * D)
             Cb = self.getCb()
-            Tf = self.getInterLayerCommLatency(B, D)
+            w_size = self.precision * B * D
+            Tf = self.network_model.collective(
+                kind="pipeline",
+                size_bytes=w_size,
+                participants=1,
+                ib=self.IBL,
+                ll=self.LLL,
+                debug_label="inter_layer",
+            ) if self.lp > 1 else 0
         elif self.kp_hidden_type == 1:  # CR
             Cf = self.getCf_kp1()
             Cb = self.getCb_kp1()
-            Tf = self.getInterLayerCommLatency(B, D / self.kp_hidden_dim1)
+            w_size = self.precision * B * (D / self.kp_hidden_dim1)
+            Tf = self.network_model.collective(
+                kind="pipeline",
+                size_bytes=w_size,
+                participants=1,
+                ib=self.IBL,
+                ll=self.LLL,
+                debug_label="inter_layer",
+            ) if self.lp > 1 else 0
         elif self.kp_hidden_type == 2:  # RC
             Cf = self.getCf_kp2()
             Cb = self.getCb_kp2()
-            Tf = self.getInterLayerCommLatency(
-                B / self.kp_hidden_dim1, D / self.kp_hidden_dim2
-            )
+            w_size = self.precision * (B / self.kp_hidden_dim1) * (D / self.kp_hidden_dim2)
+            Tf = self.network_model.collective(
+                kind="pipeline",
+                size_bytes=w_size,
+                participants=1,
+                ib=self.IBL,
+                ll=self.LLL,
+                debug_label="inter_layer",
+            ) if self.lp > 1 else 0
         else:
             print("Incorrect distributed GEMM type, 1: Column-Row, 2: Row-Column")
             sys.exit()
