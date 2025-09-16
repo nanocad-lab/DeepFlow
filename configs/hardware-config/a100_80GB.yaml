@@ -165,7 +165,7 @@ scheduling_param:
 network_backend:
   model: analytical
   astra:
-    backend: analytical
+    backend: astra
     mode: isolated
     collectives:
       # Allowed values per op: auto | ring | direct | halvingDoubling | doubleBinaryTree

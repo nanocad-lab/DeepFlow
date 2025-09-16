@@ -570,19 +570,24 @@ class TimeCalculationLLM(TimeCalculation):
             'kp1': (self.IBK1, self.LLK1),
             'kp2': (self.IBK2, self.LLK2)
         }
-        g.convert_comm_sizes_to_times(self.network_model, interconnect_params)
+        fw_roots = g.construct_fwd_graph()
+        bw_roots = g.construct_bwd_graph()
+        fw_root = g.convert_comm_sizes_to_times(fw_roots[0], self.network_model, interconnect_params)
+        bw_root = g.convert_comm_sizes_to_times(bw_roots[0], self.network_model, interconnect_params)
 
         # Avoid graph rendering when running under astra_test or when disabled explicitly
+        time_fw = g.simulate(fw_root, 0)
+        time_bw = g.simulate(bw_root, g.lp - 1)
+
+        print(f"time_fw: {time_fw}\ntime_bw: {time_bw}")
+
         if os.environ.get("ASTRA_TEST") or os.environ.get("DISABLE_LLM_GRAPH"):
-            fw_roots = g.construct_fwd_graph()
-            time_fw = g.simulate(fw_roots[0], 0)
-            bw_roots = g.construct_bwd_graph()
-            time_bw = g.simulate(bw_roots[0], g.lp - 1)
+            pass
         else:
-            time_fw, time_bw = g.save_graph()
+            g.save_graph(fw_root, "output_graph/")
+            g.save_graph(bw_root, "output_graph/")
+
         self.tot_time = time_fw + time_bw
-        
-        
         
         mha_time = qkv_proj_f + attention_score_f + attention_output_f + output_proj_f
         ffn_time = ffn1_f + ffn2_f

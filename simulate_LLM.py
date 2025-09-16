@@ -148,6 +148,8 @@ class Graph:
 
         # If there's local computation time, create local node after edge
         local_comp_time = comm_data.get('local_comp_time', 0)
+        print(f"name: {name}")
+        print(f"local_comp_time: {local_comp_time}")
         if local_comp_time > 0:
             local_node = Node(
                 name=f"{name}_local_comp",
@@ -159,7 +161,7 @@ class Graph:
 
         return comm_edge
 
-    def convert_comm_sizes_to_times(self, network_model, interconnect_params):
+    def convert_comm_sizes_to_times(self, roots, network_model, interconnect_params):
         """
         Args:
             network_model: NetworkModel instance for collective timing
@@ -198,21 +200,8 @@ class Graph:
                 # Recursively process this child
                 traverse_and_convert(child, visited)
 
-        # We need to traverse both forward and backward graphs
-        # Start from all possible root nodes
-        try:
-            fw_roots = self.construct_fwd_graph()
-            for root in fw_roots:
-                traverse_and_convert(root)
-        except:
-            pass  # In case forward graph fails
-
-        try:
-            bw_roots = self.construct_bwd_graph()
-            for root in bw_roots:
-                traverse_and_convert(root)
-        except:
-            pass  # In case backward graph fails
+        traverse_and_convert(roots)
+        return roots
 
     def construct_fwd_graph(self):
         embedding_node = []
@@ -532,28 +521,36 @@ class Graph:
                 #        print "A",
                 # print
         return time
-    def save_graph(self, output_folder = "output_graph/"):
-        fw_roots = self.construct_fwd_graph()
-        time_fw = self.simulate(fw_roots[0], 0)
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
+    # def save_graph(self, output_folder = "output_graph/"):
+    #     fw_roots = self.construct_fwd_graph()
+    #     time_fw = self.simulate(fw_roots[0], 0)
+    #     if not os.path.exists(output_folder):
+    #         os.makedirs(output_folder)
 
-        filename = "fwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
-        filename_bwd = "bwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
-        dot_fw = visualize_graph(fw_roots[0], filename=filename)
-        dot_fw.render(output_folder + filename, format="png", cleanup=True)
-        print("Forward graph saved to %s%s.png" % (output_folder , filename))
-        print("Forward simulation time: {}".format(time_fw))
+    #     filename = "fwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
+    #     filename_bwd = "bwd_graph_s%s_l%s_lp%s" % (self.num_seq, self.num_layer, self.lp)
+    #     dot_fw = visualize_graph(fw_roots[0], filename=filename)
+    #     dot_fw.render(output_folder + filename, format="png", cleanup=True)
+    #     print("Forward graph saved to %s%s.png" % (output_folder , filename))
+    #     print("Forward simulation time: {}".format(time_fw))
 
-        bw_roots = self.construct_bwd_graph()
+    #     bw_roots = self.construct_bwd_graph()
 
-        time_bw = self.simulate(bw_roots[0], self.lp - 1)   
-        dot_bw = visualize_graph(bw_roots[0], filename=filename + "_bwd")
-        dot_bw.render(output_folder + filename_bwd , format="png", cleanup=True)
-        print("Backward graph saved to %s%s.png" % (output_folder , filename_bwd))
+    #     time_bw = self.simulate(bw_roots[0], self.lp - 1)   
+    #     dot_bw = visualize_graph(bw_roots[0], filename=filename + "_bwd")
+    #     dot_bw.render(output_folder + filename_bwd , format="png", cleanup=True)
+    #     print("Backward graph saved to %s%s.png" % (output_folder , filename_bwd))
 
-        print("Backward simulation time: {}".format(time_bw))
-        return time_fw , time_bw
+    #     print("Backward simulation time: {}".format(time_bw))
+    #     return time_fw , time_bw
+
+    def save_graph(self, roots, output_folder = "output_graph/"):
+        dot_fw = visualize_graph(roots, filename=output_folder + "fwd_graph")
+        dot_fw.render(output_folder + "fwd_graph" , format="png", cleanup=True)
+        dot_bw = visualize_graph(roots, filename=output_folder + "bwd_graph")
+        dot_bw.render(output_folder + "bwd_graph" , format="png", cleanup=True)
+        print("Forward graph saved to %s%s.png" % (output_folder , "fwd_graph"))
+        print("Backward graph saved to %s%s.png" % (output_folder , "bwd_graph"))
 
 # dedeepyo : 27-May-25 : Print DFS traversal of the graph.
 def print_graph(root_nodes, visited=None):

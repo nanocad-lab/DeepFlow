@@ -88,6 +88,7 @@ class NetworkModel:
                 network_time = self._astra_collective(kind, npus, network_bytes)
             else:
                 raise ValueError(f"Unsupported collective operation: {kind}")
+        else:
             network_time = self._analytical_collective(
                 kind=kind,
                 size_bytes=network_bytes,

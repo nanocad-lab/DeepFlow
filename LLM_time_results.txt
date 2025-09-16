@@ -17,4 +17,4 @@ linear_softmax_f: 114.97302346180885ms
 MHA Time: 4.797426470871119ms
 FFN Time: 9.437110795902287ms
 Forward Time: 129.96980775 ms
-Backward Time: 258.24539262 ms
+Backward Time: 368.64566163 ms
