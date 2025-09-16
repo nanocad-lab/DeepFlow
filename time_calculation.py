@@ -1572,6 +1572,7 @@ class TimeCalculation:
             ib=self.IBK1,
             ll=self.LLK1,
             local_bytes=0.0,
+            local_ops=0.0,
             debug_label=name or "comm",
         )
         if self.validating_GEMM:

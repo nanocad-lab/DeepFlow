@@ -303,6 +303,43 @@ class TimeCalculationLLM(TimeCalculation):
             print("(gr) Embedding_mem: {:,}".format(int(embedding_mem / 1e9)))
         # return data_transfer_time + embedding_mem_time
         return embedding_mem_time
+    def getDataParallelReductionSizes(self, d, ffn_dim):
+        """Calculate communication sizes for data parallel reductions (no timing)."""
+        if not getattr(self, "dp", 1) or self.dp <= 1:
+            # No communication needed for dp=1
+            return {
+                'qkv_size': 0,
+                'output_size': 0,
+                'ffn_size': 0,
+                'total_size': 0
+            }
+
+        # Calculate sizes only (no timing)
+        qkv_size = math.ceil(self.precision * d * 3 * d)
+        output_size = math.ceil(self.precision * d * d)
+        ffn_size = math.ceil(self.precision * ffn_dim * d)
+        total_size = qkv_size + output_size + 2 * ffn_size  # FFN appears twice
+
+        return {
+            'qkv_size': qkv_size,
+            'output_size': output_size,
+            'ffn_size': ffn_size,
+            'total_size': total_size
+        }
+
+    def getDataParallelLocalComputation(self, d, ffn_dim):
+        """Calculate local computation times for apply_grad operations."""
+        qkv_local = self.applyGrad(Dim0=d, Dim1=3*d, name="qkv_proj reduction")
+        output_local = self.applyGrad(Dim0=d, Dim1=d, name="output_proj reduction")
+        ffn_local = 2 * self.applyGrad(Dim0=ffn_dim, Dim1=d, name="ffn reduction")
+
+        return {
+            'qkv_local': qkv_local,
+            'output_local': output_local,
+            'ffn_local': ffn_local,
+            'total_local': qkv_local + output_local + ffn_local
+        }
+
     def getDataParallelReduction_LLM(self, d, ffn_dim):
         # If no data parallelism, still apply gradients locally but no cross-device reduction
         if not getattr(self, "dp", 1) or self.dp <= 1:
@@ -420,49 +457,6 @@ class TimeCalculationLLM(TimeCalculation):
         print(f"residual2_f: {residual2_f * m:.1f}{second}")
         print(f"layernorm2_f: {layernorm2_f * m:.1f}{second}")
         print(f"linear_softmax_f: {linear_softmax_f * m:.1f}{second}")
-
-
-        R_transformer = self.getDataParallelReduction_LLM(
-            d = hidden_dim,
-            ffn_dim = ffn_dim
-
-        )
-        total_bytes = math.ceil(self.precision * vocab_size * hidden_dim)
-        R_embedding = self.network_model.collective(
-            kind="all_reduce",
-            size_bytes=total_bytes,
-            participants=int(self.dp),
-            ib=self.IBD,
-            ll=self.LLD,
-            local_bytes=0.0,
-            debug_label="embedding reduction",
-        )
-        total_bytes = math.ceil(self.precision * seq_len * hidden_dim)
-        R_embedding += self.network_model.collective(
-            kind="all_reduce",
-            size_bytes=total_bytes,
-            participants=int(self.dp),
-            ib=self.IBD,
-            ll=self.LLD,
-            local_bytes=0.0,
-            debug_label="positional encoding reduction",
-        )
-
-        total_bytes = math.ceil(self.precision * hidden_dim * vocab_size)
-        R_linear_softmax = self.network_model.collective(
-            kind="all_reduce",
-            size_bytes=total_bytes,
-            participants=int(self.dp),
-            ib=self.IBD,
-            ll=self.LLD,
-            local_bytes=0.0,
-            debug_label="softmax reduction",
-        )
-        print(f"Linear Softmax Reduction Time: {R_linear_softmax * m:.1f}{second}")
-        print(f"Embedding Reduction Time: {R_embedding * m:.1f}{second}")
-        print(f"Data Parallel Reduction Time: {R_transformer * m:.1f}{second}")
-        # Track total reduction for reporting
-        self._reduction_total_llm = R_transformer + R_embedding + R_linear_softmax
         if self.lp == 1:
             Tf = 0
 
@@ -499,18 +493,50 @@ class TimeCalculationLLM(TimeCalculation):
             ))
         print("Calculating LLM time...")
         
+        # Calculate communication sizes and local computation times separately
+        reduction_sizes = self.getDataParallelReductionSizes(hidden_dim, ffn_dim)
+        local_comp = self.getDataParallelLocalComputation(hidden_dim, ffn_dim)
+
+        # Calculate embedding and softmax sizes
+        embedding_size = math.ceil(self.precision * vocab_size * hidden_dim) + math.ceil(self.precision * seq_len * hidden_dim)
+        softmax_size = math.ceil(self.precision * hidden_dim * vocab_size)
+
+        comm_metadata = {
+            'transformer': {
+                'size': reduction_sizes['total_size'],
+                'type': 'all_reduce',
+                'participants': self.dp,
+                'interconnect_type': 'dp',  # Data parallel
+                'local_comp_time': local_comp['total_local']
+            },
+            'embedding': {
+                'size': embedding_size,
+                'type': 'all_reduce',
+                'participants': self.dp,
+                'interconnect_type': 'dp',  # Data parallel
+                'local_comp_time': 0  # No local computation for embedding reduction
+            },
+            'softmax': {
+                'size': softmax_size,
+                'type': 'all_reduce',
+                'participants': self.dp,
+                'interconnect_type': 'dp',  # Data parallel
+                'local_comp_time': 0  # No local computation for softmax reduction
+            }
+        }
+
         g = Graph(
             num_seq=seq_len,
             num_layer=num_layers,
             lp=lp,
-            
+
             T_embedding_f=embedding_f,
             T_qkv_projection_f= qkv_proj_f,
             T_attention_score_f= attention_score_f,
             T_attention_scale_softmax_f= attention_scale_softmax_f,
             T_attention_output_f= attention_output_f,
             T_out_proj_f = output_proj_f,
-            
+
             T_residual1_f= residual1_f,
             T_layer_norm1_f= layernorm1_f,
             T_ffn1_f= ffn1_f,
@@ -518,7 +544,7 @@ class TimeCalculationLLM(TimeCalculation):
             T_residual2_f= residual2_f,
             T_layer_norm2_f= layernorm2_f,
             T_linear_softmax_f= linear_softmax_f,
-            
+
             T_embedding_b=embedding_b,
             T_qkv_projection_b= qkv_proj_b,
             T_attention_score_b= attention_score_b,
@@ -532,15 +558,19 @@ class TimeCalculationLLM(TimeCalculation):
             T_residual2_b= residual2_b,
             T_layer_norm2_b= layernorm2_b,
             T_linear_softmax_b= linear_softmax_b,
-            Tb=0,  
+            Tb=0,
             Tf=0,
-            T_reduction_transformer=R_transformer,
-            T_reduction_embedding=R_embedding,
-            T_reduction_linear_softmax=R_linear_softmax,
-
-    
-    
+            comm_metadata=comm_metadata,
         )
+
+        # Phase 2: Convert communication sizes to times using network model
+        interconnect_params = {
+            'dp': (self.IBD, self.LLD),
+            'lp': (self.IBL, self.LLL),
+            'kp1': (self.IBK1, self.LLK1),
+            'kp2': (self.IBK2, self.LLK2)
+        }
+        g.convert_comm_sizes_to_times(self.network_model, interconnect_params)
 
         # Avoid graph rendering when running under astra_test or when disabled explicitly
         if os.environ.get("ASTRA_TEST") or os.environ.get("DISABLE_LLM_GRAPH"):

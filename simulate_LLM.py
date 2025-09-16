@@ -20,14 +20,18 @@ class Node:
 
 
 class Edge:
-  def __init__(self, name, op_id, hw_id, duration):
+  def __init__(self, name, op_id, hw_id, duration, comm_size_bytes=0, comm_type=None, participants=1, comm_interconnect_type=None):
     self.name = name
     self.op_id = op_id
     self.hw_id = hw_id
     self.duration = duration
+    self.comm_size_bytes = comm_size_bytes
+    self.comm_type = comm_type
+    self.participants = participants
+    self.comm_interconnect_type = comm_interconnect_type  # "dp", "lp", "kp1", "kp2"
     self.done = False
     self.finish_time = -1
-    self.parents = [] 
+    self.parents = []
     self.children = []
   
   def add_child(self, obj):
@@ -54,7 +58,7 @@ class Graph:
         T_ffn2_f,
         T_ffn2_b,
         T_residual1_f,          # Add residual timing
-        T_residual1_b,  
+        T_residual1_b,
         T_layer_norm1_f,        # Add layer norm timing
         T_layer_norm1_b,      # Add layer norm timing
         T_residual2_f,          # Add residual timing
@@ -66,15 +70,13 @@ class Graph:
         lp,
         T_embedding_f,
         # Cf,
-        
+
         Tf,
         T_embedding_b,
         # Cb,
-        
+
         Tb,
-        T_reduction_transformer,
-        T_reduction_embedding,
-        T_reduction_linear_softmax,
+        comm_metadata,
 
     ):
         self.num_seq = num_seq
@@ -116,9 +118,101 @@ class Graph:
         # self.Cb = Cb
         # self.Sb = Sb
         self.Tb = Tb
-        self.T_reduction_transformer = T_reduction_transformer
-        self.T_reduction_embedding = T_reduction_embedding
-        self.T_reduction_linear_softmax = T_reduction_linear_softmax
+        self.comm_metadata = comm_metadata
+
+    def create_comm_edge(self, name, op_id, hw_id, comm_key):
+        """Create a communication edge with optional local computation node.
+
+        Args:
+            name: Edge name
+            op_id: Operation ID
+            hw_id: Hardware ID
+            comm_key: Key into self.comm_metadata dict
+
+        Returns:
+            The communication edge (connection point for graph building)
+        """
+        comm_data = self.comm_metadata[comm_key]
+
+        # Create communication edge with metadata
+        comm_edge = Edge(
+            name=name,
+            op_id=op_id,
+            hw_id=hw_id,
+            duration=0,  # Will be filled in second pass
+            comm_size_bytes=comm_data['size'],
+            comm_type=comm_data['type'],
+            participants=comm_data['participants'],
+            comm_interconnect_type=comm_data['interconnect_type']
+        )
+
+        # If there's local computation time, create local node after edge
+        local_comp_time = comm_data.get('local_comp_time', 0)
+        if local_comp_time > 0:
+            local_node = Node(
+                name=f"{name}_local_comp",
+                op_id=op_id + 100000,  # Offset to avoid ID conflicts
+                hw_id=hw_id,
+                duration=local_comp_time
+            )
+            comm_edge.add_child(local_node)
+
+        return comm_edge
+
+    def convert_comm_sizes_to_times(self, network_model, interconnect_params):
+        """
+        Args:
+            network_model: NetworkModel instance for collective timing
+            interconnect_params: Dict with bandwidth/latency for each type
+                                {'dp': (ib, ll), 'lp': (ib, ll), 'kp1': (ib, ll), 'kp2': (ib, ll)}
+        """
+        def traverse_and_convert(node, visited=None):
+            if visited is None:
+                visited = set()
+            if id(node) in visited:
+                return
+            visited.add(id(node))
+
+            # Process children (edges and nodes)
+            for child in node.children:
+                # If it's an edge with communication size, convert to time
+                if hasattr(child, 'comm_size_bytes') and child.comm_size_bytes > 0:
+                    # Get the appropriate bandwidth/latency for this interconnect type
+                    interconnect_type = child.comm_interconnect_type
+                    if interconnect_type and interconnect_type in interconnect_params:
+                        ib, ll = interconnect_params[interconnect_type]
+                    else:
+                        raise ValueError(f"Invalid interconnect type: {interconnect_type}") 
+
+                    child.duration = network_model.collective(
+                        kind=child.comm_type,
+                        size_bytes=child.comm_size_bytes,
+                        participants=child.participants,
+                        ib=ib,
+                        ll=ll,
+                        local_bytes=0.0,
+                        local_ops=0.0,
+                        debug_label=f"{child.name}_conversion"
+                    )
+
+                # Recursively process this child
+                traverse_and_convert(child, visited)
+
+        # We need to traverse both forward and backward graphs
+        # Start from all possible root nodes
+        try:
+            fw_roots = self.construct_fwd_graph()
+            for root in fw_roots:
+                traverse_and_convert(root)
+        except:
+            pass  # In case forward graph fails
+
+        try:
+            bw_roots = self.construct_bwd_graph()
+            for root in bw_roots:
+                traverse_and_convert(root)
+        except:
+            pass  # In case backward graph fails
 
     def construct_fwd_graph(self):
         embedding_node = []
@@ -306,15 +400,17 @@ class Graph:
         softmax_node[0].add_child(layernorm_Softmax)
         layernorm_Softmax.add_child(prev_layer_norm2)
         # all-reduce
+
+
         R_edge = []
 
-        R_edge.append(Edge("Reduce_Embedding", 0, self.lp - 1, self.T_reduction_embedding))
+        R_edge.append(self.create_comm_edge("Reduce_Embedding", 0, self.lp - 1, "embedding"))
 
         for i in range(0, self.num_layer):
-            R_edge.append(Edge("Reduce_transformer", i, (0 if self.lp == 1 else int(i // self.layer_per_device) + self.lp) , self.T_reduction_transformer))
+            R_edge.append(self.create_comm_edge("Reduce_transformer", i, (0 if self.lp == 1 else int(i // self.layer_per_device) + self.lp), "transformer"))
 
-        R_edge.append(Edge("Reduce_Softmax", 0, 2 * self.lp - 2, self.T_reduction_linear_softmax))
-    # Attach All-Reduce Edges
+        R_edge.append(self.create_comm_edge("Reduce_Softmax", 0, 2 * self.lp - 2, "softmax"))
+        # Attach All-Reduce Edges
         softmax_node[0].add_child(R_edge[self.num_layer + 1])
         embedding_node[0].add_child(R_edge[0])
         for i in range(0, self.num_layer):
@@ -450,6 +546,7 @@ class Graph:
         print("Forward simulation time: {}".format(time_fw))
 
         bw_roots = self.construct_bwd_graph()
+
         time_bw = self.simulate(bw_roots[0], self.lp - 1)   
         dot_bw = visualize_graph(bw_roots[0], filename=filename + "_bwd")
         dot_bw.render(output_folder + filename_bwd , format="png", cleanup=True)
@@ -505,14 +602,14 @@ def visualize_graph(root, filename="graph", visited=None, dot=None):
 
     node_id = str(id(root))
     label = f"{root.name}\n(op_id={root.op_id}, hw_id={root.hw_id}, dur={root.duration})"
-    color = "lightblue" if isinstance(root, Node) else "lightgreen"
+    color = "lightblue" if isinstance(root, Node) else "green"
 
     dot.node(node_id, label=label, style='filled', fillcolor=color, shape='box')
 
     for child in root.children:
         child_id = str(id(child))
         child_label = f"{child.name}\n(op_id={child.op_id}, hw_id={child.hw_id}, dur={child.duration})"
-        child_color = "lightblue" if isinstance(child, Node) else "lightgreen"
+        child_color = "lightblue" if isinstance(child, Node) else "green"
         dot.node(child_id, label=child_label, style='filled', fillcolor=child_color, shape='box')
         dot.edge(node_id, child_id)
         visualize_graph(child, filename, visited, dot)
@@ -561,9 +658,11 @@ def main():
         T_embedding_b=5,
         
         Tb=3,
-        T_reduction_transformer=2,
-        T_reduction_embedding=2,
-        T_reduction_linear_softmax=2,
+        comm_metadata={
+            'transformer': {'size': 1024, 'type': 'all_reduce', 'participants': 4, 'local_comp_time': 2, 'interconnect_type': 'dp'},
+            'embedding': {'size': 512, 'type': 'all_reduce', 'participants': 4, 'local_comp_time': 2, 'interconnect_type': 'dp'},
+            'softmax': {'size': 2048, 'type': 'all_reduce', 'participants': 4, 'local_comp_time': 2, 'interconnect_type': 'dp'}
+        },
     )
 
     g.save_graph()
