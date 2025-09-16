@@ -1,6 +1,5 @@
 #!/tools/lm-venv/py3.6-tf-1.3.0-svail/bin/python
 
-import click
 import math
 import os
 import sys
