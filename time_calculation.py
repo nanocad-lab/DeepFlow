@@ -15,7 +15,7 @@ from simulate import Graph
 import util
 from hw_component import Core, MemoryHierarchy, Network
 from astrasim_integration import run_cache_astrasim
-from model import Model_LSTM, Model_GEMM, Model_LLM 
+from model import Model_LSTM, Model_GEMM, Model_LLM
 from tile import TiledGEMM, formatBytes
 
 algByte = False  # algorithmic ops false
@@ -51,6 +51,7 @@ class NetworkModel:
         )
         return float(max_sec)
 
+
     def collective(
         self,
         *,
@@ -66,9 +67,7 @@ class NetworkModel:
         if size_bytes <= 0:
             return 0.0
 
-        # Handle pipeline transfers (point-to-point, no participants needed)
-        if kind == "pipeline":
-            return self._analytical_pipeline(size_bytes, ib, ll, debug_label)
+        # Pipeline and point-to-point operations now handled through unified path
 
         if participants is None:
             return 0.0
@@ -77,14 +76,18 @@ class NetworkModel:
         if part <= 1:
             return 0.0
 
-        astra_ok = kind in {"all_reduce", "reduce_scatter", "all_gather", "all_to_all"}
+        collective_ops = {"all_reduce", "reduce_scatter", "all_gather", "all_to_all"}
 
         network_bytes = float(math.ceil(size_bytes))
         local_bytes_int = int(math.ceil(local_bytes)) if local_bytes else 0
 
-        if self._use_astra and astra_ok:
-            network_time = self._astra_collective(kind, part, network_bytes)
-        else:
+        if self._use_astra:
+            if kind in collective_ops or kind == "pipeline":
+                # Pipeline uses 2 NPUs for point-to-point, others use part
+                npus = 2 if kind == "pipeline" else part
+                network_time = self._astra_collective(kind, npus, network_bytes)
+            else:
+                raise ValueError(f"Unsupported collective operation: {kind}")
             network_time = self._analytical_collective(
                 kind=kind,
                 size_bytes=network_bytes,
@@ -127,8 +130,9 @@ class NetworkModel:
         if kind == "all_to_all":
             return self._analytical_all_to_all(size_bytes, participants, ib, ll, debug_label)
         if kind == "pipeline":
-            return self._analytical_pipeline(size_bytes, ib, ll, debug_label)
-        return self._analytical_point(size_bytes, ib, ll)
+            return self._analytical_point_to_point(size_bytes, ib, ll)
+        # Default fallback for unknown patterns
+        raise ValueError(f"Unsupported collective operation: {kind}")
 
     def _analytical_all_reduce(self, size_bytes, participants, ib, ll, label):
         if ib == 0:
@@ -180,17 +184,13 @@ class NetworkModel:
             return float("inf")
         return ((size_bytes / participants) / ib + ll) * (participants - 1)
 
-    def _analytical_point(self, size_bytes, ib, ll):
+    def _analytical_point_to_point(self, size_bytes, ib, ll):
+        if size_bytes <= 0:
+            return 0.0
         if ib == 0:
             return float("inf")
         return size_bytes / ib + ll
 
-    def _analytical_pipeline(self, size_bytes, ib, ll, label):
-        if size_bytes <= 0:
-            return 0.0
-        mem_time = self._roofline(0, int(2 * size_bytes), name=f"{label}-pipeline")
-        network_time = (float("inf") if ib == 0 else size_bytes / ib) + ll
-        return network_time + mem_time
 
 class TimeCalculation:
     def __init__(self, hw_config, model_config, mode):
@@ -1182,7 +1182,7 @@ class TimeCalculation:
             4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
         )
         point_comm = self.network_model.collective(
-            kind="point",
+            kind="all_to_all",
             size_bytes=data_size,
             participants=self.kp_hidden_dim1,
             ib=self.IBK1,
@@ -1243,7 +1243,7 @@ class TimeCalculation:
             4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
         )
         point_comm = self.network_model.collective(
-            kind="point",
+            kind="all_to_all",
             size_bytes=data_size,
             participants=self.kp_hidden_dim1,
             ib=self.IBK1,
@@ -1327,7 +1327,7 @@ class TimeCalculation:
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
             point_comm = self.network_model.collective(
-                kind="point",
+                kind="all_to_all",
                 size_bytes=data_size,
                 participants=self.kp_hidden_dim2,
                 ib=self.IBK2,
@@ -1379,7 +1379,7 @@ class TimeCalculation:
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
             point_comm = self.network_model.collective(
-                kind="point",
+                kind="all_to_all",
                 size_bytes=data_size,
                 participants=self.kp_hidden_dim2,
                 ib=self.IBK2,
@@ -2071,7 +2071,7 @@ class TimeCalculation:
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
             point_comm = self.network_model.collective(
-                kind="point",
+                kind="all_to_all",
                 size_bytes=data_size,
                 participants=self.kp_softmax_dim2,
                 ib=self.IBK2,
@@ -2290,6 +2290,7 @@ class TimeCalculation:
                 participants=1,
                 ib=self.IBL,
                 ll=self.LLL,
+                local_bytes=2 * w_size,  # Memory modeling: read + write
                 debug_label="inter_layer",
             ) if self.lp > 1 else 0
         elif self.kp_hidden_type == 1:  # CR
@@ -2302,6 +2303,7 @@ class TimeCalculation:
                 participants=1,
                 ib=self.IBL,
                 ll=self.LLL,
+                local_bytes=2 * w_size,  # Memory modeling: read + write
                 debug_label="inter_layer",
             ) if self.lp > 1 else 0
         elif self.kp_hidden_type == 2:  # RC
@@ -2314,6 +2316,7 @@ class TimeCalculation:
                 participants=1,
                 ib=self.IBL,
                 ll=self.LLL,
+                local_bytes=2 * w_size,  # Memory modeling: read + write
                 debug_label="inter_layer",
             ) if self.lp > 1 else 0
         else:

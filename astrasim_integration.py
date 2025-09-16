@@ -16,7 +16,6 @@ Scope (M0):
 
 No invocation of AstraSim here; just emit configs and comm-only ETs.
 """
-from __future__ import annotations
 
 import json
 import os
@@ -204,6 +203,28 @@ def _new_comm_node(node_id: int, name: str, coll_type: int, size_bytes: int) -> 
     return n
 
 
+def _new_send_node(node_id: int, name: str, size_bytes: int, dst_rank: int, tag: int) -> pb.Node:
+    n = pb.Node()
+    n.id = node_id
+    n.name = name
+    n.type = pb.COMM_SEND_NODE
+    n.attr.append(pb.AttributeProto(name="comm_size", int64_val=int(size_bytes)))
+    n.attr.append(pb.AttributeProto(name="comm_dst", int32_val=dst_rank))
+    n.attr.append(pb.AttributeProto(name="comm_tag", int32_val=tag))
+    return n
+
+
+def _new_recv_node(node_id: int, name: str, size_bytes: int, src_rank: int, tag: int) -> pb.Node:
+    n = pb.Node()
+    n.id = node_id
+    n.name = name
+    n.type = pb.COMM_RECV_NODE
+    n.attr.append(pb.AttributeProto(name="comm_size", int64_val=int(size_bytes)))
+    n.attr.append(pb.AttributeProto(name="comm_src", int32_val=src_rank))
+    n.attr.append(pb.AttributeProto(name="comm_tag", int32_val=tag))
+    return n
+
+
 def _write_comm_microbenchmark(prefix_path: str, npus_count: int, coll_type: int, size_bytes: int) -> str:
     """Create per-rank ET files under prefix_path.{rank}.et and return prefix_path."""
     # Ensure parent dir exists
@@ -219,6 +240,28 @@ def _write_comm_microbenchmark(prefix_path: str, npus_count: int, coll_type: int
             node = _new_comm_node(node_id, name, coll_type, size_bytes)
             write_et_node(fh, node)
             node_id += 1
+    return prefix_path
+
+
+def _write_point_to_point_microbenchmark(prefix_path: str, size_bytes: int) -> str:
+    """Create point-to-point ET files: sender (rank 0) and receiver (rank 1)."""
+    # Ensure parent dir exists
+    _ensure_dir(os.path.dirname(prefix_path))
+
+    # Sender (rank 0)
+    et_path = f"{prefix_path}.0.et"
+    with open(et_path, "wb") as fh:
+        chakra_encode(fh, pb.GlobalMetadata(version="0.0.4"))
+        node = _new_send_node(0, "pipeline_send", size_bytes, dst_rank=1, tag=0)
+        write_et_node(fh, node)
+
+    # Receiver (rank 1)
+    et_path = f"{prefix_path}.1.et"
+    with open(et_path, "wb") as fh:
+        chakra_encode(fh, pb.GlobalMetadata(version="0.0.4"))
+        node = _new_recv_node(0, "pipeline_recv", size_bytes, src_rank=0, tag=0)
+        write_et_node(fh, node)
+
     return prefix_path
 
 
@@ -241,10 +284,21 @@ def _size_label(size_bytes: int) -> str:
 
 def generate_workload_et(comm: str, npus_count: int, size_bytes: int, astra_config_dir: str = "./astra_cache") -> str:
     """
-    Generate Chakra ETs for a single collective microbenchmark.
+    Generate Chakra ETs for a single collective microbenchmark or point-to-point.
     Returns the workload prefix path (no extension) to use with AstraSim.
     """
     comm = comm.lower()
+
+    # Directory and file prefix include human-readable size label with suffix
+    label = _size_label(size_bytes)
+    base_dir = os.path.join(astra_config_dir, "workload", comm, f"{npus_count}npus_{label}")
+    prefix = os.path.join(base_dir, f"{comm}_{label}")
+
+    # Handle point-to-point (pipeline)
+    if comm == "pipeline":
+        return _write_point_to_point_microbenchmark(prefix, size_bytes)
+
+    # Handle collectives
     coll_map = {
         "all_gather": pb.ALL_GATHER,
         "allreduce": pb.ALL_REDUCE,
@@ -256,11 +310,6 @@ def generate_workload_et(comm: str, npus_count: int, size_bytes: int, astra_conf
     if comm not in coll_map:
         raise ValueError(f"Unsupported comm type: {comm}")
 
-    # Directory and file prefix include human-readable size label with suffix
-    label = _size_label(size_bytes)
-    base_dir = os.path.join(astra_config_dir, "workload", comm, f"{npus_count}npus_{label}")
-    # Include label in the basename so node name reflects size, too
-    prefix = os.path.join(base_dir, f"{comm}_{label}")
     return _write_comm_microbenchmark(prefix, npus_count, coll_map[comm], size_bytes)
 
 
@@ -623,4 +672,5 @@ def run_astrasim_analytical(
     return per_node_sec, max_sec
 
 
-    # Sample CLI block removed
+
+
