@@ -1181,15 +1181,17 @@ class TimeCalculation:
         data_size = (
             4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
         )
-        point_comm = self.network_model.collective(
-            kind="all_to_all",
-            size_bytes=data_size,
-            participants=self.kp_hidden_dim1,
-            ib=self.IBK1,
-            ll=0.0,
-            local_bytes=2 * data_size,
-            debug_label="Cf_kp1",
+        # 4 refers to the number of pointwise ops (mul + add + mul + tanh) on the
+        # critical path whose inputs are located across different GPUs
+        # NOTE:Assuming all communications can happpen in parallel
+        mem_transfer = self.roofline(
+            0,
+            2 * data_size,
+            name="Cf_kp1: memory accesses before and after data transfer over network",
         )
+        # 2:  one read from the source and one write to the destination memory
+        data_transfer = data_size / self.IBK1
+        point_comm = mem_transfer + data_transfer
 
         point_time = (
             self.roofline(point_flop, point_mem, name="pointwise_cf_kp1")
@@ -1242,15 +1244,13 @@ class TimeCalculation:
         data_size = (
             4 * self.miniB * (self.G * self.D / self.kp_hidden_dim1) * self.precision
         )
-        point_comm = self.network_model.collective(
-            kind="all_to_all",
-            size_bytes=data_size,
-            participants=self.kp_hidden_dim1,
-            ib=self.IBK1,
-            ll=0.0,
-            local_bytes=2 * data_size,
-            debug_label="Cb_kp1",
+        mem_transfer = self.roofline(
+            0,
+            2 * data_size,
+            name="Cb_kp1: memory accesses before and after data transfer over network",
         )
+        data_transfer = data_size / self.IBK1
+        point_comm = mem_transfer + data_transfer
         # 3 refers to the number of pointwise ops (mul + tanh + mul) on
         # critical path whose inputs are located across different GPUs
         # NOTE:Assuming all communications can happpen in parallel
@@ -1326,15 +1326,13 @@ class TimeCalculation:
 
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
-            point_comm = self.network_model.collective(
-                kind="all_to_all",
-                size_bytes=data_size,
-                participants=self.kp_hidden_dim2,
-                ib=self.IBK2,
-                ll=0.0,
-                local_bytes=2 * data_size,
-                debug_label="Cf_kp2",
+            mem_transfer = self.roofline(
+                0,
+                2 * data_size,
+                name="Cf_kp2: memory accesses before and after data transfer over network",
             )
+            data_transfer = data_size / self.IBK2
+            point_comm = mem_transfer + data_transfer
 
         point_time = (
             self.roofline(point_flop, point_mem, name="pointwise_Cf_kp2")
@@ -1378,15 +1376,13 @@ class TimeCalculation:
 
         point_comm = 0
         if self.kp_softmax_dim2 > 1:
-            point_comm = self.network_model.collective(
-                kind="all_to_all",
-                size_bytes=data_size,
-                participants=self.kp_hidden_dim2,
-                ib=self.IBK2,
-                ll=0.0,
-                local_bytes=2 * data_size,
-                debug_label="Cb_kp2",
+            mem_transfer = self.roofline(
+                0,
+                2 * data_size,
+                name="Cb_kp2:memory accesses before and after data transfer over network",
             )
+            data_transfer = data_size / self.IBK2
+            point_comm = mem_transfer + data_transfer
 
         point_time = (
             self.roofline(point_flop, point_mem, name="pointwise_Cb_kp2")
