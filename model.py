@@ -1,4 +1,4 @@
-class Model:
+class Model_LSTM:
   def __init__(self, exp_config):
       self.batch_size       = exp_config.model_config.batch_size
       self.vocab_size       = exp_config.model_config.vocab_size
@@ -11,4 +11,28 @@ class Model:
       self.num_add          = exp_config.model_config.num_add
       self.num_pointwise    = self.num_non_linear + self.num_add
         
+class Model_GEMM:
+  def __init__(self, exp_config):
+      self.M               = exp_config.model_config.M
+      self.K               = exp_config.model_config.K
+      self.N               = exp_config.model_config.N
+      
+class Model_LLM:
+  def __init__(self, exp_config):
+      self.batch_size       = exp_config.model_config.batch_size
+      self.vocab_size       = exp_config.model_config.vocab_size
+      self.num_layers      = exp_config.model_config.num_layers
+      self.hidden_dim       = exp_config.model_config.hidden_dim
+      self.seq_len          = exp_config.model_config.seq_len
+      self.num_heads        = exp_config.model_config.num_heads
+      self.ffn_dim          = exp_config.model_config.ffn_dim
+      self.ffn_mult        = exp_config.model_config.ffn_mult
+      self.n_tokens         = exp_config.model_config.n_tokens
+      self.communication_time = exp_config.model_config.communication_time
+      self.N_PP             = exp_config.model_config.N_PP
+      
+      
+      
 
+      
+      

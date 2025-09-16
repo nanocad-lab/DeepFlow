@@ -1,0 +1,5 @@
+# Runs performance model in LLM mode
+# Setup model parameter in configs/model-config/LLM.yaml
+# Setup hardware parameter in configs/hardware-config/waferscale_20v100_80hbm.yaml
+
+python run_perf.py --hardware_config configs/hardware-config/waferscale_20v100_80hbm.yaml --model_config configs/model-config/LLM.yaml --output_dir output

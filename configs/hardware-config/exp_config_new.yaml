@@ -1,18 +1,8 @@
-model_param:
-    batch_size: 64
-    vocab_size: 40000
-    num_layers: 1
-    layer_size: 4096
-    projection: 2048
-    seq_len: 10
-    num_gates: 4
-    num_non_linear: 5
-    num_add: 8
-    data_scale: 100 
+
 
 sw_param:
     kernel_launch_overhead: 9e-6 #9us
-    precision: 2 
+    precision: 2
 
 tech_param:
     core:
@@ -23,13 +13,14 @@ tech_param:
         nominal_voltage: 0.8 
         threshold_voltage: 0.2 
         margin_voltage: 0.35
-        operating_area_per_mcu: 0.38 #!!!!operating_area n nominal_area should chnage hand-in-hand as they affect area scaling
-        num_mcu_per_bundle: 8 #a bundle can be thought of as an SM, number of tensorcores per SM
-        FMA_width: 4            #tensorcore width
+        operating_area_per_mcu: 0.38
+        num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
+        FMA_d1: 4            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
+        FMA_d2: 4
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
         util: 0.85 #util should be 0.75 (12/16) for tensorcore
     DRAM:
-        dynamic_energy_per_bit: 4.2e-12 #Joules
+        dynamic_energy_per_bit: 4.2e-12
         static_power_per_bit: 0.6e-12
         area_per_bit: 11e-10 #mm2
         stack_capacity: 4 GB
@@ -37,7 +28,7 @@ tech_param:
         latency: 100e-9
         mem_ctrl_area: 5 #mm2 
         nominal_frequency: 1.38e9
-        nominal_voltage: 1.2 
+        nominal_voltage: 1.2
         threshold_voltage: 0.4 
         margin_voltage: 0.6
         max_voltage: 1.8
@@ -45,7 +36,7 @@ tech_param:
         num_links_per_stack: 1024
         util: 1
     SRAM-L2:
-        dynamic_energy_per_bit: 130e-15
+        dynamic_energy_per_bit: 3.5e-15
         static_power_per_bit: 8.4e-12
         area_per_bit: 6.4e-8 #mm2
         bank_capacity: 32 KB
@@ -55,23 +46,23 @@ tech_param:
         overhead: 0.20 #20% circuitry overhead in cell area
         util: 0.45
     SRAM-L1:
-        dynamic_energy_per_bit: 130e-15
-        static_power_per_bit: 9e-12
+        dynamic_energy_per_bit: 2e-15
+        static_power_per_bit: 8e-12
         area_per_bit: 8e-8 #mm2
         bank_capacity: 32 KB
-        controller_area_per_link: 0.00 #mm2 
-        controller_power_per_link: 0.0 #W
+        controller_area_per_link: 0.004 #mm2 
+        controller_power_per_link: 0.04 #W
         latency: 0
         overhead: 0.20
         util: 1
     SRAM-R:
-        dynamic_energy_per_bit: 110e-15
+        dynamic_energy_per_bit: 2e-15
         static_power_per_bit: 9e-12
         area_per_bit: 8e-8 #mm2
         bank_capacity: 16 KB
         controller_area_per_link: 0.00 #mm2 
         controller_power_per_link: 0.0 #W
-        latency: 0
+        latency: 0 
         overhead: 0.25
         util: 1 
     network:
@@ -95,7 +86,7 @@ tech_param:
           threshold_voltage: 0.35
           margin_voltage: 0.5
           util: 0.96
-area_breakdown: # no longer treated as fraction
+area_breakdown:
     device_area_budget: 1230 #mm2
     proc_chip_area_budget: 815 #mm2
     core: 244.5
@@ -105,9 +96,9 @@ area_breakdown: # no longer treated as fraction
     DRAM: 20.212
     network:
       intra_node: 0.0
-      inter_node: 81.5
+      inter_node: 0.0
 
-power_breakdown: # no longer treated as fraction
+power_breakdown:
     TDP: 300
     core: 112.35 #0.4927 if 0.171W per core #0.0189 for 15.7Tflops #0.1504 for 125TFLOps
     DRAM: 48
@@ -116,16 +107,16 @@ power_breakdown: # no longer treated as fraction
     reg_mem: 90.66
     network:
       intra_node: 0.0
-      inter_node: 2.805
+      inter_node: 0.0
 
-perimeter_breakdown: # still fraction
+perimeter_breakdown:
     DRAM: 0.5
+    inter_node: 0.0
     intra_node: 0.0
-    inter_node: 0.5
 
 system_hierarchy:
-    num_devices_per_node: 16 # it was 1 before as the base config
-    num_nodes: 1        # it was 1 before
+    num_devices_per_node: 1
+    num_nodes: 1
     inter_derate: 1
     intra_derate: 0
     kp1_inter: False

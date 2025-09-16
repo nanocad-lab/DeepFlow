@@ -1,14 +1,4 @@
-model_param:
-    batch_size: 512
-    vocab_size: 800000
-    num_layers: 2
-    layer_size: 19968
-    projection: 2048
-    seq_len: 20
-    num_gates: 4
-    num_non_linear: 5
-    num_add: 8
-    data_scale: 100 
+
 
 sw_param:
     kernel_launch_overhead: 9e-6 #9us
@@ -25,7 +15,8 @@ tech_param:
         margin_voltage: 0.35
         operating_area_per_mcu: 0.11
         num_mcu_per_bundle: 8 #a bundle can be thought of as SM, number of tensorcores per SM
-        FMA_width: 4            #4 for tensorcore enabled (implying 4x4 systolic array) and 1 for tensorcore disabled
+        FMA_d1: 4            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
+        FMA_d2: 4
         dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
         util: 0.85 #util should be 0.75 (12/16) for tensorcore
     DRAM:

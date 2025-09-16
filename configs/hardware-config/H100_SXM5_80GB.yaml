@@ -1,0 +1,179 @@
+# DeepFlow configuration for NVIDIA A100 PCIe 80 GB
+# specifications from the following sources:
+# [NVIDIA] https://resources.nvidia.com/en-us-hopper-architecture/nvidia-h100-tensor-c
+# [TPU] https://www.techpowerup.com/gpu-specs/h100-sxm5-80-gb.c3900
+# [Semi] https://semianalysis.com/2025/06/23/nvidia-tensor-core-evolution-from-volta-to-blackwell/#4th-generation-tensor-core-warpgroup-level-asynchronous-mma
+
+sw_param:
+    kernel_launch_overhead: 9e-6 # (s)
+    precision: 2 # data type precision in bytes
+
+tech_param:
+    core:
+        operating_frequency: 1.98e9 # (Hz) GPU boost clock frequency [TPU]
+        num_bundles: 132 # number of bundles (SMs) [TPU]
+        nominal_flop_rate_per_mcu: 1024 # F16 FLOP / cycle / SM is 4096 [Semi]
+        nominal_power_per_mcu: 0.13 # (W)
+        nominal_area_per_mcu: 1.006 # (mm^2)
+        nominal_frequency: 1.23e9 # (Hz)
+        nominal_voltage: 0.8 # (V)
+        threshold_voltage: 0.2 # (V)
+        margin_voltage: 0.35 # (V)
+        operating_area_per_mcu: 1.006 # (mm^2) # operating area should match nominal area for scaling
+        num_mcu_per_bundle: 4 # number of tensorcores per SM [TPU]
+        FMA_d1: 8            # tensor core can compute the results for an d1 x d2 x d1 mixed-precision matrix multiplication per clock
+        FMA_d2: 4
+        dataflow: "best"        #{wst. ast, ost, best, none}: wst: weight stationary, ast: activation stationary, ost: output stationary
+        util: 0.75 #util should be 0.75 (12/16) for tensorcore
+    DRAM:
+        size: 80 GB # [TPU]
+        bandwidth: 3440 GB # (/s) [TPU]
+        num_stacks: 5 # 5 stacks of HBM3 memory [TPU]
+        operating_frequency: 5.252e9 # (Hz) effective 1.313 GHz DDR memory clock [TPU] 
+        dynamic_energy_per_bit: 4.5e-12 # (J) [https://passlab.github.io/mchpc/mchpc2019/presentations/MCHPC_Pawlowski_keynote.pdf, slide 36]
+        static_power_per_bit: 0.6e-12 # (W)
+        area_per_bit: 11.54e-10 # (mm^2)
+        stack_capacity: 16 GB # 16 GB per HBM2e stack [TPU]
+        area_per_stack: 86 # (mm^2) [die shot]
+        latency: 100e-9 # (s)
+        mem_ctrl_area: 1.1 # (mm^2) 
+        nominal_frequency: 2.51E+09 # for 1.5 * 2 GHz memory clock
+        nominal_voltage: 1.2 
+        threshold_voltage: 0.4 
+        margin_voltage: 0.6
+        max_voltage: 1.8
+        num_links_per_mm: 400
+        num_links_per_stack: 1024
+        util: 1
+    SRAM-L2:
+        size: 50 MB # [TPU]
+        bandwidth: 8138 GB # NCU L2 peak traffic
+        dynamic_energy_per_bit: 130e-15
+        static_power_per_bit: 8.4e-12
+        area_per_bit: 1.45e-7 # (mm^2)
+        bank_capacity: 32 KB
+        controller_area_per_link: 0.0 # (mm^2) 
+        controller_power_per_link: 0.04 # (W)
+        latency: 0
+        overhead: 0.20 # 20% circuitry overhead in cell area
+        util: 1
+    SRAM-L1:
+        size: 30096 KB # max configurable shared memory per SM * number of SMs [NVIDIA]
+        bandwidth: 22392 GB # NCU L1/TEX peak traffic
+        dynamic_energy_per_bit: 130e-15
+        static_power_per_bit: 9e-12
+        area_per_bit: 1.41e-7 # (mm^2)
+        bank_capacity: 32 KB
+        controller_area_per_link: 0.00 # (mm^2) 
+        controller_power_per_link: 0.0 # (W)
+        latency: 0
+        overhead: 0.20
+        util: 1
+    SRAM-R:
+        size: 33 MB # register file memory per SM * number of SMs [NVIDIA]
+        bandwidth: 244 TB # traffic for 2 reads and 1 write for GEMMs computed per clock
+        dynamic_energy_per_bit: 110e-15
+        static_power_per_bit: 9e-12
+        area_per_bit: 12.78e-8 # (mm^2)
+        bank_capacity: 16 KB
+        controller_area_per_link: 0.00 # (mm^2) 
+        controller_power_per_link: 0.0 # (W)
+        latency: 0
+        overhead: 0.25
+        util: 1 
+    network:
+        intra_node:
+          latency: 5e-6 
+          nominal_frequency: 3e9
+          nominal_voltage: 1
+          nominal_energy_per_link: 1e-12
+          nominal_area_per_link: 100e-6 # (mm^2)
+          num_links_per_mm: 400
+          threshold_voltage: 0.25
+          margin_voltage: 0.45
+          util: 1
+        inter_node:
+          latency: 5e-6
+          nominal_frequency: 20e9
+          nominal_voltage: 1.2
+          nominal_energy_per_link: 13e-12
+          nominal_area_per_link: 0.045
+          num_links_per_mm: 20 #Assuming 4 layers on PCB and 200 um pitch for high speed signalling
+          threshold_voltage: 0.35
+          margin_voltage: 0.5
+          util: 0.96
+area_breakdown: # (mm^2) [die shot]
+    device_area_budget: 1330 # enough area for 6 DRAM stacks + chip area
+    proc_chip_area_budget: 826 # (mm^2)
+    core: 435 # remaining area from inspecting die shots
+    L2: 180 # scale based on capacity
+    L1: 30.00
+    reg_mem: 41.36
+    DRAM: 7 # memory control area
+    network:
+      intra_node: 0.0
+      inter_node: 133.00
+
+power_breakdown: # no longer treated as fraction
+    TDP: 300
+    core: 75.48 # scaled from V100 core power by decrease in num_mcu
+    DRAM: 25 # ~5W / stack
+    L2: 2.4
+    L1: 31.23
+    reg_mem: 90.66
+    network:
+      intra_node: 0.0
+      inter_node: 2.805
+
+perimeter_breakdown: # still fraction
+    DRAM: 0.5
+    intra_node: 0.0
+    inter_node: 0.5
+
+system_hierarchy:
+    num_devices_per_node: 16 # it was 1 before as the base config
+    num_nodes: 1        # it was 1 before
+    inter_derate: 1
+    intra_derate: 0
+    kp1_inter: False
+    kp2_inter: False
+    dp_inter: False
+    lp_inter: False
+
+network_topology:
+    inter_node: "hic" #mesh, torus, crossbar, custom, hierarchical
+    intra_node: "none"
+
+memory_hierarchy:
+    l0: #Register Memory
+      type: "SRAM-R"
+      scope: "mcu"
+    l1: #Shared Memory
+      type: "SRAM-L1"
+      scope: "mcu-bundle"
+    l2: #L2 
+      type: "SRAM-L2"
+      scope: "global"
+    l3: #Global Memory
+      type: "DRAM"
+      scope: "global" 
+
+scheduling_param:
+    auto: False 
+    dp: 1
+    lp: 1
+    kp_hidden_dim1: 1
+    kp_hidden_dim2: 1
+    kp_softmax_dim1: 1
+    kp_softmax_dim2: 1
+    kp_embedding_dim1: 1
+    kp_embedding_dim2: 1
+    kp_projection_dim1: 1
+    kp_projection_dim2: 1
+    kp_hidden_type: -1
+    kp_softmax_type: -1
+    kp_embedding_type: -1
+    kp_projection_type: -1
+    t: "RC" #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
+    kp1: 1
+    kp2: 1

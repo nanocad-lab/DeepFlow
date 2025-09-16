@@ -1,4 +1,5 @@
-#Run model in LM mode 
-#Setup model parameter in configs/new-configs/exp_config_new_MCM.yaml
+# Runs performance model in GEMM mode
+# Setup model parameter in configs/model-config/GEMM.yaml
+# Setup hardware parameter in configs/hardware-config/waferscale_20v100_80hbm.yaml
 
-python perf.py --exp_dir debug --exp_config configs/new-configs/exp_config_new_MCM.yaml
+python run_perf.py --hardware_config configs/hardware-config/waferscale_20v100_80hbm.yaml --model_config configs/model-config/GEMM.yaml --output_dir output

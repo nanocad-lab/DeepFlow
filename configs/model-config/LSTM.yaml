@@ -1,0 +1,12 @@
+model_param:
+    mode: "LSTM"
+    batch_size: 2000
+    vocab_size: 800000
+    num_layers: 2
+    layer_size: 19968
+    projection: 2048
+    seq_len: 20
+    num_gates: 4
+    num_non_linear: 5
+    num_add: 8
+    data_scale: 100 
