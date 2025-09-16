@@ -672,5 +672,237 @@ def run_astrasim_analytical(
     return per_node_sec, max_sec
 
 
+def _new_comp_node(node_id: int, name: str, duration_micros: int) -> pb.Node:
+    """Create a compute node for timing delays."""
+    n = pb.Node()
+    n.id = node_id
+    n.name = name
+    n.type = pb.COMP_NODE
+    n.duration_micros = duration_micros
+    n.attr.append(pb.AttributeProto(name="is_cpu_op", bool_val=False))
+    return n
+
+
+def generate_concurrent_collectives_et(
+    npus_count: int,
+    collectives: List[Tuple[str, int, int]],
+    prefix_path: str
+) -> str:
+    """
+    Generate Chakra ETs for multiple collectives with optional timing delays.
+
+    Args:
+        npus_count: Number of NPUs/ranks
+        collectives: List of (collective_type, size_bytes, start_delay_ns) tuples
+                    - collective_type: "all_gather", "all_reduce", etc.
+                    - size_bytes: Communication size
+                    - start_delay_ns: Delay before starting (0 = immediate)
+        prefix_path: Path prefix for output files (without .rank.et extension)
+
+    Returns:
+        prefix_path for use with AstraSim
+    """
+    # Ensure parent dir exists
+    _ensure_dir(os.path.dirname(prefix_path))
+
+    # Map collective names to protobuf types
+    coll_map = {
+        "all_gather": pb.ALL_GATHER,
+        "allreduce": pb.ALL_REDUCE,
+        "all_reduce": pb.ALL_REDUCE,
+        "reduce_scatter": pb.REDUCE_SCATTER,
+        "all_to_all": pb.ALL_TO_ALL,
+        "alltoall": pb.ALL_TO_ALL,
+    }
+
+    # Create ET files for each rank
+    for rank in range(npus_count):
+        et_path = f"{prefix_path}.{rank}.et"
+        with open(et_path, "wb") as fh:
+            # Global metadata
+            chakra_encode(fh, pb.GlobalMetadata(version="0.0.4"))
+
+            node_id = 0
+
+            # Process each collective
+            for i, (coll_name, size_bytes, delay_ns) in enumerate(collectives):
+                if coll_name not in coll_map:
+                    raise ValueError(f"Unsupported collective: {coll_name}")
+
+                coll_type = coll_map[coll_name]
+
+                if delay_ns > 0:
+                    # Create delay compute node
+                    delay_micros = delay_ns // 1000  # Convert ns to microseconds
+                    delay_node = _new_comp_node(
+                        node_id,
+                        f"delay_{i}_{delay_micros}us",
+                        delay_micros
+                    )
+                    write_et_node(fh, delay_node)
+                    delay_node_id = node_id
+                    node_id += 1
+
+                    # Create collective node that depends on delay
+                    comm_node = _new_comm_node(
+                        node_id,
+                        f"{coll_name}_{i}",
+                        coll_type,
+                        size_bytes
+                    )
+                    comm_node.ctrl_deps.append(delay_node_id)  # Wait for delay
+                    write_et_node(fh, comm_node)
+                    node_id += 1
+                else:
+                    # Create collective node with no dependencies (immediate start)
+                    comm_node = _new_comm_node(
+                        node_id,
+                        f"{coll_name}_{i}",
+                        coll_type,
+                        size_bytes
+                    )
+                    write_et_node(fh, comm_node)
+                    node_id += 1
+
+    return prefix_path
+
+
+if __name__ == "__main__":
+    import tempfile
+    import subprocess
+    import re
+
+    print("=== AstraSim Congestion Awareness Test ===")
+    print("Testing: Sequential vs Concurrent AllGather operations")
+    print()
+
+    # Test parameters
+    npus_count = 4
+    size_bytes = 1024 * 1024  # 1MB
+    delay_ns = 1000 * 1000    # 1ms delay
+
+    # Create temporary directory for test files
+    with tempfile.TemporaryDirectory(prefix="astra_congestion_test_") as tmpdir:
+        print(f"Test directory: {tmpdir}")
+
+        # Test 1: Concurrent AllGather (both start at t=0)
+        concurrent_prefix = os.path.join(tmpdir, "concurrent_allgather")
+        concurrent_collectives = [
+            ("all_gather", size_bytes, 0),  # No delay
+            ("all_reduce", size_bytes*2, 0),  # No delay
+        ]
+        generate_concurrent_collectives_et(npus_count, concurrent_collectives, concurrent_prefix)
+
+        # Test 2: Sequential AllGather (second starts after delay)
+        sequential_prefix = os.path.join(tmpdir, "sequential_allgather")
+        sequential_collectives = [
+            ("all_gather", size_bytes, 0),        # Immediate
+            ("all_reduce", size_bytes*2, delay_ns), # After 1ms delay
+        ]
+        generate_concurrent_collectives_et(npus_count, sequential_collectives, sequential_prefix)
+
+        # Network and system configs (Ring topology, 50GB/s, 4 NPUs)
+        network_config = os.path.join(tmpdir, "Ring_4npus.yml")
+        with open(network_config, "w") as f:
+            f.write("topology: [ FullyConnected ]\n")
+            f.write("npus_count: [ 4 ]\n")
+            f.write("bandwidth: [ 50.0 ]  # GB/s\n")
+            f.write("latency: [ 500.0 ]  # ns\n")
+
+        system_config = os.path.join(tmpdir, "Ring_4chunks.json")
+        with open(system_config, "w") as f:
+            json.dump({
+                "scheduling-policy": "LIFO",
+                "endpoint-delay": 10,
+                "active-chunks-per-dimension": 1,
+                "preferred-dataset-splits": 1,
+                "all-reduce-implementation": ["direct"],
+                "all-gather-implementation": ["direct"],
+                "reduce-scatter-implementation": ["direct"],
+                "all-to-all-implementation": ["direct"],
+                "collective-optimization": "localBWAware",
+                "local-mem-bw": 1600,
+                "boost-mode": 0,
+                "roofline-enabled": 0,
+                "peak-perf": 900
+            }, f, indent=2)
+
+        remote_memory_config = get_remote_memory_path()
+
+        # Test both congestion models
+        for congestion_model in ["congestion_aware", "congestion_unaware"]:
+            print(f"\n--- Testing {congestion_model.upper()} model ---")
+
+            binary_path = f"./astra-sim/build/astra_analytical/build/bin/AstraSim_Analytical_{congestion_model.title()}"
+
+            results = {}
+            for test_name, workload_prefix in [("concurrent", concurrent_prefix), ("sequential", sequential_prefix)]:
+                print(f"Running {test_name} test...")
+
+                cmd = [
+                    binary_path,
+                    f"--workload-configuration={workload_prefix}",
+                    f"--system-configuration={system_config}",
+                    f"--remote-memory-configuration={remote_memory_config}",
+                    f"--network-configuration={network_config}"
+                ]
+
+                try:
+                    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                        text=True, check=False, timeout=60)
+                    output = proc.stdout
+
+                    # Parse wall times
+                    times_cycles = []
+                    for line in output.splitlines():
+                        m = re.search(r"sys\[(\d+)\],\s*Wall time:\s*(\d+)", line)
+                        if m:
+                            times_cycles.append(int(m.group(2)))
+
+                    if times_cycles:
+                        max_cycles = max(times_cycles)
+                        max_time_ns = max_cycles  # 1 cycle = 1 ns
+                        results[test_name] = max_time_ns
+                        print(f"  Max completion time: {max_time_ns:,} ns ({max_time_ns/1e6:.2f} ms)")
+                    else:
+                        print(f"  ERROR: Could not parse timing from output")
+                        results[test_name] = None
+
+                except subprocess.TimeoutExpired:
+                    print(f"  ERROR: Test timed out")
+                    results[test_name] = None
+                except Exception as e:
+                    print(f"  ERROR: {e}")
+                    results[test_name] = None
+
+            # Compare results
+            if results["concurrent"] and results["sequential"]:
+                conc_time = results["concurrent"]
+                seq_time = results["sequential"] - delay_ns
+                ratio = seq_time / conc_time
+                overhead = ((conc_time - seq_time) / seq_time) * 100
+
+                print(f"\nResults for {congestion_model}:")
+                print(f"  Concurrent: {conc_time:,} ns ({conc_time/1e6:.2f} ms)")
+                print(f"  Sequential: {seq_time:,} ns ({seq_time/1e6:.2f} ms)")
+                print(f"  Ratio (seq/conc): {ratio:.3f}")
+                print(f"  Congestion overhead: {overhead:+.1f}%")
+
+                if congestion_model == "congestion_aware":
+                    if overhead > 5:
+                        print("  ✅ PASS: Congestion model shows realistic overhead")
+                    else:
+                        print("  ⚠️  MARGINAL: Low congestion overhead detected")
+                else:
+                    if abs(overhead) < 5:
+                        print("  ✅ PASS: Congestion-unaware shows minimal overhead")
+                    else:
+                        print("  ⚠️  UNEXPECTED: Congestion-unaware shows significant overhead")
+            else:
+                print(f"\n❌ FAILED: Could not complete {congestion_model} tests")
+
+    print("\n=== Test Complete ===")
+
+
 
 

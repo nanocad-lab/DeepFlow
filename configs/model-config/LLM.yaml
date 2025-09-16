@@ -8,6 +8,6 @@ model_param:
     ffn_mult: null # Multiplier for FFN dimension  This is prioritized over ffn_dim.
     vocab_size: 800000  # Vocabulary size
     num_layers: 1  # only 1 layer for now
-    n_tokens: 1000000000000  # Number of tokens to train on. Set to 1T for now.
+    n_tokens: 10000000000  # Number of tokens to train on. Set to 1T for now.
     communication_time: 0  # Communication time in seconds
     N_PP: 1  # pipeline degree
