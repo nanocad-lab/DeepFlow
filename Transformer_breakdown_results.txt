@@ -1,0 +1,20 @@
+
+
+==============================================
+Performance Results
+==============================================
+qkv_proj_f: 112.60307425415408us
+attention_score_f: 18.192678319771606us
+attention_scale_softmax_f: 45.00164889898456us
+attention_output_f: 18.106242581124512us
+output_proj_f: 49.66249016553375us
+residual1_f: 9.00879412791768us
+layernorm1_f: 27.02638238375304us
+ffn1_f: 144.07336629846426us
+ffn2_f: 144.34996066213495us
+residual2_f: 9.00879412791768us
+layernorm2_f: 27.02638238375304us
+linear_softmax_f: 3120.466775867131us
+MHA Time: 243.5661342195685us
+FFN Time: 288.42332696059924us
+Transformer Time (1 layer): 604.059814203509us

@@ -6,6 +6,7 @@ class Parallelism():
     def __init__(self, exp_config):
         self.autoPar = exp_config.sch_config.auto
         self.lp    = exp_config.sch_config.lp
+        self.mb    = exp_config.sch_config.mb
         self.kp_hidden_dim1    = exp_config.sch_config.kp_hidden_dim1
         self.kp_softmax_dim1   = exp_config.sch_config.kp_softmax_dim1
         self.kp_embedding_dim1 = exp_config.sch_config.kp_embedding_dim1

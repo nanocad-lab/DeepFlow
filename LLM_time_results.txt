@@ -3,18 +3,4 @@
 ==============================================
 Performance Results
 ==============================================
-qkv_proj_f: 3.54333585500394ms
-attention_score_f: 0.033836106419251166ms
-attention_output_f: 0.02714255777994792ms
-output_proj_f: 1.1931119516679798ms
-residual1_f: 0.00975043224897541ms
-layernorm1_f: 0.02925129674692623ms
-ffn1_f: 4.718447806671921ms
-ffn2_f: 4.718662989230365ms
-residual2_f: 0.00975043224897541ms
-layernorm2_f: 0.02925129674692623ms
-linear_softmax_f: 114.97302346180885ms
-MHA Time: 4.797426470871119ms
-FFN Time: 9.437110795902287ms
-Forward Time: 129.96980775 ms
-Backward Time: 368.64566163 ms
+Forward + Backward Time: 445287.85230176 us

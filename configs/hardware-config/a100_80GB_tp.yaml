@@ -1,0 +1,181 @@
+sw_param:
+  kernel_launch_overhead: 9e-6
+  precision: 2
+tech_param:
+  core:
+    operating_frequency: 1.41e9
+    num_bundles: 108
+    nominal_flop_rate_per_mcu: 512
+    nominal_power_per_mcu: 0.13
+    nominal_voltage: 0.8
+    threshold_voltage: 0.2
+    margin_voltage: 0.35
+    operating_area_per_mcu: 1.006
+    num_mcu_per_bundle: 4
+    FMA_d1: 8
+    FMA_d2: 4
+    dataflow: best
+    util: 0.75
+  DRAM:
+    size: 80 GB
+    bandwidth: 1986 GB
+    num_stacks: 5
+    operating_frequency: 3.024e9
+    dynamic_energy_per_bit: 4.5e-12
+    static_power_per_bit: 6.0e-13
+    area_per_bit: 1.154e-09
+    stack_capacity: 16 GB
+    area_per_stack: 86
+    latency: 100e-9
+    mem_ctrl_area: 1.1
+    nominal_voltage: 1.2
+    threshold_voltage: 0.4
+    margin_voltage: 0.6
+    max_voltage: 1.8
+    num_links_per_mm: 400
+    num_links_per_stack: 1024
+    util: 1
+  SRAM-L2:
+    size: 40 MB
+    bandwidth: 7050 GB
+    dynamic_energy_per_bit: 130e-15
+    static_power_per_bit: 8.4e-12
+    area_per_bit: 1.45e-07
+    bank_capacity: 32 KB
+    controller_area_per_link: 0.0
+    controller_power_per_link: 0.04
+    latency: 0
+    overhead: 0.2
+    util: 1
+  SRAM-L1:
+    size: 20736 KB
+    bandwidth: 18 TB
+    dynamic_energy_per_bit: 130e-15
+    static_power_per_bit: 9e-12
+    area_per_bit: 1.41e-07
+    bank_capacity: 32 KB
+    controller_area_per_link: 0.0
+    controller_power_per_link: 0.0
+    latency: 0
+    overhead: 0.2
+    util: 1
+  SRAM-R:
+    size: 27 MB
+    bandwidth: 122 TB
+    dynamic_energy_per_bit: 110e-15
+    static_power_per_bit: 9e-12
+    area_per_bit: 1.278e-07
+    bank_capacity: 16 KB
+    controller_area_per_link: 0.0
+    controller_power_per_link: 0.0
+    latency: 0
+    overhead: 0.25
+    util: 1
+  network:
+    intra_node:
+      latency: 5e-6
+      nominal_frequency: 3e9
+      nominal_voltage: 1
+      nominal_energy_per_link: 1e-12
+      nominal_area_per_link: 100e-6
+      num_links_per_mm: 400
+      threshold_voltage: 0.25
+      margin_voltage: 0.45
+      util: 1
+    inter_node:
+      latency: 5e-6
+      nominal_frequency: 20e9
+      nominal_voltage: 1.2
+      nominal_energy_per_link: 13e-12
+      nominal_area_per_link: 0.045
+      num_links_per_mm: 20
+      threshold_voltage: 0.35
+      margin_voltage: 0.5
+      util: 0.96
+area_breakdown:
+  device_area_budget: 1330
+  proc_chip_area_budget: 826
+  core: 435
+  L2: 180
+  L1: 30.0
+  reg_mem: 41.36
+  DRAM: 7
+  network:
+    intra_node: 133.0
+    inter_node: 133.0
+power_breakdown:
+  TDP: 300
+  core: 75.48
+  DRAM: 25
+  L2: 2.4
+  L1: 31.23
+  reg_mem: 90.66
+  network:
+    intra_node: 2.805
+    inter_node: 2.805
+perimeter_breakdown:
+  DRAM: 0.5
+  intra_node: 0.33
+  inter_node: 0.33
+system_hierarchy:
+  num_devices_per_node: 12
+  num_nodes: 2
+  inter_derate: 1
+  intra_derate: 1
+  kp1_inter: false
+  kp2_inter: false
+  dp_inter: false
+  lp_inter: false
+network_topology:
+  # Allowed values: ring | fc | switch
+  inter_node: ring
+  intra_node: ring
+memory_hierarchy:
+  l0:
+    type: SRAM-R
+    scope: mcu
+  l1:
+    type: SRAM-L1
+    scope: mcu-bundle
+  l2:
+    type: SRAM-L2
+    scope: global
+  l3:
+    type: DRAM
+    scope: global
+
+scheduling_param:
+    auto: False 
+    dp: 2       #should be the same as num_nodes?
+    lp: 3 # pipeline stages 
+    mb: 3 # number of micro-batches
+
+    kp1: 2
+    kp2: 2
+    t: "RC"   #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
+######################LSTM parameters
+    kp_hidden_dim1: 1
+    kp_hidden_dim2: 1
+    kp_softmax_dim1: 1
+    kp_softmax_dim2: 1
+    kp_embedding_dim1: 1
+    kp_embedding_dim2: 1
+    kp_projection_dim1: 1
+    kp_projection_dim2: 1
+    kp_hidden_type: -1
+    kp_softmax_type: -1
+    kp_embedding_type: -1
+    kp_projection_type: -1
+  
+network_backend:
+  model: astra # analytical | astra
+  astra:
+    backend: astra
+    mode: isolated
+    collectives:
+      # Allowed values per op: auto | ring | direct | halvingDoubling | doubleBinaryTree
+      # Note: if topology is 'switch' and value is 'auto', we default to 'halvingDoubling'.
+      all_gather: auto
+      all_reduce: auto
+      reduce_scatter: auto
+      all_to_all: auto

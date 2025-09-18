@@ -1,13 +1,13 @@
 model_param:
     mode: "LLM"  # Mode of operation
-    batch_size: 1024  # Batch size
+    batch_size: 18  # Batch size
     seq_len: 8
     hidden_dim: 8192
     num_heads: 64
     ffn_dim: 32768 # First FFN layer output dimension, typically 4 * D used when ffn_mult is NULL.
     ffn_mult: null # Multiplier for FFN dimension  This is prioritized over ffn_dim.
     vocab_size: 800000  # Vocabulary size
-    num_layers: 1  # only 1 layer for now
+    num_layers: 3  # only 1 layer for now
     n_tokens: 10000000000  # Number of tokens to train on. Set to 1T for now.
     communication_time: 0  # Communication time in seconds
     N_PP: 1  # pipeline degree

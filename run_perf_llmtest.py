@@ -199,7 +199,7 @@ def run_LLM(
     TC = TimeCalculationLLM(exp_hw_config, exp_model_config, mode)
     
 
-    time_fw, time_bw = TC.calcTime_LLM()
+    time = TC.calcTime_LLM()
     # TC.printSysConfig(exp_hw_config, exp_model_config, output_file)
     
     
@@ -208,10 +208,8 @@ def run_LLM(
         f.write("\n\n==============================================\n")
         f.write("Performance Results\n")
         f.write("==============================================\n")
-        f.write("Forward Time: {0:.8f}\n".format(time_fw))
-        f.write("Backward Time: {0:.8f}\n".format(time_bw))
-        
-        f.write("Total Time: {0:.8f}\n".format(TC.getTime()))
+        # f.write("Forward Time: {0:.8f}\n".format(time_fw))
+        f.write("Total Time: {0:.8f}\n".format(time))
         # f.write("Params (Billion): {0:.8f}\n".format(tot_param / 1e9))
     # print("Performance Results written to {}".format(output_file))
             

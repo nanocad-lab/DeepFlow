@@ -163,7 +163,7 @@ scheduling_param:
   kp1: 1
   kp2: 1
 network_backend:
-  model: analytical
+  model: astra # analytical | astra
   astra:
     backend: astra
     mode: isolated
