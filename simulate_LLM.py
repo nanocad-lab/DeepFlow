@@ -24,9 +24,7 @@ class Node:
     def add_child(self, obj):
         self.children.append(obj)
         obj.parents.append(self)
-        
-        
-        
+    
 class Data_batch:
     def __init__(self, name, batch_id, duration):
         self.name = name
@@ -42,6 +40,11 @@ class Data_batch:
     def add_child(self, obj):
         self.children.append(obj)
         obj.parents.append(self)
+
+    def remove_self_from_children(self):
+        for child in self.children:
+            child.parents.remove(self)
+        self.children = []
 
 class Edge:
   def __init__(self, name, op_id, link_id, duration, is_all_reduce=False, comm_size_bytes=0, comm_type=None, participants=1, comm_interconnect_type=None):
@@ -413,7 +416,10 @@ class Graph:
 
             softmax_node[b].add_child(transformer_nodes[b+1][first_transformer_layer[-1]]) #add dependency edge between softmax of current batch and transformer node of next batch
 
+        for db_node in data_batch_node:
+            db_node.remove_self_from_children()
 
+        # now set root to the first embedding node 
 
 
 ######################backward
@@ -547,7 +553,8 @@ class Graph:
 
 
 
-        return data_batch_node
+        return embedding_node[0]
+        
     def construct_bwd_graph(self):
         embedding_node_b = [[] for _ in range(self.num_batch)]
         softmax_node_b = [[] for _ in range(self.num_batch)]

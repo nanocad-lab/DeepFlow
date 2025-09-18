@@ -74,3 +74,4 @@ venv/
 astra_cache/
 log/
 mat_dims_llm.txt
+Transformer_breakdown_results.txt

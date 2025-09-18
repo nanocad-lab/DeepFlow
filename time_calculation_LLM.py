@@ -765,10 +765,10 @@ class TimeCalculationLLM(TimeCalculation):
         }
         # fw_roots = g.construct_fwd_graph()
         # bw_roots = g.construct_bwd_graph()
-        fw_bw_roots = g.construct_fwd_bwd_graph()
+        fw_bw_root = g.construct_fwd_bwd_graph()
         # fw_root = g.convert_comm_sizes_to_times(fw_roots[0], self.network_model, interconnect_params)
         # bw_root = g.convert_comm_sizes_to_times(bw_roots[0], self.network_model, interconnect_params)
-        fw_bw_root = g.convert_comm_sizes_to_times(fw_bw_roots[0], self.network_model, interconnect_params)
+        fw_bw_root = g.convert_comm_sizes_to_times(fw_bw_root, self.network_model, interconnect_params)
         # Avoid graph rendering when running under astra_test or when disabled explicitly
         # time_fw = g.simulate(fw_root)
         # time_bw = g.simulate(bw_root)
