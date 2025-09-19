@@ -501,12 +501,9 @@ def ensure_cache_file_exists(cache_path: str = "./astra_cache/cache.json") -> No
 
 
 def ensure_cache_unlocked_if_standalone(cache_path: str = "./astra_cache/cache.json") -> None:
-    """If not running under astra_test harness, clear any stale cache lock.
-    Checked via env var 'ASTRA_TEST'.
-    """
-    if not os.environ.get("ASTRA_TEST"):
-        force_unlock_cache(cache_path)
-        ensure_cache_file_exists(cache_path)
+    """Clear any stale cache lock and ensure the cache file exists."""
+    force_unlock_cache(cache_path)
+    ensure_cache_file_exists(cache_path)
 
 
 def run_cache_astrasim(
@@ -870,6 +867,62 @@ def generate_concurrent_collectives_et(
                     node_id += 1
 
     return prefix_path
+
+
+def run_astrasim_graph(
+    graph_root: Any,
+    dp_count: int,
+    hw_obj,
+    tag: str,
+    base_dir: str = "./astra_cache",
+) -> Tuple[List[float], float]:
+    """Convert a DeepFlow graph to Chakra ET and execute AstraSim.
+
+    Args:
+        graph_root: Root node(s) of the DeepFlow graph to convert.
+        dp_count: Data-parallel degree for communicator grouping.
+        hw_obj: Parsed hardware configuration object.
+        tag: Directory suffix under ``base_dir`` for generated assets.
+        base_dir: Base directory for AstraSim configuration and ET files.
+
+    Returns:
+        Tuple of (per-rank times in seconds, max rank time in seconds).
+    """
+
+    if graph_root is None:
+        raise ValueError("graph_root must be provided for AstraSim execution")
+
+    # Import lazily to avoid circular dependency during module import.
+    from astra_comparison import convert_deepflow_graph_to_chakra_et, _write_comm_groups_json  # noqa: WPS433
+
+    out_dir = os.path.join(base_dir, tag)
+    workload_dir = os.path.join(out_dir, "workload")
+    os.makedirs(workload_dir, exist_ok=True)
+
+    workload_prefix, rank_ids = convert_deepflow_graph_to_chakra_et(
+        graph_root,
+        dp_count,
+        workload_dir,
+    )
+
+    npus_count = max(len(rank_ids), 1)
+    configs = generate_astrasim_configs_from_hw(
+        hw_obj,
+        out_dir=out_dir,
+        npus_count=npus_count,
+    )
+    remote_memory_json = get_remote_memory_path()
+    comm_groups_path = _write_comm_groups_json(out_dir, dp_count, rank_ids)
+
+    per_rank_sec, max_sec = run_astrasim_analytical(
+        workload_prefix=workload_prefix,
+        system_json=configs["system_json"],
+        network_yaml=configs["network_yaml"],
+        remote_memory_json=remote_memory_json,
+        comm_group_json=comm_groups_path,
+    )
+
+    return per_rank_sec, max_sec
 
 
 if __name__ == "__main__":

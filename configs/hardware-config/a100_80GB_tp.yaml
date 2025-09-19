@@ -119,7 +119,7 @@ perimeter_breakdown:
   intra_node: 0.33
   inter_node: 0.33
 system_hierarchy:
-  num_devices_per_node: 32
+  num_devices_per_node: 192
   num_nodes: 1
   inter_derate: 1
   intra_derate: 1
@@ -148,10 +148,10 @@ memory_hierarchy:
 scheduling_param:
     auto: False 
     dp: 2       #should be the same as num_nodes?
-    lp: 4 # pipeline stages 
-    mb: 4 # number of micro-batches
+    lp: 2 # pipeline stages 
+    mb: 2 # number of micro-batches
 
-    kp1: 4
+    kp1: 48
     kp2: 1
     t: "CR"   #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
 ######################LSTM parameters
@@ -169,7 +169,7 @@ scheduling_param:
     kp_projection_type: -1
   
 execution_backend:
-  model: astra # analytical | astra
+  model: analytical # analytical | astra
   astra:
     backend: astra
     mode: hybrid  # hybrid | hybrid_congestion | full_astrasim

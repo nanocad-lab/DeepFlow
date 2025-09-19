@@ -405,6 +405,7 @@ class TimeCalculation:
                 raise ValueError("Batch size must be divisible by data parallelism degree")
             self.miniB = math.ceil(self.batch_size / self.dp) # mini-batch size for each data parallel node
             if self.miniB % self.mb != 0:
+                print(f"miniB: {self.miniB}, mb: {self.mb}")
                 raise ValueError("Batch size must be divisible by micro-batch size")
             self.microB = math.ceil(self.miniB / self.mb) if self.lp > 1 else self.miniB # micro-batch size for each pipeline stage
 

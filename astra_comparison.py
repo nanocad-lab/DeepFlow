@@ -302,7 +302,7 @@ def _write_comm_groups_json(base_output_dir: str, dp_count: int, rank_ids: List[
     try:
         with open(path, "w") as f:
             json.dump(groups, f, indent=2)
-        print(f"[AstraSim] Wrote communicator groups to {path}")
+        # print(f"[AstraSim] Wrote communicator groups to {path}")
         return path
     except OSError as exc:
         print(f"[WARN] Failed to write comm_groups.json: {exc}")
@@ -881,8 +881,10 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
             f"{output_dir}/fwd",
         )
         rank_count = len(rank_ids)
+
         for rank in rank_ids:
-            _visualize_et_files([f"{output_dir}/fwd/llm_graph.{rank}.et"])
+            if os.environ.get("ASTRA_DEBUG") == 1:
+                _visualize_et_files([f"{output_dir}/fwd/llm_graph.{rank}.et"])
             _dump_et_text([f"{output_dir}/fwd/llm_graph.{rank}.et"])
         # exit()
 
@@ -913,6 +915,8 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         print(f"[AstraSim] Simulation duration: {conversion_and_sim_time:.3f} seconds")
 
         print("="*60)
+
+        return fwd_times, fwd_total
 
     except Exception as e:
         print(f"[AstraSim] ERROR: Failed to run simulation: {e}")
