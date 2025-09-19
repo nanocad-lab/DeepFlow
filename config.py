@@ -385,6 +385,7 @@ GEMMConfig = _namedtuple(
         "M",
         "K",
         "N",
+        "backward",
     ],
 )
 LLMConfig = _namedtuple(
@@ -404,7 +405,7 @@ LLMConfig = _namedtuple(
         "N_PP",
     ],
 )
-SWConfig = _namedtuple("sw_param", ["kernel_launch_overhead", "precision"])
+SWConfig = _namedtuple("sw_param", ["kernel_launch_overhead", "precision", "h2d_bandwidth"])
 
 SchedulingConfig = _namedtuple(
     "scheduling_param",
@@ -412,6 +413,7 @@ SchedulingConfig = _namedtuple(
         "auto",
         "dp",
         "lp",
+        "mb",
         "kp_hidden_dim1",
         "kp_softmax_dim1",
         "kp_embedding_dim1",
@@ -446,10 +448,36 @@ FullConfig = _namedtuple(
     ],
 )
 
+ExecutionBackendAstraCollectives = _namedtuple(
+    "ExecutionBackendAstraCollectives",
+    [
+        "all_gather",
+        "all_reduce",
+        "reduce_scatter",
+        "all_to_all",
+    ],
+)
+
+ExecutionBackendAstra = _namedtuple(
+    "ExecutionBackendAstra",
+    [
+        "backend",   # analytical | ns3 | garnet
+        "mode",      # hybrid | hybrid_congestion | full_astrasim
+        "collectives",
+    ],
+)
+
+ExecutionBackend = _namedtuple(
+    "ExecutionBackend",
+    [
+        "model",   # analytical | astra
+        "astra",   # ExecutionBackendAstra or None
+    ],
+)
+
 HWConfig = _namedtuple(
     "HWConfig",
     [
-        
         "sw_config",
         "tech_config",
         "power_breakdown",
@@ -459,6 +487,7 @@ HWConfig = _namedtuple(
         "system_config",
         "memory_hierarchy",
         "network_topology",
+        "execution_backend",
     ],
 )
 
@@ -530,7 +559,9 @@ def parse_config(filename, config_type):
         # print(config_dict) 
         convert(config_dict)
     if config_type == "hardware":
-        sw_config = SWConfig(**config_dict["sw_param"])
+        sw_params = dict(config_dict["sw_param"])
+        sw_params.setdefault("h2d_bandwidth", 12.4 * 1024 * 1024 * 1024)
+        sw_config = SWConfig(**sw_params)
         sch_config = SchedulingConfig(**config_dict["scheduling_param"])
         tech_config = TechConfig.from_dict(config_dict["tech_param"])
         power_config = PowerBreakdownConfig.from_dict(config_dict["power_breakdown"])
@@ -545,6 +576,27 @@ def parse_config(filename, config_type):
         network_topology_config = NetworkTopologyConfig.from_dict(
             config_dict["network_topology"]
         )
+        # execution backend (optional)
+        eb_dict = config_dict.get("execution_backend", {})
+        eb_model = eb_dict.get("model", "analytical")
+        astra_cfg = eb_dict.get("astra", {}) if eb_model == "astra" else None
+        if astra_cfg is not None:
+            coll = astra_cfg.get("collectives", {})
+            coll_cfg = ExecutionBackendAstraCollectives(
+                all_gather=coll.get("all_gather", "auto"),
+                all_reduce=coll.get("all_reduce", "auto"),
+                reduce_scatter=coll.get("reduce_scatter", "auto"),
+                all_to_all=coll.get("all_to_all", "auto"),
+            )
+            eb_astra = ExecutionBackendAstra(
+                backend=astra_cfg.get("backend", "analytical"),
+                mode=astra_cfg.get("mode", "hybrid"),
+                collectives=coll_cfg,
+            )
+        else:
+            eb_astra = None
+        exec_backend = ExecutionBackend(model=eb_model, astra=eb_astra)
+
         config = HWConfig(
             sw_config=sw_config,
             tech_config=tech_config,
@@ -555,12 +607,16 @@ def parse_config(filename, config_type):
             system_config=system_config,
             memory_hierarchy=memory_hierarchy_config,
             network_topology=network_topology_config,
+            execution_backend=exec_backend,
         )
     elif config_type == "LSTM":
         model_config = ModelLSTMConfig(**config_dict["model_param"])
         config = MODELConfig(model_config=model_config)
     elif config_type == "GEMM":
-        model_config = GEMMConfig(**config_dict["model_param"])
+        mp = dict(config_dict["model_param"])  # copy
+        if "backward" not in mp:
+            mp["backward"] = False
+        model_config = GEMMConfig(**mp)
         config = MODELConfig(model_config=model_config)
     elif config_type == "LLM":
         model_config = LLMConfig(**config_dict["model_param"])

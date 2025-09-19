@@ -16,6 +16,7 @@ class Model_GEMM:
       self.M               = exp_config.model_config.M
       self.K               = exp_config.model_config.K
       self.N               = exp_config.model_config.N
+      self.backward        = exp_config.model_config.backward
       
 class Model_LLM:
   def __init__(self, exp_config):
