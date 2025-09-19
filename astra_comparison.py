@@ -508,7 +508,33 @@ def convert_deepflow_graph_to_chakra_et(
             "size": int(getattr(edge, "comm_size_bytes", 0)),
             "comm_type": get_collective_type(edge.comm_type),
             "name": edge.name,
+            "interconnect_type": getattr(edge, "comm_interconnect_type", None),
+            "participants": int(getattr(edge, "participants", 0) or 0),
         }
+
+    tp_collective_groups: Dict[str, List[Any]] = defaultdict(list)
+    for edge, info in collective_info.items():
+        interconnect_type = info.get("interconnect_type")
+        if interconnect_type and interconnect_type not in {"dp", "lp", "pipeline"}:
+            tp_collective_groups[info["name"]].append(edge)
+
+    tp_collective_labels: Dict[Any, str] = {}
+    for base_name, edges in tp_collective_groups.items():
+        if not edges:
+            continue
+        sorted_edges = sorted(edges, key=lambda edge: getattr(edge, "op_id", 0))
+        group_index = 0
+        idx = 0
+        while idx < len(sorted_edges):
+            edge = sorted_edges[idx]
+            info = collective_info[edge]
+            participants = max(1, int(info.get("participants") or 1))
+            label = base_name if group_index == 0 else f"{base_name}_{group_index}"
+            group_members = sorted_edges[idx: idx + participants]
+            for member in group_members:
+                tp_collective_labels[member] = label
+            idx += len(group_members)
+            group_index += 1
 
     stage_tasks: Dict[int, Set[Any]] = {stage: set() for stage in stage_ids}
     for node in compute_nodes:
@@ -610,14 +636,14 @@ def convert_deepflow_graph_to_chakra_et(
         pipeline_recv_cache[key] = recv_id
         return recv_id
 
-    # ignore pipeline deps
+
     for stage in stage_order:
         order = stage_order[stage]
         for task in order:
             if task in collective_info:
                 info = collective_info[task]
                 # Skip stage collectives entirely when dp_count <= 1
-                if dp_count <= 1:
+                if dp_count <= 1 and task not in tp_collective_labels:
                     continue
                 for dp_idx, rank in enumerate(stage_to_ranks[stage]):
                     trace = rank_traces[rank]
@@ -635,14 +661,18 @@ def convert_deepflow_graph_to_chakra_et(
                             unique_deps.append(dep)
 
                     node_id = trace.next_id
+                    if task in tp_collective_labels:
+                        comm_name = tp_collective_labels[task]
+                    else:
+                        comm_name = f"{task.name}_{task.op_id}_dp{dp_idx}"
                     comm_node = _new_comm_node(
                         node_id,
-                        f"{task.name}_{task.op_id}_dp{dp_idx}",
+                        comm_name,
                         info["comm_type"],
                         info["size"],
                     )
                     # Tag with dp communication group name (string id)
-                    if dp_count > 1:
+                    if dp_count > 1 and task not in tp_collective_labels:
                         stage_idx = stage_index[stage]
                         group_id = str(stage_idx + 1)
                         comm_node.attr.append(pb.AttributeProto(name="pg_name", string_val=group_id))
@@ -661,9 +691,6 @@ def convert_deepflow_graph_to_chakra_et(
                         stage_edge = collective_info.get(edge, {}).get("stage")
                         if stage_edge is not None and stage_edge == stage:
                             deps.append(collective_et_ids[(edge, rank)] )
-                    # for parent in info["pipeline_deps"]:
-                    #     deps.append(ensure_pipeline(parent, task, dp_idx))
-
                     unique_deps = []
                     for dep in deps:
                         if dep not in unique_deps:
@@ -821,7 +848,7 @@ def run_astra_simulation_only(fwd_root, bwd_root, time_calc_obj, output_dir: str
         print("="*60)
         raise
 
-def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: str = "astra_comparison_output"):
+def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: str = "astra_comparison_output", dp_override: int = None):
     """
     Run AstraSim simulation on DeepFlow graph and print results.
 
@@ -847,9 +874,10 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
                 shutil.rmtree(fwd_dir)
         except Exception as exc:
             print(f"[WARN] Failed to clean {fwd_dir}: {exc}")
+        dp_count = dp_override if dp_override is not None else time_calc_obj.dp
         fwd_et_prefix, rank_ids = convert_deepflow_graph_to_chakra_et(
             fwdbwd_root,
-            time_calc_obj.dp,
+            dp_count,
             f"{output_dir}/fwd",
         )
         rank_count = len(rank_ids)
@@ -862,7 +890,8 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         print(f"[AstraSim] Generating configuration files...")
         astra_configs = generate_astrasim_configs_from_hw(time_calc_obj.hw_config, output_dir, rank_count)
         remote_memory_json = get_remote_memory_path()
-        comm_groups_path = _write_comm_groups_json(output_dir, getattr(time_calc_obj, "dp", 1), rank_ids)
+        comm_groups_dp = dp_count if dp_override is not None else getattr(time_calc_obj, "dp", 1)
+        comm_groups_path = _write_comm_groups_json(output_dir, comm_groups_dp, rank_ids)
 
         # Run AstraSim simulation on forward graph
         print(f"[AstraSim] Executing forward simulation with {rank_count} ranks...")

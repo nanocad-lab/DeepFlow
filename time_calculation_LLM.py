@@ -988,6 +988,7 @@ class TimeCalculationLLM(TimeCalculation):
             interconnect_params=self.pipeline_interconnect,
         )
         mode = self.execution_mode
+        astra_test_enabled = bool(os.environ.get("ASTRA_TEST"))
         try:
             result = dispatcher.run(mode)
         except NotImplementedError as exc:
@@ -1000,7 +1001,7 @@ class TimeCalculationLLM(TimeCalculation):
         self.pipeline_root = pipeline_root
         self.pipeline_interconnect = dispatcher.interconnect_params
 
-        if os.environ.get("ASTRA_TEST"):
+        if astra_test_enabled:
             run_astra_simulation_only_onepath(pipeline_root, self, "./astra_comparison_output")
 
         self.pipeline_graph.save_graph(pipeline_root, "output_graph/", "fw_bw_graph")
@@ -1023,6 +1024,25 @@ class TimeCalculationLLM(TimeCalculation):
             misc_metadata={},
         )
         self.transformer_graph_root = self.transformer_graph.construct_transformer_graph()
+
+        if astra_test_enabled:
+            run_astra_simulation_only_onepath(
+                self.transformer_graph_root,
+                self,
+                "./astra_transformer_output",
+                dp_override=1
+            )
+
+        # compare with analytical transformer time
+        analytical_time = 0.0
+        for base_name, (m, k, n) in gemm_specs:
+            fwd_time, fwd_red = self._distributed_gemm_forward(m, k, n, base_name + "_fwd")
+            bwd_time, bwd_red = self._distributed_gemm_backward(m, k, n, base_name + "_bwd")
+            analytical_time += fwd_time + bwd_time + fwd_red + bwd_red
+
+
+
+        print(f"Analytical transformer time: {analytical_time:.1f}s")
 
         self.transformer_graph.save_graph(self.transformer_graph_root, "output_graph/", "transformer_graph")
 
