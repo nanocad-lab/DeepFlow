@@ -1,6 +1,7 @@
 import math
 from heapq import heappush, heappop
 import sys
+from typing import Any, Dict
 from graphviz import Digraph
 import os
 showing_breakdown = False
@@ -50,17 +51,15 @@ class Data_batch:
         self.children = []
 
 class Edge:
-  def __init__(self, name, op_id, link_id, duration, is_all_reduce=False, comm_size_bytes=0, comm_type=None, participants=1, comm_interconnect_type=None):
+  def __init__(self, name, op_id, duration, is_all_reduce=False, comm_size_bytes=0, comm_type=None, participants=1, comm_interconnect_type=None):
     self.name = name
     self.op_id = op_id
-    self.link_id = link_id
     self.duration = duration
     self.done = False
     self.finish_time = -1
     self.parents = [] 
     self.children = []
     self.is_all_reduce = is_all_reduce
-    # self.is_grad = is_grad
     self.scheduled = False
     self.comm_size_bytes = comm_size_bytes
     self.comm_type = comm_type
@@ -95,59 +94,44 @@ class Graph:
 
     def __init__(
         self,
-        lp,     #pipeline depth or number of gpus
-        dp,     #data parallelism depth or number of gpus
-        num_layer,    #number of layers
-        num_batch,     #number of micro-batches
-        T_embedding_f,    #forward embedding time
-        T_embedding_b,    #backward embedding time
-        T_linear_softmax_f,    #forward linear softmax time
-        T_linear_softmax_b,    #backward linear softmax time
-        # Tf,    #forward transformer time
-        # Tb,    #backward transformer time
-        # T_reduction_transformer,  #reduction transformer time
-        # T_grad_transformer,  #gradient transformer time
-        # T_reduction_embedding,    #reduction embedding time
-        # T_reduction_linear_softmax,    #reduction linear softmax time
-        T_transformer_f,    #transformer forward time
-        T_transformer_b,    #transformer backward time
-        all_reduce,   #when the all_reduce happens in data parallelism
-        comm_metadata,
+        mode: str,
+        dp: int,
+        lp: int,
+        kp1: int,
+        kp2: int,
+        tp_mode: str,
+        comp_times: Dict[str, Any],
+        comm_metadata: Dict[str, Any],
+        misc_metadata: Dict[str, Any],
+    ) -> None:
+        self.mode = mode
+        self.dp = int(dp)
+        self.lp = int(lp)
+        self.kp1 = int(kp1) if kp1 else 1
+        self.kp2 = int(kp2) if kp2 else 1
+        self.tp_mode = tp_mode
+        self.comp_times = comp_times or {}
+        self.comm_metadata = comm_metadata or {}
+        self.misc_metadata = misc_metadata or {}
 
-    ):
-        self.num_batch = num_batch
-        self.num_layer = num_layer
-        self.lp = lp
-        self.dp = dp
-        self.T_embedding_f = T_embedding_f
-        self.T_embedding_b = T_embedding_b
-        self.T_linear_softmax_f = T_linear_softmax_f
-        self.T_linear_softmax_b = T_linear_softmax_b
-        self.T_transformer_f = T_transformer_f
-        self.T_transformer_b = T_transformer_b
-        self.all_reduce = all_reduce
-        self.layer_per_device = math.ceil(num_layer / lp) #how many layers of transformer on one gpu
-        # self.Tf = Tf
-        # self.Tb = Tb
-        # self.T_reduction_transformer = T_reduction_transformer
-        # self.T_grad_transformer = T_grad_transformer
-        # self.T_reduction_embedding = T_reduction_embedding
-        # self.T_reduction_linear_softmax = T_reduction_linear_softmax
-        self.comm_metadata = comm_metadata
-    def get_link_id(self, hw_id1, hw_id2): #assuming ring topology
-        if hw_id1 == hw_id2: #same gpu, no link
-            return -1
-        elif abs(hw_id1 - hw_id2) == 1: #adjacent gpus link id = first gpu
-            return min(hw_id1, hw_id2)
-        else: #between first gpu0 and last gpu(lp-1)
-            return self.lp-1
-    def create_comm_edge(self, name, op_id, hw_id, comm_key,is_all_reduce=False):
+        self.num_batch = self.misc_metadata.get("num_batch", 0)
+        self.num_layer = self.misc_metadata.get("num_layer", 0)
+        self.layer_per_device = max(1, math.ceil(self.num_layer / self.lp)) if self.lp else self.num_layer
+        self.all_reduce = self.misc_metadata.get("all_reduce", "the end")
+
+        self.transformer_cfg = self.comp_times.get("transformer", {})
+        self.T_grad_transformer = self.comp_times.get("grad_transformer", 0.0)
+
+    def _time(self, key: str, default: float = 0.0) -> float:
+        value = self.comp_times.get(key)
+        return float(value) if value is not None else default
+
+    def create_comm_edge(self, name, op_id, comm_key, is_all_reduce=False, local_hw_id=None):
         """Create a communication edge with optional local computation node.
 
         Args:
             name: Edge name
             op_id: Operation ID
-            hw_id: Hardware ID
             comm_key: Key into self.comm_metadata dict
 
         Returns:
@@ -159,7 +143,6 @@ class Graph:
         comm_edge = Edge(
             name=name,
             op_id=op_id,
-            link_id=hw_id,
             duration=0,  # Will be filled in second pass
             comm_size_bytes=comm_data['size'],
             comm_type=comm_data['type'],
@@ -171,10 +154,12 @@ class Graph:
         # If there's local computation time, create local node after edge
         local_comp_time = comm_data.get('local_comp_time', 0)
         if local_comp_time > 0:
+            if local_hw_id is None:
+                raise ValueError(f"Local compute time requires a hardware id for edge '{name}'")
             local_node = Node(
                 name=f"{name}_local_comp",
                 op_id=op_id + 100000,  # Offset to avoid ID conflicts
-                hw_id=hw_id,
+                hw_id=local_hw_id,
                 duration=local_comp_time
             )
             comm_edge.add_child(local_node)
@@ -224,102 +209,22 @@ class Graph:
         traverse_and_convert(roots)
         return roots
 
-    def construct_fwd_graph(self):
-        embedding_node = []
-        data_batch_node = []
-        softmax_node = []
-        transformer_nodes = [[] for _ in range(self.num_batch)]  # 
-
-        op_id = 0  # operation ID, used to distinguish nodes and edges
-        batch_id = 0  # batch ID, used to distinguish data batches
-        
-        data0 = Data_batch("data0", batch_id, 0)
-        data_batch_node.append(data0)
-        
-        for i in range(1, self.num_batch):#create data batch node
-            
-            data_batch_node.append(Data_batch(f"data{i}", i, 0))
-            data_batch_node[i-1].add_child(data_batch_node[i])
-
-        for b in range(self.num_batch): #connect each data batch node with corresponding nodes
-            linear_softmax = Node(f"linear_softmax{b}", op_id, self.lp-1, self.T_linear_softmax_f); op_id += 1
-            softmax_node.append(linear_softmax)
-            emb = Node(f"embeddding{b}", op_id, 0, self.T_embedding_f)      # hw_id = 0
-            op_id += 1
-            embedding_node.append(emb)
-            data_batch_node[b].add_child(embedding_node[b])
-
-            for l in range(self.num_layer):
-                transformer_nodes[b].append([])
-
-                hw_id = min(l // self.layer_per_device , self.lp - 1)#assign hw_id for transformer
-                transformer_node = Node("transformer", op_id, hw_id, self.T_transformer_f)
-                op_id += 1
-
-                transformer_nodes[b][l]=transformer_node
-
-            for l in range(1, self.num_layer):
-
-                prev_node = transformer_nodes[b][l-1]        # previous layer
-                curr_node  = transformer_nodes[b][l]            # current layer
-
-
-                link_id = self.get_link_id(prev_node.hw_id, curr_node.hw_id)
-                if link_id == -1:
-                    edge = Edge("cross_layer", op_id, -1, 0)  # on same GPU
-                else:
-                    edge = Edge("cross_layer", op_id, link_id, self.Tf)  # on different GPU
-                op_id += 1
-
-                prev_node.add_child(edge); edge.add_child(curr_node)#connect previous layer and current layer
-
-            first_node = transformer_nodes[b][0]   # first layer
-            link_id = self.get_link_id(first_node.hw_id, embedding_node[b].hw_id)
-            if link_id == -1:
-                edge = Edge("Emb_node0", op_id, -1, 0)
-            else:
-                edge = Edge("cross_layer", op_id, -1, self.Tf)  
-            op_id += 1
-            embedding_node[b].add_child(edge) #connect embedding node and first transformer layer
-            edge.add_child(first_node)
-
-
-            last_node = transformer_nodes[b][-1]  # last layer
-            link_id = self.get_link_id(last_node.hw_id, softmax_node[b].hw_id)
-            if link_id == -1:
-                node_Softmax = Edge("node_Softmax", op_id, -1, 0)  # same GPU
-            else:
-                node_Softmax = Edge("node_Softmax", op_id, link_id, self.Tf)
-            op_id += 1
-            last_node.add_child(node_Softmax) #connect last layer and softmax layer
-            node_Softmax.add_child(softmax_node[b])
-        
-            #add dependency edges
-        for b in range(self.num_batch - 1):
-            gpu_index = 0
-            last_transformer_layer = []
-            first_transformer_layer = []
-            first_transformer_layer.append(0)
-            for l in range(self.num_layer-1):
-
-                if transformer_nodes[b][l].hw_id != transformer_nodes[b][l+1].hw_id: # check if on different GPUs
-                    last_transformer_layer.append(l) # record last layer on each GPU
-                    first_transformer_layer.append(l+1) # record first layer on each GPU
-                    gpu_index += 1
-                    if transformer_nodes[b][l].hw_id == 0: #if first pipeline stage
-                        transformer_nodes[b][l].add_child(embedding_node[b+1]) #add dependency edge between embedding of next batch and last transformer in stage 0
-                    else:
-                        transformer_nodes[b][l].add_child(transformer_nodes[b+1][first_transformer_layer[gpu_index-1]]) #add dependency edge between last transformer of current batch and first transformer of next batch
-
-            softmax_node[b].add_child(transformer_nodes[b+1][first_transformer_layer[-1]]) #add dependency edge between softmax of current batch and transformer node of next batch
-
-        return data_batch_node[0]
-
     def construct_fwd_bwd_graph(self):
         embedding_node = []
         data_batch_node = []
         softmax_node = []
         transformer_nodes = [[] for _ in range(self.num_batch)]  # 
+
+        embedding_b_time = self._time("embedding_b")
+        linear_softmax_b_time = self._time("linear_softmax_b")
+        transformer_b_time = self._time("transformer_b")
+        linear_softmax_f_time = self._time("linear_softmax_f")
+        linear_softmax_b_time = self._time("linear_softmax_b")
+        transformer_f_time = self._time("transformer_f")
+        transformer_b_time = self._time("transformer_b")
+        embedding_f_time = self._time("embedding_f")
+        embedding_b_time = self._time("embedding_b")
+        cross_layer_time = self._time("cross_layer_f")
 
 
         embedding_node_b = [[] for _ in range(self.num_batch)]
@@ -334,9 +239,6 @@ class Graph:
         for b in range(self.num_batch):
             transformer_nodes_b[b] = [[] for _ in range(self.num_layer)]
 
-
-
-
         op_id = 0  # operation ID, used to distinguish nodes and edges
         batch_id = 0  # batch ID, used to distinguish data batches
         
@@ -349,9 +251,10 @@ class Graph:
             data_batch_node[i-1].add_child(data_batch_node[i])
 
         for b in range(self.num_batch): #connect each data batch node with corresponding nodes
-            linear_softmax = Node(f"linear_softmax{b}", op_id, self.lp-1, self.T_linear_softmax_f); op_id += 1
+            linear_softmax = Node(f"linear_softmax{b}", op_id, self.lp-1, linear_softmax_f_time)
+            op_id += 1
             softmax_node.append(linear_softmax)
-            emb = Node(f"embeddding{b}", op_id, 0, self.T_embedding_f)      # hw_id = 0
+            emb = Node(f"embeddding{b}", op_id, 0, embedding_f_time)      # hw_id = 0
             op_id += 1
             embedding_node.append(emb)
             data_batch_node[b].add_child(embedding_node[b])
@@ -360,7 +263,7 @@ class Graph:
                 transformer_nodes[b].append([])
 
                 hw_id = min(l // self.layer_per_device , self.lp - 1)#assign hw_id for transformer
-                transformer_node = Node("transformer", op_id, hw_id, self.T_transformer_f)
+                transformer_node = Node("transformer", op_id, hw_id, transformer_f_time)
                 op_id += 1
 
                 transformer_nodes[b][l]=transformer_node
@@ -371,34 +274,29 @@ class Graph:
                 curr_node  = transformer_nodes[b][l]            # current layer
 
 
-                link_id = self.get_link_id(prev_node.hw_id, curr_node.hw_id)
-                if link_id == -1:
-                    edge = Edge("cross_layer", op_id, -1, 0)  # on same GPU
+                if prev_node.hw_id == curr_node.hw_id:
+                    edge = Edge("cross_layer", op_id, 0)  # on same GPU
                 else:
-                    edge = self.create_comm_edge("cross_layer", op_id, link_id, 'cross_layer')  # on different GPU
+                    edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')  # on different GPU
                 op_id += 1
 
                 prev_node.add_child(edge); edge.add_child(curr_node)#connect previous layer and current layer
 
             first_node = transformer_nodes[b][0]   # first layer
-            link_id = self.get_link_id(first_node.hw_id, embedding_node[b].hw_id)
-            if link_id == -1:
-                edge = Edge("Emb_node0", op_id, -1, 0)
+            if first_node.hw_id == embedding_node[b].hw_id:
+                edge = Edge("Emb_node0", op_id, 0)
             else:
-                edge = self.create_comm_edge("Emb_node0", op_id, link_id, 'cross_layer')
-                # edge = Edge("Emb_node0", op_id, link_id, self.Tf)
+                edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1
             embedding_node[b].add_child(edge) #connect embedding node and first transformer layer
             edge.add_child(first_node)
 
 
             last_node = transformer_nodes[b][-1]  # last layer
-            link_id = self.get_link_id(last_node.hw_id, softmax_node[b].hw_id)
-            if link_id == -1:
-                node_Softmax = Edge("node_Softmax", op_id, -1, 0)  # same GPU
+            if last_node.hw_id == softmax_node[b].hw_id:
+                node_Softmax = Edge("node_Softmax", op_id, 0)  # same GPU
             else:
-                node_Softmax = self.create_comm_edge("node_Softmax", op_id, link_id, 'cross_layer')
-                # node_Softmax = Edge("node_Softmax", op_id, link_id, self.Tf)
+                node_Softmax = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1
             last_node.add_child(node_Softmax) #connect last layer and softmax layer
             node_Softmax.add_child(softmax_node[b])
@@ -425,17 +323,12 @@ class Graph:
         for db_node in data_batch_node:
             db_node.remove_self_from_children()
 
-        # now set root to the first embedding node 
-
-
-######################backward
-
-
         for b in reversed(range(self.num_batch)): #connect each data batch node with corresponding nodes
-            emb_b = Node("embeddding_b", op_id, 0, self.T_embedding_b, fwd=False)      # hw_id = 0
+            emb_b = Node("embeddding_b", op_id, 0, embedding_b_time, fwd=False)      # hw_id = 0
             op_id += 1
             embedding_node_b[b] = emb_b
-            linear_softmax_b = Node("linear_softmax_b", op_id, self.lp-1, self.T_linear_softmax_b, fwd=False); op_id += 1
+            linear_softmax_b = Node("linear_softmax_b", op_id, self.lp-1, linear_softmax_b_time, fwd=False)
+            op_id += 1
             softmax_node_b[b] = linear_softmax_b
             softmax_node[b].add_child(linear_softmax_b)
 
@@ -443,41 +336,36 @@ class Graph:
             for l in reversed(range(self.num_layer)):
 
                 hw_id = min(l // self.layer_per_device , self.lp - 1)
-                transformer_node_b = Node("transformer_b", op_id, hw_id, self.T_transformer_b, fwd=False); op_id += 1
+                transformer_node_b = Node("transformer_b", op_id, hw_id, transformer_b_time, fwd=False)
+                op_id += 1
                 transformer_nodes_b[b][l] = transformer_node_b
 
             for l in reversed(range(1, self.num_layer)):
                 curr_node = transformer_nodes_b[b][l]         # current layer's qkv_proj.
                 next_ffn2  = transformer_nodes_b[b][l-1]            # next layer's layernorm.
-                link_id =self.get_link_id(curr_node.hw_id, next_ffn2.hw_id)
-                if link_id == -1:
-                    edge = Edge("cross_layer", op_id, -1, 0)  
+                if curr_node.hw_id == next_ffn2.hw_id:
+                    edge = Edge("cross_layer", op_id, 0)  
                 else:
-                    edge = self.create_comm_edge("cross_layer", op_id, link_id, 'cross_layer')
-                    # edge = Edge("cross_layer", op_id, link_id, self.Tb)  
+                    edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
                 op_id += 1
 
                 curr_node.add_child(edge); edge.add_child(next_ffn2)
 
             qkv_0_b = transformer_nodes_b[b][0]     # first layer's qkv_proj
-            link_id = self.get_link_id(qkv_0_b.hw_id, emb_b.hw_id)
-            if link_id == -1:
-                edge = Edge("Emb_node0", op_id, -1, 0)
+            if qkv_0_b.hw_id == emb_b.hw_id:
+                edge = Edge("Emb_node0", op_id, 0)
             else:
-                edge = self.create_comm_edge("Emb_node0", op_id, link_id, 'cross_layer')
-                # edge = Edge("Emb_node0", op_id, link_id, self.Tb)
+                edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1
             qkv_0_b.add_child(edge)
             edge.add_child(emb_b)
 
 
             prev_layer_norm2 = transformer_nodes_b[b][self.num_layer-1] # last layer's layernorm2
-            link_id = self.get_link_id(prev_layer_norm2.hw_id, softmax_node_b[b].hw_id)
-            if link_id == -1:
-                layernorm_Softmax = Edge("layernorm2_Softmax", op_id, -1, 0)  # same GPU
+            if prev_layer_norm2.hw_id == softmax_node_b[b].hw_id:
+                layernorm_Softmax = Edge("layernorm2_Softmax", op_id, 0)  # same GPU
             else:
-                layernorm_Softmax = self.create_comm_edge("layernorm2_Softmax", op_id, link_id, 'cross_layer')
-                # layernorm_Softmax = Edge("layernorm2_Softmax", op_id, link_id, self.Tb)
+                layernorm_Softmax = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1
             softmax_node_b[b].add_child(layernorm_Softmax)
             layernorm_Softmax.add_child(prev_layer_norm2)
@@ -485,13 +373,21 @@ class Graph:
 
             # all-reduce
             if self.dp > 1:
-                R_edge[b].append(self.create_comm_edge("Reduce_Embedding", op_id, transformer_nodes_b[b][-1].hw_id , "embedding", is_all_reduce=True))
+                R_edge[b].append(self.create_comm_edge("embedding", op_id, "embedding", is_all_reduce=True))
                 op_id += 1
                 if self.all_reduce == "the end":
-                    R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, transformer_nodes_b[b][-1].hw_id  , "transformer", is_all_reduce=True))
+                    R_edge[b].append(
+                        self.create_comm_edge(
+                            "transformer",
+                            op_id,
+                            "transformer",
+                            is_all_reduce=True,
+                            local_hw_id=transformer_nodes_b[b][-1].hw_id,
+                        )
+                    )
                     op_id += 1
 
-                    R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,  transformer_nodes_b[b][0].hw_id, "softmax", is_all_reduce=True))
+                    R_edge[b].append(self.create_comm_edge("softmax", op_id, "softmax", is_all_reduce=True))
                     op_id += 1
                 # Attach All-Reduce Edges
                     softmax_node_b[b].add_child(R_edge[b][-1])
@@ -500,13 +396,21 @@ class Graph:
 
                 elif self.all_reduce == "every layer":
                     for i in range(0, self.num_layer):
-                        R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, transformer_nodes_b[b][i].hw_id  , "transformer", is_all_reduce=True))
+                        R_edge[b].append(
+                            self.create_comm_edge(
+                                "transformer",
+                                op_id,
+                                "transformer",
+                                is_all_reduce=True,
+                                local_hw_id=transformer_nodes_b[b][i].hw_id,
+                            )
+                        )
                         op_id += 1
                         # G_edge[b].append(Gradient("Grad_transformer", op_id, transformer_nodes_b[b][-1].hw_id, self.T_grad_transformer))
                         # op_id += 1
                         # R_edge[b][-1].add_child(G_edge[b][-1])
 
-                    R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,  transformer_nodes_b[b][0].hw_id, "softmax", is_all_reduce=True))
+                    R_edge[b].append(self.create_comm_edge("softmax", op_id, "softmax", is_all_reduce=True))
                     op_id += 1
                 # Attach All-Reduce Edges
                     softmax_node_b[b].add_child(R_edge[b][-1])
@@ -554,183 +458,90 @@ class Graph:
             # if first_transformer_layer:
             embedding_node_b[b].add_child(transformer_nodes_b[b-1][first_transformer_layer[0]])  # Add dependency edge
 
-
-
-
-
-
         return embedding_node[0]
-        
-    def construct_bwd_graph(self):
-        embedding_node_b = [[] for _ in range(self.num_batch)]
-        softmax_node_b = [[] for _ in range(self.num_batch)]
-        data_batch_node = [[] for _ in range(self.num_batch)]
 
-        #######
-        transformer_nodes_b = [[] for _ in range(self.num_batch)]  # 
-        for b in range(self.num_batch):
-            transformer_nodes_b[b] = [[] for _ in range(self.num_layer)]
+    def construct_transformer_graph(self):
+        transformer_cfg = self.transformer_cfg
+        gemm_entries = transformer_cfg.get("gemms")
+        if not gemm_entries:
+            raise ValueError("Transformer GEMM times not provided")
 
-        R_edge = [[] for _ in range(self.num_batch)]
-        G_edge = [[] for _ in range(self.num_batch)]
+        tp_degree = int(transformer_cfg.get("tp_degree", max(1, self.kp1 * self.kp2)))
 
-        op_id = 0  
-        batch_id = 0  # batch ID, used to distinguish data batches
-        data0 = Data_batch("data0", batch_id, 0)
-        data_batch_node[0] = data0
-        for i in range(1, self.num_batch):#create data batch node
+        root = Data_batch("transformer_root", 0, 0)
+        op_id = 0
 
-            data_batch_node[i] = Data_batch(f"data{i}", i, 0)
-            data_batch_node[i].add_child(data_batch_node[i-1])
+        for rank in range(tp_degree):
+            previous = root
 
+            for idx, entry in enumerate(gemm_entries):
+                entry_name = entry.get("name", f"g{idx}")
+                forward_cfg = entry.get("forward", {})
+                fwd_duration = forward_cfg.get("duration")
+                if fwd_duration is None:
+                    raise ValueError("Transformer GEMM entry missing forward duration")
 
-
-
-
-        for b in reversed(range(self.num_batch)): #connect each data batch node with corresponding nodes
-            emb_b = Node("embeddding_b", op_id, 0, self.T_embedding_b, fwd=False)      # hw_id = 0
-            op_id += 1
-            embedding_node_b[b] = emb_b
-            linear_softmax_b = Node("linear_softmax_b", op_id, self.lp-1, self.T_linear_softmax_b, fwd=False); op_id += 1
-            softmax_node_b[b] = linear_softmax_b
-            data_batch_node[b].add_child(linear_softmax_b)
-
-
-            for l in reversed(range(self.num_layer)):
-
-                hw_id = min(l // self.layer_per_device , self.lp - 1)
-                transformer_node_b = Node("transformer_b", op_id, hw_id, self.T_transformer_b, fwd=False); op_id += 1
-                transformer_nodes_b[b][l] = transformer_node_b
-
-            for l in reversed(range(1, self.num_layer)):
-                curr_node = transformer_nodes_b[b][l]         # current layer's qkv_proj.
-                next_ffn2  = transformer_nodes_b[b][l-1]            # next layer's layernorm.
-                link_id =self.get_link_id(curr_node.hw_id, next_ffn2.hw_id)
-                if link_id == -1:
-                    edge = Edge("cross_layer", op_id, -1, 0)  
-                else:
-                    edge = Edge("cross_layer", op_id, link_id, self.Tb)  
+                node = Node(
+                    name=f"{entry_name}_fwd_rank{rank}",
+                    op_id=op_id,
+                    hw_id=rank,
+                    duration=fwd_duration,
+                    fwd=True,
+                )
                 op_id += 1
+                previous.add_child(node)
+                previous = node
 
-                curr_node.add_child(edge); edge.add_child(next_ffn2)
-
-            qkv_0_b = transformer_nodes_b[b][0]     # first layer's qkv_proj
-            link_id = self.get_link_id(qkv_0_b.hw_id, emb_b.hw_id)
-            if link_id == -1:
-                edge = Edge("Emb_node0", op_id, -1, 0)
-            else:
-                edge = Edge("Emb_node0", op_id, link_id, self.Tb)
-            op_id += 1
-            qkv_0_b.add_child(edge)
-            edge.add_child(emb_b)
-
-
-            prev_layer_norm2 = transformer_nodes_b[b][self.num_layer-1] # last layer's layernorm2
-            link_id = self.get_link_id(prev_layer_norm2.hw_id, softmax_node_b[b].hw_id)
-            if link_id == -1:
-                layernorm_Softmax = Edge("layernorm2_Softmax", op_id, -1, 0)  # same GPU
-            else:
-                layernorm_Softmax = Edge("layernorm2_Softmax", op_id, link_id, self.Tb)
-            op_id += 1
-            softmax_node_b[b].add_child(layernorm_Softmax)
-            layernorm_Softmax.add_child(prev_layer_norm2)
-                
-
-            # all-reduce
-        # R_edge.append(self.create_comm_edge("Reduce_Embedding", 0, self.lp - 1, "embedding"))
-
-            R_edge[b].append(self.create_comm_edge("Reduce_Embedding", op_id, self.lp ,is_all_reduce=True))
-            op_id += 1
-            if self.all_reduce == "the end":
-                R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, self.lp  ,  is_all_reduce=True))
-                op_id += 1
-                G_edge[b].append(Gradient("Reduce_transformer", op_id, transformer_nodes_b[b][-1].hw_id, self.T_grad_transformer))
-                op_id += 1
-
-                R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,  self.lp, "softmax", is_all_reduce=True))
-                op_id += 1
-            # Attach All-Reduce Edges
-                softmax_node_b[b].add_child(R_edge[b][-1])
-                embedding_node_b[b].add_child(R_edge[b][0])
-                transformer_nodes_b[b][0].add_child(R_edge[b][1])
-
-            elif self.all_reduce == "every layer":
-                for i in range(0, self.num_layer):
-                    R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, self.lp  ,  is_all_reduce=True))
+                for comm_idx, comm_key in enumerate(forward_cfg.get("comm_keys", [])):
+                    if comm_key not in self.comm_metadata:
+                        raise KeyError(f"Missing transformer comm metadata for key '{comm_key}'")
+                    comm_type = self.comm_metadata[comm_key]['type']
+                    comm_edge = self.create_comm_edge(
+                        name=comm_key,
+                        op_id=op_id,
+                        comm_key=comm_key,
+                        is_all_reduce=(comm_type == 'all_reduce'),
+                        local_hw_id=rank,
+                    )
                     op_id += 1
-                    G_edge[b].append(Gradient("Gradient_transformer", op_id, transformer_nodes_b[b][l].hw_id, self.T_grad_transformer))
-                    # print("Gradient event created")
-                    op_id += 1
-                    R_edge[b][-1].add_child(G_edge[b][-1])
+                    previous.add_child(comm_edge)
+                    previous = comm_edge
 
-                R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,   self.lp,  is_all_reduce=True))
+            for idx, entry in enumerate(reversed(gemm_entries)):
+                entry_name = entry.get("name", f"g{idx}")
+                backward_cfg = entry.get("backward", {})
+                bwd_duration = backward_cfg.get("duration")
+                if bwd_duration is None:
+                    raise ValueError("Transformer GEMM entry missing backward duration")
+
+                node = Node(
+                    name=f"{entry_name}_bwd_rank{rank}",
+                    op_id=op_id,
+                    hw_id=rank,
+                    duration=bwd_duration,
+                    fwd=False,
+                )
                 op_id += 1
-            # Attach All-Reduce Edges
-                softmax_node_b[b].add_child(R_edge[b][-1])
-                embedding_node_b[b].add_child(R_edge[b][0])
-                for i in range(0, self.num_layer):
-                    transformer_nodes_b[b][i].add_child(R_edge[b][i + 1])
-            else:
-                sys.exit("Invalid all_reduce option")
-                    
-                
-                
-        last_transformer_layer = [-1] * self.lp  # Initialize with -1 for all GPUs
-        first_transformer_layer = [-1] * self.lp  # Initialize with -1 for all GPUs
+                previous.add_child(node)
+                previous = node
 
-        # first_transformer_layer.append(0)
-        gpu_index = self.lp - 1
-        for l in range(self.num_layer - 1, 0, -1):
-            
-            if transformer_nodes_b[0][l].hw_id != transformer_nodes_b[0][l-1].hw_id:  # Check if on different GPU
-                # print("Layer ", l, " is on GPU ", transformer_nodes_b[0][l].hw_id)
-                first_transformer_layer[gpu_index-1] = l-1  # Record first layer on each GPU
-                last_transformer_layer[gpu_index] = l  # Record last layer on each GPU
-                # The code is decrementing the value of the variable `gpu_index` by 1.
-                gpu_index -= 1
-        # for id in range(self.lp):
-            # print("GPU ", id, " first layer ", first_transformer_layer[id], " last layer ", last_transformer_layer[id])
+                for comm_idx, comm_key in enumerate(backward_cfg.get("comm_keys", [])):
+                    if comm_key not in self.comm_metadata:
+                        raise KeyError(f"Missing transformer comm metadata for key '{comm_key}'")
+                    comm_type = self.comm_metadata[comm_key]['type']
+                    comm_edge = self.create_comm_edge(
+                        name=comm_key,
+                        op_id=op_id,
+                        comm_key=comm_key,
+                        is_all_reduce=(comm_type == 'all_reduce'),
+                        local_hw_id=rank,
+                    )
+                    op_id += 1
+                    previous.add_child(comm_edge)
+                    previous = comm_edge
 
-
-
-        for b in range(self.num_batch-1, 0, -1):
-            gpu_index = self.lp - 1
-            
-
-            for l in range(self.num_layer - 1, 0, -1):
-
-                if transformer_nodes_b[b][l].hw_id != transformer_nodes_b[b][l-1].hw_id:  # Check if on different GPUs
-                    # last_transformer_layer.append(l)  # Record last layer on each GPU
-                    # first_transformer_layer.append(l-1)  # Record first layer on each GPU
-                    
-                    if transformer_nodes_b[b][l].hw_id == self.lp - 1:
-                        transformer_nodes_b[b][l].add_child(softmax_node_b[b-1])  # Add dependency edge
-                    else:
-                        transformer_nodes_b[b][l].add_child(transformer_nodes_b[b-1][first_transformer_layer[gpu_index]])  # Add dependency edge
-                    gpu_index -= 1
-            # Ensure embedding_node_b[b] is connected to the correct transformer node
-            # if first_transformer_layer:
-            embedding_node_b[b].add_child(transformer_nodes_b[b-1][first_transformer_layer[0]])  # Add dependency edge
-
-
-        return data_batch_node[self.num_batch - 1]
-
+        return root
         
-
-        # R_edge.append(self.create_comm_edge("Reduce_Embedding", 0, self.lp - 1, "embedding"))
-
-        # for i in range(0, self.num_layer):
-        #     R_edge.append(self.create_comm_edge("Reduce_transformer", i, (0 if self.lp == 1 else int(i // self.layer_per_device) + self.lp), "transformer"))
-
-        # R_edge.append(self.create_comm_edge("Reduce_Softmax", 0, 2 * self.lp - 2, "softmax"))
-        # # Attach All-Reduce Edges
-        # softmax_node[0].add_child(R_edge[self.num_layer + 1])
-        # embedding_node[0].add_child(R_edge[0])
-        # for i in range(0, self.num_layer):
-        #     xform_node[i][0][-1].add_child(R_edge[i + 1])
-
-        # return softmax_node
-
     def simulate(self, root):
         time = 0
         counter = 0
@@ -745,7 +556,6 @@ class Graph:
         # print("Simulation started...")
 
         GPU_list = [True for i in range(0, self.lp)]
-        link_list = [True for i in range(0, self.lp+1)]
         data_list = [False for i in range(0, self.num_batch)]
 
         heappush(event_queue, (root.duration, counter, root))
@@ -764,13 +574,6 @@ class Graph:
         #        print "A",
         #    print " ",
         # print " | ",
-        # for i in link_list:
-        #    if i:
-        #        print "_",
-        #    else:
-        #        print "A",
-        # print
-
         while len(event_queue) > 0:
             time, _, event = heappop(event_queue)
             event.done = True
@@ -797,8 +600,6 @@ class Graph:
 
             if isinstance(event, Node):
                 GPU_list[event.hw_id] = True
-            elif isinstance(event, Edge):
-                link_list[event.link_id] = True
             
             # if isinstance(event, Data_batch):
                 
@@ -834,31 +635,14 @@ class Graph:
                         GPU_list[event.hw_id] = False
                         ready_list.remove(event)
                 elif isinstance(event, Edge): 
-                    if event.link_id < 0:
-                        new_time = time + event.duration
-                        heappush(event_queue, (new_time, counter, event))
-                        event.scheduled = True
-                        if debug:
-                            print("{}.{} enqueued at time {} at device {}".format(event.name, event.op_id, time, event.link_id))
-                        enqueued = True
-                        counter = counter + 1
-                        ready_list.remove(event)
-                        
-                    elif link_list[event.link_id] == True: #todo:what if all reduce and cross layer transfer overlap
-                        new_time = time + event.duration
-                        heappush(event_queue, (new_time, counter, event))
-                        event.scheduled = True
-                        enqueued = True
-                        if debug:
-                            print("{}.{} enqueued at time {} at link {}".format(event.name, event.op_id, time, event.link_id))
-                        counter = counter + 1
-                        # if event.is_all_reduce == True: #when all reduce every link is busy
-                        #     link_list[event.link_id] = False
-                        #     for i in range(self.lp):
-                        #         link_list[i] = False
-                        # else: #single link between 2 gpus busy
-                        link_list[event.link_id] = False
-                        ready_list.remove(event)
+                    new_time = time + event.duration
+                    heappush(event_queue, (new_time, counter, event))
+                    event.scheduled = True
+                    if debug:
+                        print("{}.{} enqueued at time {}".format(event.name, event.op_id, time))
+                    enqueued = True
+                    counter = counter + 1
+                    ready_list.remove(event)
                 elif isinstance(event, Gradient):
                     # print("Gradient event")
                     new_time = time + event.duration
@@ -971,9 +755,9 @@ def visualize_graph(root, filename="graph", visited=None, dot=None):
     elif isinstance(root, Node):
             label = f"{root.name}\n(op_id={root.op_id}, hw_id={root.hw_id}, dur={root.duration})"
     elif isinstance(root, Edge):
-            label = f"{root.name}\n(op_id={root.op_id}, link_id={root.link_id}, dur={root.duration})"
+            label = f"{root.name}\n(op_id={root.op_id}, dur={root.duration})"
     elif isinstance(root, Gradient):
-            label = f"{root.name}\n(op_id={root.op_id}, link_id={root.hw_id}, dur={root.duration})"
+            label = f"{root.name}\n(op_id={root.op_id}, hw_id={root.hw_id}, dur={root.duration})"
     # color = "lightblue" if isinstance(root, Node) else "gray" if isinstance(root, Data_batch) else "lightgreen"
 
     dot.node(node_id, label=label, style='filled', fillcolor=color, shape='box')
@@ -983,12 +767,11 @@ def visualize_graph(root, filename="graph", visited=None, dot=None):
         if isinstance(child, Data_batch):
             child_label = f"{child.name}\n( batch_id={child.batch_id}, dur={child.duration})"
         elif isinstance(child, Edge):
-            child_label = f"{child.name}\n(op_id={child.op_id}, link_id={child.link_id}, dur={child.duration})"
+            child_label = f"{child.name}\n(op_id={child.op_id}, dur={child.duration})"
         elif isinstance(child, Node):
             child_label = f"{child.name}\n(op_id={child.op_id}, hw_id={child.hw_id}, dur={child.duration})"
         elif isinstance(child, Gradient):
-            # print("Gradient event in visualization")
-            child_label = f"{child.name}\n(op_id={child.op_id}, link_id={child.hw_id}, dur={child.duration})"
+            child_label = f"{child.name}\n(op_id={child.op_id}, hw_id={child.hw_id}, dur={child.duration})"
 
         child_color = "lightblue" if isinstance(child, Node) and child.fwd else "lightcoral" if isinstance(child, Node) and not child.fwd else "yellow" if isinstance(child, Data_batch) else "green" if isinstance(child, Edge) and child.is_all_reduce else "white"
 
@@ -997,48 +780,3 @@ def visualize_graph(root, filename="graph", visited=None, dot=None):
         visualize_graph(child, filename, visited, dot)
 
     return dot
-
-
-# dedeepyo : 27-May-25
-
-def main():
-    
-    g = Graph(
-        # num_seq=7,
-        num_layer=2,
-        num_batch=3,
-        lp=2,
-        dp=2,    
-        all_reduce="every layer",  # "the end"  #"every layer"
-
-        T_linear_softmax_f=0,
-        T_linear_softmax_b=0,
-        T_transformer_f=1,
-        T_transformer_b=1,
-        T_embedding_f=0,
-
-        
-        Tf=2,
-        T_embedding_b=0,
-
-        Tb=2,
-        T_reduction_transformer=0,
-        T_grad_transformer=0,
-        T_reduction_embedding=0,
-        T_reduction_linear_softmax=0,
-        comm_metadata={
-            'transformer': {'size': 1024, 'type': 'all_reduce', 'participants': 4, 'local_comp_time': 1, 'interconnect_type': 'dp'},
-            'embedding': {'size': 512, 'type': 'all_reduce', 'participants': 4, 'local_comp_time': 1, 'interconnect_type': 'dp'},
-            'softmax': {'size': 2048, 'type': 'all_reduce', 'participants': 4, 'local_comp_time': 1, 'interconnect_type': 'dp'},
-            'cross_layer': {'size': 4096, 'type': 'point_to_point', 'participants': 2, 'local_comp_time': 0, 'interconnect_type': 'lp'},
-        },
-    )
-    fw_roots = g.construct_fwd_bwd_graph()
-    # fw_root = g.convert_comm_sizes_to_times(fw_roots[0], self.network_model, interconnect_params)
-    # bw_root = g.convert_comm_sizes_to_times(bw_roots[0], self.network_model, interconnect_params)
-
-    g.save_graph(fw_roots[0], output_folder="output_graph/", filename= "fw_bw")
-
-
-if __name__ == "__main__":
-    main()

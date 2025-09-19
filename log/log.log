@@ -2914,3 +2914,328 @@
 [2025-09-18 18:30:52.278] [statistics] [info] sys[1], Wall time: 86005563
 [2025-09-18 18:30:52.278] [statistics] [info] sys[1], Comm time: 86005563
 [2025-09-18 18:30:52.278] [system] [warning] Exiting
+[2025-09-18 19:13:04.625] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.625] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.625] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.625] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.627] [workload] [info] sys[1] finished, 48022907 cycles, exposed communication 48022907 cycles.
+[2025-09-18 19:13:04.627] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 19:13:04.627] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 19:13:04.627] [statistics] [info] sys[1], Wall time: 48022907
+[2025-09-18 19:13:04.627] [statistics] [info] sys[1], Comm time: 48022907
+[2025-09-18 19:13:04.627] [workload] [info] sys[0] finished, 48022907 cycles, exposed communication 48022907 cycles.
+[2025-09-18 19:13:04.627] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 19:13:04.627] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 19:13:04.627] [statistics] [info] sys[0], Wall time: 48022907
+[2025-09-18 19:13:04.627] [statistics] [info] sys[0], Comm time: 48022907
+[2025-09-18 19:13:04.627] [system] [warning] Exiting
+[2025-09-18 19:13:04.677] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.677] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.677] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.677] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:04.679] [workload] [info] sys[1] finished, 144058682 cycles, exposed communication 144058682 cycles.
+[2025-09-18 19:13:04.679] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 19:13:04.679] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 19:13:04.679] [statistics] [info] sys[1], Wall time: 144058682
+[2025-09-18 19:13:04.679] [statistics] [info] sys[1], Comm time: 144058682
+[2025-09-18 19:13:04.679] [workload] [info] sys[0] finished, 144058682 cycles, exposed communication 144058682 cycles.
+[2025-09-18 19:13:04.679] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 19:13:04.679] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 19:13:04.679] [statistics] [info] sys[0], Wall time: 144058682
+[2025-09-18 19:13:04.679] [statistics] [info] sys[0], Comm time: 144058682
+[2025-09-18 19:13:04.679] [system] [warning] Exiting
+[2025-09-18 19:13:07.915] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:07.915] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:07.915] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:07.915] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:07.917] [workload] [info] sys[1] finished, 1536577423 cycles, exposed communication 1536577423 cycles.
+[2025-09-18 19:13:07.917] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 19:13:07.917] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 19:13:07.917] [statistics] [info] sys[1], Wall time: 1536577423
+[2025-09-18 19:13:07.917] [statistics] [info] sys[1], Comm time: 1536577423
+[2025-09-18 19:13:07.917] [workload] [info] sys[0] finished, 1536577423 cycles, exposed communication 1536577423 cycles.
+[2025-09-18 19:13:07.917] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 19:13:07.917] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 19:13:07.917] [statistics] [info] sys[0], Wall time: 1536577423
+[2025-09-18 19:13:07.917] [statistics] [info] sys[0], Comm time: 1536577423
+[2025-09-18 19:13:07.917] [system] [warning] Exiting
+[2025-09-18 19:13:18.106] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:18.106] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:18.106] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:18.106] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:18.108] [workload] [info] sys[1] finished, 192076570 cycles, exposed communication 192076570 cycles.
+[2025-09-18 19:13:18.108] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 19:13:18.108] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 19:13:18.108] [statistics] [info] sys[1], Wall time: 192076570
+[2025-09-18 19:13:18.108] [statistics] [info] sys[1], Comm time: 192076570
+[2025-09-18 19:13:18.108] [workload] [info] sys[0] finished, 192076570 cycles, exposed communication 192076570 cycles.
+[2025-09-18 19:13:18.108] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 19:13:18.108] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 19:13:18.108] [statistics] [info] sys[0], Wall time: 192076570
+[2025-09-18 19:13:18.108] [statistics] [info] sys[0], Comm time: 192076570
+[2025-09-18 19:13:18.108] [system] [warning] Exiting
+[2025-09-18 19:13:24.569] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:24.569] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:24.569] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:24.569] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 19:13:24.570] [workload] [info] sys[1] finished, 4689251858 cycles, exposed communication 4689251858 cycles.
+[2025-09-18 19:13:24.570] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 19:13:24.570] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 19:13:24.570] [statistics] [info] sys[1], Wall time: 4689251858
+[2025-09-18 19:13:24.570] [statistics] [info] sys[1], Comm time: 4689251858
+[2025-09-18 19:13:24.570] [workload] [info] sys[0] finished, 4689251858 cycles, exposed communication 4689251858 cycles.
+[2025-09-18 19:13:24.570] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 19:13:24.570] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 19:13:24.570] [statistics] [info] sys[0], Wall time: 4689251858
+[2025-09-18 19:13:24.570] [statistics] [info] sys[0], Comm time: 4689251858
+[2025-09-18 19:13:24.570] [system] [warning] Exiting
+[2025-09-18 20:39:59.454] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.454] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.454] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.454] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.457] [workload] [info] sys[3] finished, 72041869 cycles, exposed communication 72041869 cycles.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[3], Wall time: 72041869
+[2025-09-18 20:39:59.457] [statistics] [info] sys[3], Comm time: 72041869
+[2025-09-18 20:39:59.457] [workload] [info] sys[0] finished, 72041869 cycles, exposed communication 72041869 cycles.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[0], Wall time: 72041869
+[2025-09-18 20:39:59.457] [statistics] [info] sys[0], Comm time: 72041869
+[2025-09-18 20:39:59.457] [workload] [info] sys[1] finished, 72041869 cycles, exposed communication 72041869 cycles.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[1], Wall time: 72041869
+[2025-09-18 20:39:59.457] [statistics] [info] sys[1], Comm time: 72041869
+[2025-09-18 20:39:59.457] [workload] [info] sys[2] finished, 72041869 cycles, exposed communication 72041869 cycles.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 20:39:59.457] [statistics] [info] sys[2], Wall time: 72041869
+[2025-09-18 20:39:59.457] [statistics] [info] sys[2], Comm time: 72041869
+[2025-09-18 20:39:59.457] [system] [warning] Exiting
+[2025-09-18 20:39:59.512] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.512] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.512] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.512] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:39:59.515] [workload] [info] sys[3] finished, 216095533 cycles, exposed communication 216095533 cycles.
+[2025-09-18 20:39:59.515] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 20:39:59.515] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 20:39:59.515] [statistics] [info] sys[3], Wall time: 216095533
+[2025-09-18 20:39:59.515] [statistics] [info] sys[3], Comm time: 216095533
+[2025-09-18 20:39:59.516] [workload] [info] sys[0] finished, 216095533 cycles, exposed communication 216095533 cycles.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[0], Wall time: 216095533
+[2025-09-18 20:39:59.516] [statistics] [info] sys[0], Comm time: 216095533
+[2025-09-18 20:39:59.516] [workload] [info] sys[1] finished, 216095533 cycles, exposed communication 216095533 cycles.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[1], Wall time: 216095533
+[2025-09-18 20:39:59.516] [statistics] [info] sys[1], Comm time: 216095533
+[2025-09-18 20:39:59.516] [workload] [info] sys[2] finished, 216095533 cycles, exposed communication 216095533 cycles.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 20:39:59.516] [statistics] [info] sys[2], Wall time: 216095533
+[2025-09-18 20:39:59.516] [statistics] [info] sys[2], Comm time: 216095533
+[2025-09-18 20:39:59.516] [system] [warning] Exiting
+[2025-09-18 20:40:02.754] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:02.754] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:02.754] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:02.754] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:02.757] [workload] [info] sys[3] finished, 2304873643 cycles, exposed communication 2304873643 cycles.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[3], Wall time: 2304873643
+[2025-09-18 20:40:02.757] [statistics] [info] sys[3], Comm time: 2304873643
+[2025-09-18 20:40:02.757] [workload] [info] sys[0] finished, 2304873643 cycles, exposed communication 2304873643 cycles.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[0], Wall time: 2304873643
+[2025-09-18 20:40:02.757] [statistics] [info] sys[0], Comm time: 2304873643
+[2025-09-18 20:40:02.757] [workload] [info] sys[1] finished, 2304873643 cycles, exposed communication 2304873643 cycles.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[1], Wall time: 2304873643
+[2025-09-18 20:40:02.757] [statistics] [info] sys[1], Comm time: 2304873643
+[2025-09-18 20:40:02.757] [workload] [info] sys[2] finished, 2304873643 cycles, exposed communication 2304873643 cycles.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 20:40:02.757] [statistics] [info] sys[2], Wall time: 2304873643
+[2025-09-18 20:40:02.757] [statistics] [info] sys[2], Comm time: 2304873643
+[2025-09-18 20:40:02.757] [system] [warning] Exiting
+[2025-09-18 20:40:12.896] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:12.896] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:12.896] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:12.896] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:12.899] [workload] [info] sys[3] finished, 288122365 cycles, exposed communication 288122365 cycles.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[3], Wall time: 288122365
+[2025-09-18 20:40:12.899] [statistics] [info] sys[3], Comm time: 288122365
+[2025-09-18 20:40:12.899] [workload] [info] sys[0] finished, 288122365 cycles, exposed communication 288122365 cycles.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[0], Wall time: 288122365
+[2025-09-18 20:40:12.899] [statistics] [info] sys[0], Comm time: 288122365
+[2025-09-18 20:40:12.899] [workload] [info] sys[1] finished, 288122365 cycles, exposed communication 288122365 cycles.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[1], Wall time: 288122365
+[2025-09-18 20:40:12.899] [statistics] [info] sys[1], Comm time: 288122365
+[2025-09-18 20:40:12.899] [workload] [info] sys[2] finished, 288122365 cycles, exposed communication 288122365 cycles.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 20:40:12.899] [statistics] [info] sys[2], Wall time: 288122365
+[2025-09-18 20:40:12.899] [statistics] [info] sys[2], Comm time: 288122365
+[2025-09-18 20:40:12.899] [system] [warning] Exiting
+[2025-09-18 20:40:19.397] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:19.397] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:19.397] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:19.397] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 20:40:19.400] [workload] [info] sys[3] finished, 7033885297 cycles, exposed communication 7033885297 cycles.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[3], Wall time: 7033885297
+[2025-09-18 20:40:19.400] [statistics] [info] sys[3], Comm time: 7033885297
+[2025-09-18 20:40:19.400] [workload] [info] sys[0] finished, 7033885297 cycles, exposed communication 7033885297 cycles.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[0], Wall time: 7033885297
+[2025-09-18 20:40:19.400] [statistics] [info] sys[0], Comm time: 7033885297
+[2025-09-18 20:40:19.400] [workload] [info] sys[1] finished, 7033885297 cycles, exposed communication 7033885297 cycles.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[1], Wall time: 7033885297
+[2025-09-18 20:40:19.400] [statistics] [info] sys[1], Comm time: 7033885297
+[2025-09-18 20:40:19.400] [workload] [info] sys[2] finished, 7033885297 cycles, exposed communication 7033885297 cycles.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 20:40:19.400] [statistics] [info] sys[2], Wall time: 7033885297
+[2025-09-18 20:40:19.400] [statistics] [info] sys[2], Comm time: 7033885297
+[2025-09-18 20:40:19.400] [system] [warning] Exiting
+[2025-09-18 21:14:11.188] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:11.188] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:11.188] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:11.188] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:11.191] [workload] [info] sys[3] finished, 288573100 cycles, exposed communication 288573100 cycles.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[3], Wall time: 288573100
+[2025-09-18 21:14:11.191] [statistics] [info] sys[3], Comm time: 288573100
+[2025-09-18 21:14:11.191] [workload] [info] sys[0] finished, 288573100 cycles, exposed communication 288573100 cycles.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[0], Wall time: 288573100
+[2025-09-18 21:14:11.191] [statistics] [info] sys[0], Comm time: 288573100
+[2025-09-18 21:14:11.191] [workload] [info] sys[1] finished, 288573100 cycles, exposed communication 288573100 cycles.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[1], Wall time: 288573100
+[2025-09-18 21:14:11.191] [statistics] [info] sys[1], Comm time: 288573100
+[2025-09-18 21:14:11.191] [workload] [info] sys[2] finished, 288573100 cycles, exposed communication 288573100 cycles.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 21:14:11.191] [statistics] [info] sys[2], Wall time: 288573100
+[2025-09-18 21:14:11.191] [statistics] [info] sys[2], Comm time: 288573100
+[2025-09-18 21:14:11.191] [system] [warning] Exiting
+[2025-09-18 21:14:13.801] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:13.801] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:13.801] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:13.801] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:13.804] [workload] [info] sys[3] finished, 3077967748 cycles, exposed communication 3077967748 cycles.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[3], Wall time: 3077967748
+[2025-09-18 21:14:13.804] [statistics] [info] sys[3], Comm time: 3077967748
+[2025-09-18 21:14:13.804] [workload] [info] sys[0] finished, 3077967748 cycles, exposed communication 3077967748 cycles.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[0], Wall time: 3077967748
+[2025-09-18 21:14:13.804] [statistics] [info] sys[0], Comm time: 3077967748
+[2025-09-18 21:14:13.804] [workload] [info] sys[1] finished, 3077967748 cycles, exposed communication 3077967748 cycles.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[1], Wall time: 3077967748
+[2025-09-18 21:14:13.804] [statistics] [info] sys[1], Comm time: 3077967748
+[2025-09-18 21:14:13.804] [workload] [info] sys[2] finished, 3077967748 cycles, exposed communication 3077967748 cycles.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 21:14:13.804] [statistics] [info] sys[2], Wall time: 3077967748
+[2025-09-18 21:14:13.804] [statistics] [info] sys[2], Comm time: 3077967748
+[2025-09-18 21:14:13.804] [system] [warning] Exiting
+[2025-09-18 21:14:16.418] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:16.418] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:16.418] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:16.418] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:16.422] [workload] [info] sys[3] finished, 96201055 cycles, exposed communication 96201055 cycles.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[3], Wall time: 96201055
+[2025-09-18 21:14:16.422] [statistics] [info] sys[3], Comm time: 96201055
+[2025-09-18 21:14:16.422] [workload] [info] sys[0] finished, 96201055 cycles, exposed communication 96201055 cycles.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[0], Wall time: 96201055
+[2025-09-18 21:14:16.422] [statistics] [info] sys[0], Comm time: 96201055
+[2025-09-18 21:14:16.422] [workload] [info] sys[1] finished, 96201055 cycles, exposed communication 96201055 cycles.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[1], Wall time: 96201055
+[2025-09-18 21:14:16.422] [statistics] [info] sys[1], Comm time: 96201055
+[2025-09-18 21:14:16.422] [workload] [info] sys[2] finished, 96201055 cycles, exposed communication 96201055 cycles.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 21:14:16.422] [statistics] [info] sys[2], Wall time: 96201055
+[2025-09-18 21:14:16.422] [statistics] [info] sys[2], Comm time: 96201055
+[2025-09-18 21:14:16.422] [system] [warning] Exiting
+[2025-09-18 21:14:21.601] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:21.601] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:21.601] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:21.601] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:21.604] [workload] [info] sys[3] finished, 384759127 cycles, exposed communication 384759127 cycles.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[3], Wall time: 384759127
+[2025-09-18 21:14:21.604] [statistics] [info] sys[3], Comm time: 384759127
+[2025-09-18 21:14:21.604] [workload] [info] sys[0] finished, 384759127 cycles, exposed communication 384759127 cycles.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[0], Wall time: 384759127
+[2025-09-18 21:14:21.604] [statistics] [info] sys[0], Comm time: 384759127
+[2025-09-18 21:14:21.604] [workload] [info] sys[1] finished, 384759127 cycles, exposed communication 384759127 cycles.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[1], Wall time: 384759127
+[2025-09-18 21:14:21.604] [statistics] [info] sys[1], Comm time: 384759127
+[2025-09-18 21:14:21.604] [workload] [info] sys[2] finished, 384759127 cycles, exposed communication 384759127 cycles.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 21:14:21.604] [statistics] [info] sys[2], Wall time: 384759127
+[2025-09-18 21:14:21.604] [statistics] [info] sys[2], Comm time: 384759127
+[2025-09-18 21:14:21.604] [system] [warning] Exiting
+[2025-09-18 21:14:26.793] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:26.793] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:26.793] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:26.793] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 4 index in ring: 0 offset: 1 total nodes in ring: 4
+[2025-09-18 21:14:26.796] [workload] [info] sys[3] finished, 9393181297 cycles, exposed communication 9393181297 cycles.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[3], Wall time: 9393181297
+[2025-09-18 21:14:26.796] [statistics] [info] sys[3], Comm time: 9393181297
+[2025-09-18 21:14:26.796] [workload] [info] sys[0] finished, 9393181297 cycles, exposed communication 9393181297 cycles.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[0], Wall time: 9393181297
+[2025-09-18 21:14:26.796] [statistics] [info] sys[0], Comm time: 9393181297
+[2025-09-18 21:14:26.796] [workload] [info] sys[1] finished, 9393181297 cycles, exposed communication 9393181297 cycles.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[1], Wall time: 9393181297
+[2025-09-18 21:14:26.796] [statistics] [info] sys[1], Comm time: 9393181297
+[2025-09-18 21:14:26.796] [workload] [info] sys[2] finished, 9393181297 cycles, exposed communication 9393181297 cycles.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 21:14:26.796] [statistics] [info] sys[2], Wall time: 9393181297
+[2025-09-18 21:14:26.796] [statistics] [info] sys[2], Comm time: 9393181297
+[2025-09-18 21:14:26.796] [system] [warning] Exiting

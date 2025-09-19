@@ -10,7 +10,7 @@ import shutil
 import itertools
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
 # import numpy as np
 import simulate_LLM
 from parallelism import Parallelism
@@ -70,6 +70,11 @@ class TimeCalculationLLM(TimeCalculation):
         self.execution_mode = execution_mode
         self._reduction_total_llm = 0.0
         self.all_reduce = all_reduce # when the reduce happens in data parallelism options: "the end"  "every layer"
+        self.pipeline_graph: Optional[Graph] = None
+        self.pipeline_root: Optional[Any] = None
+        self.pipeline_interconnect: Optional[Dict[str, Tuple[float, float]]] = None
+        self.transformer_graph: Optional[Graph] = None
+        self.transformer_graph_root: Optional[Any] = None
 
     @staticmethod
     def _derive_execution_mode(hw_config) -> ExecutionMode:
@@ -693,6 +698,96 @@ class TimeCalculationLLM(TimeCalculation):
             }
         }
 
+    def _populate_transformer_comm_metadata(
+        self,
+        entry: Dict[str, Any],
+        metadata: Dict[str, Dict[str, Any]],
+        m: int,
+        k: int,
+        n: int,
+    ) -> None:
+        """Attach tensor-parallel collectives for a GEMM to metadata and entry."""
+
+        tp_mode = self.t
+        kp1 = int(self.kp1) if self.kp1 else 1
+        kp2 = int(self.kp2) if self.kp2 else 1
+        precision = self.precision
+
+        if not tp_mode or (kp1 <= 1 and kp2 <= 1):
+            return
+
+        def add_comm(direction: str, suffix: str, kind: str, size_bytes: float, participants: int, interconnect: str) -> None:
+            if participants <= 1:
+                return
+            bytes_int = int(math.ceil(size_bytes))
+            if bytes_int <= 0:
+                return
+            key = f"{entry['name']}_{direction}_{suffix}"
+            # ensure uniqueness when multiple collectives share the same suffix
+            unique_key = key
+            counter = 1
+            while unique_key in metadata:
+                counter += 1
+                unique_key = f"{key}_{counter}"
+
+            metadata[unique_key] = {
+                'size': bytes_int,
+                'type': kind,
+                'participants': int(participants),
+                'interconnect_type': interconnect,
+            }
+            entry[direction]['comm_keys'].append(unique_key)
+
+        if tp_mode == "CR":
+            if kp1 <= 1:
+                return
+            total_bytes = math.ceil(precision * m * n)
+            add_comm('forward', 'reduce_scatter', 'reduce_scatter', total_bytes, kp1, 'kp1')
+
+            # Backward all-gather mirrors forward reduce-scatter.
+            total_bytes = math.ceil(precision * m * n)
+            size_bytes = math.ceil(total_bytes / kp1)
+            add_comm('backward', 'all_gather', 'all_gather', size_bytes, kp1, 'kp1')
+            return
+
+        if tp_mode == "RC":
+            if kp2 > 1:
+                total_bytes = math.ceil(precision * (m // max(1, kp1)) * n)
+                size_bytes = math.ceil(total_bytes / kp2)
+                add_comm('forward', 'all_gather', 'all_gather', size_bytes, kp2, 'kp2')
+
+            if kp1 > 1:
+                total_bytes_row = math.ceil(precision * k * m)
+                size_row = math.ceil(total_bytes_row / kp1)
+
+                total_bytes_col = math.ceil(precision * m * (n / max(1, kp2)))
+                size_col = math.ceil(total_bytes_col / kp1)
+
+                add_comm(
+                    'backward',
+                    'wt_all_gather',
+                    'all_gather',
+                    size_row + size_col,
+                    kp1,
+                    'kp1',
+                )
+
+            if kp2 > 1:
+                total_bytes_row = math.ceil(precision * (m / max(1, kp1)) * n)
+                size_row = math.ceil(total_bytes_row / kp2)
+
+                total_bytes_col = math.ceil(precision * k * n)
+                size_col = math.ceil(total_bytes_col / kp2)
+
+                add_comm(
+                    'backward',
+                    'act_all_gather',
+                    'all_gather',
+                    size_row + size_col,
+                    kp2,
+                    'kp2',
+                )
+
     def _build_interconnect_params(self) -> Dict[str, Tuple[float, float]]:
         return {
             'dp': (self.IBD, self.LLD),
@@ -713,24 +808,41 @@ class TimeCalculationLLM(TimeCalculation):
         linear_softmax_b: float,
         comm_metadata: Dict[str, Dict[str, Any]],
     ) -> Tuple[Graph, Any, Dict[str, Tuple[float, float]]]:
+        comp_times = {
+            "embedding_f": embedding_f,
+            "embedding_b": embedding_b,
+            "linear_softmax_f": linear_softmax_f,
+            "linear_softmax_b": linear_softmax_b,
+            "transformer_f": transformer_time_f,
+            "transformer_b": transformer_time_b,
+            "cross_layer_f": 0.0,
+            "cross_layer_b": 0.0,
+        }
+        misc_metadata = {
+            "num_batch": num_micro_batches,
+            "num_layer": num_layers,
+            "all_reduce": self.all_reduce,
+        }
+
         graph = simulate_LLM.Graph(
-            num_batch=num_micro_batches,
-            num_layer=num_layers,
-            lp=self.lp,
+            mode="pipeline",
             dp=self.dp,
-            all_reduce=self.all_reduce,
-            T_embedding_f=embedding_f,
-            T_linear_softmax_f=linear_softmax_f,
-            T_embedding_b=embedding_b,
-            T_linear_softmax_b=linear_softmax_b,
-            T_transformer_f=transformer_time_f,
-            T_transformer_b=transformer_time_b,
+            lp=self.lp,
+            kp1=self.kp1,
+            kp2=self.kp2,
+            tp_mode=self.t,
+            comp_times=comp_times,
             comm_metadata=comm_metadata,
+            misc_metadata=misc_metadata,
         )
         root = graph.construct_fwd_bwd_graph()
         interconnect_params = self._build_interconnect_params()
         return graph, root, interconnect_params
 
+    def _tp_degree(self) -> int:
+        kp1 = self.kp1 if self.kp1 else 1
+        kp2 = self.kp2 if self.kp2 else 1
+        return int(kp1 * kp2)
     
     def calcTime_LLM(self):
         """Calculate time for LLM model."""
@@ -748,15 +860,6 @@ class TimeCalculationLLM(TimeCalculation):
         # Adjust types and calculate node latencies
         self.readjust_type()
         transformer_time_f, transformer_time_b, embedding_f, embedding_b, linear_softmax_f, linear_softmax_b = self.getNodeLatency(batch_size, vocab_size, hidden_dim, seq_len, num_heads, ffn_dim)
-
-        # Calculate reduction times
-        # get the reduction time and weight update time for transformer, reduction occurs between data parallel (dp) GPUs of different nodes, all-reduce
-        # (total number of GPUs for all-reduce equals dp)
-        # R_transformer, G_transformer = self.getDPOverhead(
-        #     d=hidden_dim, ffn_dim=ffn_dim, n_layers=num_layers
-        # )
-
-
 
         if self.debug:
             print(
@@ -803,7 +906,66 @@ class TimeCalculationLLM(TimeCalculation):
             cross_layer_bytes=cross_layer_bytes,
         )
 
-        graph, graph_root, interconnect_params = self._build_pipeline_graph(
+        shapes = LLM_util.process_gemm_shapes(
+            batch_size,
+            seq_len,
+            hidden_dim,
+            num_heads,
+            ffn_dim,
+            vocab_size,
+            option="multiply_batch_into_m",
+        )
+        (
+            gemm_qkv_proj,
+            gemm_attention_score,
+            gemm_attention_output,
+            gemm_output_proj,
+            gemm_ffn1,
+            gemm_ffn2,
+            _,
+        ) = shapes
+
+        gemm_specs = [
+            ("gemm_qkv_proj", gemm_qkv_proj),
+            ("gemm_attn_score", gemm_attention_score),
+            ("gemm_attn_output", gemm_attention_output),
+            ("gemm_output_proj", gemm_output_proj),
+            ("gemm_ffn1", gemm_ffn1),
+            ("gemm_ffn2", gemm_ffn2),
+        ]
+
+        transformer_gemm_entries = []
+        transformer_comm_metadata: Dict[str, Dict[str, Any]] = {}
+
+        for base_name, (m, k, n) in gemm_specs:
+            fwd_time, _ = self._distributed_gemm_forward(m, k, n, base_name + "_fwd")
+            bwd_time, _ = self._distributed_gemm_backward(m, k, n, base_name + "_bwd")
+
+            entry = {
+                "name": base_name,
+                "forward": {
+                    "duration": fwd_time,
+                    "comm_keys": [],
+                },
+                "backward": {
+                    "duration": bwd_time,
+                    "comm_keys": [],
+                },
+            }
+
+            self._populate_transformer_comm_metadata(
+                entry=entry,
+                metadata=transformer_comm_metadata,
+                m=m,
+                k=k,
+                n=n,
+            )
+
+            transformer_gemm_entries.append(entry)
+
+        tp_degree = self._tp_degree()
+
+        pipeline_graph_obj, graph_root, interconnect_params = self._build_pipeline_graph(
             num_micro_batches=num_micro_batches,
             num_layers=num_layers,
             transformer_time_f=transformer_time_f,
@@ -815,11 +977,15 @@ class TimeCalculationLLM(TimeCalculation):
             comm_metadata=comm_metadata,
         )
 
+        self.pipeline_graph = pipeline_graph_obj
+        self.pipeline_root = graph_root
+        self.pipeline_interconnect = interconnect_params
+
         dispatcher = LLMExecutionDispatcher(
             time_calc=self,
-            graph=graph,
-            graph_root=graph_root,
-            interconnect_params=interconnect_params,
+            pipeline_graph=self.pipeline_graph,
+            pipeline_root=self.pipeline_root,
+            interconnect_params=self.pipeline_interconnect,
         )
         mode = self.execution_mode
         try:
@@ -830,12 +996,35 @@ class TimeCalculationLLM(TimeCalculation):
         time_fw_bw = result.total_time
 
         pipeline_root = result.graph_root
-        graph = dispatcher.graph
+        self.pipeline_graph = dispatcher.pipeline_graph
+        self.pipeline_root = pipeline_root
+        self.pipeline_interconnect = dispatcher.interconnect_params
 
         if os.environ.get("ASTRA_TEST"):
             run_astra_simulation_only_onepath(pipeline_root, self, "./astra_comparison_output")
 
-        graph.save_graph(pipeline_root, "output_graph/", "fw_bw_graph")
+        self.pipeline_graph.save_graph(pipeline_root, "output_graph/", "fw_bw_graph")
+
+        comp_times = {
+            "transformer": {
+                "gemms": transformer_gemm_entries,
+                "tp_degree": tp_degree,
+            }
+        }
+        self.transformer_graph = simulate_LLM.Graph(
+            mode="transformer",
+            dp=self.dp,
+            lp=self.lp,
+            kp1=self.kp1,
+            kp2=self.kp2,
+            tp_mode=self.t,
+            comp_times=comp_times,
+            comm_metadata=transformer_comm_metadata,
+            misc_metadata={},
+        )
+        self.transformer_graph_root = self.transformer_graph.construct_transformer_graph()
+
+        self.transformer_graph.save_graph(self.transformer_graph_root, "output_graph/", "transformer_graph")
 
         self.tot_time = time_fw_bw
 
@@ -864,13 +1053,13 @@ class LLMExecutionDispatcher:
     def __init__(
         self,
         time_calc: TimeCalculationLLM,
-        graph: Graph,
-        graph_root: Any,
+        pipeline_graph: Graph,
+        pipeline_root: Any,
         interconnect_params: Dict[str, Tuple[float, float]],
     ) -> None:
         self.time_calc = time_calc
-        self.graph = graph
-        self.root = graph_root
+        self.pipeline_graph = pipeline_graph
+        self.pipeline_root = pipeline_root
         self.interconnect_params = interconnect_params
 
     def run(self, mode: ExecutionMode) -> ExecutionResult:
@@ -886,12 +1075,12 @@ class LLMExecutionDispatcher:
         raise ValueError(f"Unsupported execution mode: {mode}")
 
     def _run_pipeline_with_analytical_comm(self, declared_mode: ExecutionMode) -> ExecutionResult:
-        timed_root = self.graph.convert_comm_sizes_to_times(
-            self.root,
+        timed_root = self.pipeline_graph.convert_comm_sizes_to_times(
+            self.pipeline_root,
             self.time_calc.network_model,
             self.interconnect_params,
         )
         # Persist timed root for any downstream consumer
-        self.root = timed_root
-        total_time = self.graph.simulate(timed_root)
+        self.pipeline_root = timed_root
+        total_time = self.pipeline_graph.simulate(timed_root)
         return ExecutionResult(total_time=total_time, graph_root=timed_root, mode=declared_mode)
