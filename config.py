@@ -464,6 +464,16 @@ ExecutionBackendAstra = _namedtuple(
         "backend",   # analytical | ns3 | garnet
         "mode",      # hybrid | hybrid_congestion | full_astrasim
         "collectives",
+        "sys_options",
+    ],
+)
+
+ExecutionBackendAstraSysOptions = _namedtuple(
+    "ExecutionBackendAstraSysOptions",
+    [
+        "endpoint_delay",
+        "active_chunks_per_dimension",
+        "preferred_dataset_splits",
     ],
 )
 
@@ -588,10 +598,24 @@ def parse_config(filename, config_type):
                 reduce_scatter=coll.get("reduce_scatter", "auto"),
                 all_to_all=coll.get("all_to_all", "auto"),
             )
+            sys_cfg_dict = astra_cfg.get("sys_options")
+            if sys_cfg_dict is not None:
+                sys_cfg = ExecutionBackendAstraSysOptions(
+                    endpoint_delay=sys_cfg_dict.get("endpoint_delay"),
+                    active_chunks_per_dimension=sys_cfg_dict.get(
+                        "active_chunks_per_dimension"
+                    ),
+                    preferred_dataset_splits=sys_cfg_dict.get(
+                        "preferred_dataset_splits"
+                    ),
+                )
+            else:
+                sys_cfg = None
             eb_astra = ExecutionBackendAstra(
                 backend=astra_cfg.get("backend", "analytical"),
                 mode=astra_cfg.get("mode", "hybrid"),
                 collectives=coll_cfg,
+                sys_options=sys_cfg,
             )
         else:
             eb_astra = None

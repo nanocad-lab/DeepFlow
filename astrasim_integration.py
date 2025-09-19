@@ -151,6 +151,7 @@ def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", np
     exec_backend = getattr(hw_obj, "execution_backend", None)
     if exec_backend and exec_backend.astra:
         coll = exec_backend.astra.collectives
+        sys_opts = getattr(exec_backend.astra, "sys_options", None)
         ag = _choose_collective(coll.all_gather, topo, "all-gather")
         ar = _choose_collective(coll.all_reduce, topo, "all-reduce")
         rs = _choose_collective(coll.reduce_scatter, topo, "reduce-scatter")
@@ -160,6 +161,7 @@ def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", np
         ar = _choose_collective("auto", topo, "all-reduce")
         rs = _choose_collective("auto", topo, "reduce-scatter")
         a2a = _choose_collective("auto", topo, "all-to-all")
+        sys_opts = None
 
     system = {
         "scheduling-policy": "LIFO",
@@ -176,6 +178,17 @@ def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", np
         "roofline-enabled": 0,
         "peak-perf": 900,
     }
+    if sys_opts is not None:
+        if getattr(sys_opts, "endpoint_delay", None) is not None:
+            system["endpoint-delay"] = sys_opts.endpoint_delay
+        if getattr(sys_opts, "active_chunks_per_dimension", None) is not None:
+            system[
+                "active-chunks-per-dimension"
+            ] = sys_opts.active_chunks_per_dimension
+        if getattr(sys_opts, "preferred_dataset_splits", None) is not None:
+            system[
+                "preferred-dataset-splits"
+            ] = sys_opts.preferred_dataset_splits
     _save_json(sys_json, system)
 
     return {"network_yaml": net_yaml, "system_json": sys_json}

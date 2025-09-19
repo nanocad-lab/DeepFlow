@@ -180,3 +180,7 @@ execution_backend:
       all_reduce: auto
       reduce_scatter: auto
       all_to_all: auto
+    sys_options:
+      endpoint_delay: 10
+      active_chunks_per_dimension: 1
+      preferred_dataset_splits: 1
