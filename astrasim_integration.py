@@ -362,6 +362,29 @@ def _collectives_from_hw(hw_obj, topo: str) -> Dict[str, str]:
     }
 
 
+def _sys_options_from_hw(hw_obj) -> Optional[Dict[str, Any]]:
+    exec_backend = getattr(hw_obj, "execution_backend", None)
+    if not exec_backend or not exec_backend.astra:
+        return None
+    sys_opts = getattr(exec_backend.astra, "sys_options", None)
+    if sys_opts is None:
+        return None
+    if hasattr(sys_opts, "_asdict"):
+        opts_dict = sys_opts._asdict()
+    else:
+        opts_dict = {
+            "endpoint_delay": getattr(sys_opts, "endpoint_delay", None),
+            "active_chunks_per_dimension": getattr(
+                sys_opts, "active_chunks_per_dimension", None
+            ),
+            "preferred_dataset_splits": getattr(
+                sys_opts, "preferred_dataset_splits", None
+            ),
+        }
+    filtered = {k: v for k, v in opts_dict.items() if v is not None}
+    return filtered or None
+
+
 def _canonical_sig(sig: Dict[str, Any]) -> str:
     """Return a canonical JSON string for use as a human-readable cache key."""
     return json.dumps(sig, sort_keys=True, separators=(",", ":"))
@@ -530,6 +553,7 @@ def run_cache_astrasim(
     ll_ns = round(_ns_from_s(intra_ll_s), 3)
     topo = _derive_topology_from_hw(hw_obj)
     colls = _collectives_from_hw(hw_obj, topo)
+    sys_opts_sig = _sys_options_from_hw(hw_obj)
 
     # Build signature and check cache
     sig = {
@@ -543,6 +567,8 @@ def run_cache_astrasim(
         "collectives": colls,
         "backend": "analytical",
     }
+    if sys_opts_sig is not None:
+        sig["sys_options"] = sys_opts_sig
     if bundle_paths:
         sig.update(
             {
