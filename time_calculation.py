@@ -7,6 +7,7 @@ import sys
 import config
 import shutil
 import itertools
+from typing import Optional
 # import numpy as np
 
 from parallelism import Parallelism
@@ -24,17 +25,12 @@ validating_v100 = False
 
 
 class NetworkModel:
-    def __init__(self, hw_config, precision, kernel_overhead, roofline_cb):
+    def __init__(self, hw_config, precision, kernel_overhead, roofline_cb, astra_policy: Optional[str] = None):
         self.hw_config = hw_config
         self.precision = precision
         self.O = kernel_overhead
         self._roofline = roofline_cb
-        nb = getattr(hw_config, "network_backend", None)
-        self._use_astra = (
-            nb is not None
-            and getattr(nb, "model", "analytical") == "astra"
-            and getattr(nb, "astra", None) is not None
-        )
+        self._astra_policy = astra_policy or "analytical"
 
     def _astra_collective(self, kind: str, participants: int, size_bytes: int) -> float:
         part = int(participants)
@@ -81,7 +77,7 @@ class NetworkModel:
         network_bytes = float(math.ceil(size_bytes))
         local_bytes_int = int(math.ceil(local_bytes)) if local_bytes else 0
 
-        if self._use_astra:
+        if self._astra_policy in {"hybrid", "full"}:
             if kind in collective_ops or kind == "pipeline":
                 # Pipeline uses 2 NPUs for point-to-point, others use part
                 npus = 2 if kind == "pipeline" else part
@@ -194,13 +190,14 @@ class NetworkModel:
 
 
 class TimeCalculation:
-    def __init__(self, hw_config, model_config, mode):
+    def __init__(self, hw_config, model_config, mode, *, astra_policy_override: Optional[str] = None):
 # Mode parameter
         
 
         # Software Parameters
         self.O = hw_config.sw_config.kernel_launch_overhead
         self.precision = hw_config.sw_config.precision
+        self.h2d_bandwidth = getattr(hw_config.sw_config, "h2d_bandwidth", -1)
         self.attached = True
 
         # Hardware Parameters
@@ -216,7 +213,7 @@ class TimeCalculation:
         self.tileSpace = None
 
         # TODO: move this to config file
-        self.H2Dbw = 12.4 * 1024 * 1024 * 1024
+        self.H2Dbw = self.h2d_bandwidth
 
 
         # System Parameters
@@ -347,10 +344,21 @@ class TimeCalculation:
         self.tot_mem = 0
         self.tot_time = 0
         self.debug = False
-        self.validating_GEMM = False
         
         self.mode = mode
-        self.network_model = NetworkModel(hw_config, self.precision, self.O, self.roofline)
+        default_policy = 'analytical'
+        eb = getattr(hw_config, "execution_backend", None)
+        if eb and getattr(eb, "model", "analytical") == "astra":
+            default_policy = 'hybrid'
+        self._astra_policy = astra_policy_override or default_policy
+
+        self.network_model = NetworkModel(
+            hw_config,
+            self.precision,
+            self.O,
+            self.roofline,
+            astra_policy=self._astra_policy,
+        )
         
         # Dynamically select and instantiate the model class
         model_class = self.get_model_class(mode)
@@ -471,7 +479,6 @@ class TimeCalculation:
         kp2,
         dp,
         lp,
-        gemm,
         batch_size,
         hidden_dim,
         seq_len,
@@ -489,7 +496,6 @@ class TimeCalculation:
         self.miniB = math.ceil(self.B / self.dp)
 
         self.debug = debug
-        self.validating_GEMM = gemm
         self.lp = lp if lp != None else self.lp
         self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
         # self.kp_hidden_dim1 = kp1 if kp1 != None else self.kp_hidden_dim1
@@ -1468,10 +1474,7 @@ class TimeCalculation:
             )
             print("Hidden point_time: {:,}\n".format(point_time))
 
-        if self.validating_GEMM:
-            return GEMM_time
-        else:
-            return GEMM_time[0] + point_time
+        return GEMM_time[0] + point_time
 
     def getCb(self):
         """Get LSTM Cell Time on Backward Path"""
@@ -1593,7 +1596,7 @@ class TimeCalculation:
     #   * Use RS if downstream consumers expect a sharded C[m, n] along kp1.
     #   * If the next op needs full C immediately, switch to ALL-REDUCE (partial=False, allReduce=True).
     def getDistGEMM_f_kp1(self, m, k, n, dim1, name):
-        GEMM_time = self.getGEMMTime(m, k // dim1, n, name)
+        gemm_time = self.getGEMMTime(m, k // dim1, n, name)[0]
 
         # Sum-Reduce within each row for use in the next time step
         total_bytes = math.ceil(self.precision * m * n)
@@ -1607,13 +1610,7 @@ class TimeCalculation:
             local_ops=0.0,
             debug_label=name or "comm",
         )
-        if self.validating_GEMM:
-            print(
-                "GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time)
-            )
-            return (GEMM_time[0] + reduction_time,) + GEMM_time[1:]
-        else:
-            return GEMM_time[0], reduction_time
+        return gemm_time, reduction_time
 
     def getDistGEMM_b_kp1(self, m, k, n, dim1, name):
         # calculate grad wrt. act (A'. W^T)
@@ -1630,19 +1627,14 @@ class TimeCalculation:
             local_bytes=3 * total_bytes,
             debug_label=name or "comm",
         )
-
-        # Multiply full grad_activation with shards of weights
         grad_wt_time, _, _, _ = self.getGEMMTime(k, (m // dim1), n, name + "wt")
-        # Multiply full grad-activation with shards of activations
         grad_act_time, _, _, _ = self.getGEMMTime(m, (n // dim1), k, name + "act")
-
-        GEMM_time = grad_wt_time + grad_act_time
-
-        return GEMM_time, reduction_time
+        gemm_time = grad_wt_time + grad_act_time
+        return gemm_time, reduction_time
 
     # all-reduce across M // kp1 GPUs
     def getDistGEMM_f_kp2(self, m, k, n, dim1, dim2, name):
-        GEMM_time = self.getGEMMTime(m // dim1, k, n // dim2, name)
+        gemm_time = self.getGEMMTime(m // dim1, k, n // dim2, name)[0]
         total_bytes = math.ceil(self.precision * (m // dim1) * n)
         size_bytes = math.ceil(total_bytes / dim2)
         reduction_time = self.network_model.collective(
@@ -1654,13 +1646,7 @@ class TimeCalculation:
             local_bytes=3 * total_bytes,
             debug_label=name or "comm",
         )
-        if self.validating_GEMM:
-            print(
-                "GEMM_time: {}, Reduction_time:{}".format(GEMM_time[0], reduction_time)
-            )
-            return (GEMM_time[0] + reduction_time,) + GEMM_time[1:]
-        else:
-            return GEMM_time[0], reduction_time
+        return gemm_time, reduction_time
 
 
     # TODO(getDistGEMM_b_kp2):
@@ -2176,9 +2162,11 @@ class TimeCalculation:
 
     def getEmbedding_f(self):
         embedding_mem = 2 * (self.miniB * self.D * self.precision)
-        # embedding_time = (embedding_mem)/ (self.mem_bw) + self.mem_latency + self.O
         embedding_time = self.roofline(0, embedding_mem, name="embedding_f") + self.O
-        embedding_transfer_time = 2 * self.miniB * self.D * self.precision / self.H2Dbw
+        if self.H2Dbw and self.H2Dbw > 0:
+            embedding_transfer_time = embedding_mem / self.H2Dbw
+        else:
+            embedding_transfer_time = 0.0
         if self.debug:
             print("Embedding_mem: {:,}".format(int(embedding_mem / 1e9)))
         return embedding_time + embedding_transfer_time
@@ -2188,10 +2176,7 @@ class TimeCalculation:
         # data_transfer_time  = 0 if (self.dp == 1) else (float("inf") if (self.IBD == 0) else (((p2p_data_transfer) / self.IBD + self.LLD) * 2 * (self.dp -1 )))
 
         embedding_mem = 2 * self.miniB * self.D * self.precision
-        # embedding_mem_time = (embedding_mem / self.mem_bw) + self.mem_latency + self.O
-        embedding_mem_time = (
-            self.roofline(0, embedding_mem, name="embedding_b") + self.O
-        )
+        embedding_mem_time = self.roofline(0, embedding_mem, name="embedding_b") + self.O
 
         if self.debug:
             print("(gr) Embedding_mem: {:,}".format(int(embedding_mem / 1e9)))

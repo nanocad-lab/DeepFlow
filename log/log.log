@@ -2815,3 +2815,102 @@
 [2025-09-18 17:43:42.611] [statistics] [info] sys[4], Comm time: 865769189533
 [2025-09-18 17:43:42.611] [statistics] [info] sys[4], Total compute-communication overlap: 119840786000
 [2025-09-18 17:43:42.611] [system] [warning] Exiting
+[2025-09-18 17:47:50.366] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 8 index in ring: 0 offset: 1 total nodes in ring: 8
+[2025-09-18 17:47:50.366] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 8 index in ring: 0 offset: 1 total nodes in ring: 8
+[2025-09-18 17:47:50.366] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 8 index in ring: 0 offset: 1 total nodes in ring: 8
+[2025-09-18 17:47:50.366] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 8 index in ring: 0 offset: 1 total nodes in ring: 8
+[2025-09-18 17:47:50.373] [system::topology::RingTopology] [info] custom ring, id: 3, dimension: local total nodes in ring: 2 index in ring: 0 total nodes in ring 2
+[2025-09-18 17:47:50.373] [system::topology::RingTopology] [info] custom ring, id: 7, dimension: local total nodes in ring: 2 index in ring: 1 total nodes in ring 2
+[2025-09-18 17:47:50.374] [system::topology::RingTopology] [info] custom ring, id: 2, dimension: local total nodes in ring: 2 index in ring: 0 total nodes in ring 2
+[2025-09-18 17:47:50.374] [system::topology::RingTopology] [info] custom ring, id: 6, dimension: local total nodes in ring: 2 index in ring: 1 total nodes in ring 2
+[2025-09-18 17:47:50.374] [system::topology::RingTopology] [info] custom ring, id: 1, dimension: local total nodes in ring: 2 index in ring: 0 total nodes in ring 2
+[2025-09-18 17:47:50.374] [system::topology::RingTopology] [info] custom ring, id: 5, dimension: local total nodes in ring: 2 index in ring: 1 total nodes in ring 2
+[2025-09-18 17:47:50.374] [system::topology::RingTopology] [info] custom ring, id: 0, dimension: local total nodes in ring: 2 index in ring: 0 total nodes in ring 2
+[2025-09-18 17:47:50.374] [system::topology::RingTopology] [info] custom ring, id: 4, dimension: local total nodes in ring: 2 index in ring: 1 total nodes in ring 2
+[2025-09-18 17:47:50.374] [workload] [info] sys[3] finished, 834060064430 cycles, exposed communication 34300208430 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[3]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[3]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[3], Wall time: 834060064430
+[2025-09-18 17:47:50.374] [statistics] [info] sys[3], Comm time: 89515088785
+[2025-09-18 17:47:50.374] [statistics] [info] sys[3], GPU time: 799759856000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[3], Total compute-communication overlap: 55214880355
+[2025-09-18 17:47:50.374] [workload] [info] sys[7] finished, 834060064430 cycles, exposed communication 34300208430 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[7]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[7]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[7], Wall time: 834060064430
+[2025-09-18 17:47:50.374] [statistics] [info] sys[7], Comm time: 89515088785
+[2025-09-18 17:47:50.374] [statistics] [info] sys[7], GPU time: 799759856000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[7], Total compute-communication overlap: 55214880355
+[2025-09-18 17:47:50.374] [workload] [info] sys[2] finished, 849866362535 cycles, exposed communication 755624434535 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[2]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[2]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[2], Wall time: 849866362535
+[2025-09-18 17:47:50.374] [statistics] [info] sys[2], Comm time: 834166628535
+[2025-09-18 17:47:50.374] [statistics] [info] sys[2], GPU time: 94241928000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[2], Total compute-communication overlap: 78542194000
+[2025-09-18 17:47:50.374] [workload] [info] sys[6] finished, 849866362535 cycles, exposed communication 755624434535 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[6]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[6]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[6], Wall time: 849866362535
+[2025-09-18 17:47:50.374] [statistics] [info] sys[6], Comm time: 834166628535
+[2025-09-18 17:47:50.374] [statistics] [info] sys[6], GPU time: 94241928000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[6], Total compute-communication overlap: 78542194000
+[2025-09-18 17:47:50.374] [workload] [info] sys[1] finished, 865672660640 cycles, exposed communication 771430732640 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[1], Wall time: 865672660640
+[2025-09-18 17:47:50.374] [statistics] [info] sys[1], Comm time: 849972926640
+[2025-09-18 17:47:50.374] [statistics] [info] sys[1], GPU time: 94241928000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[1], Total compute-communication overlap: 78542194000
+[2025-09-18 17:47:50.374] [workload] [info] sys[5] finished, 865672660640 cycles, exposed communication 771430732640 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[5]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[5]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[5], Wall time: 865672660640
+[2025-09-18 17:47:50.374] [statistics] [info] sys[5], Comm time: 849972926640
+[2025-09-18 17:47:50.374] [statistics] [info] sys[5], GPU time: 94241928000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[5], Total compute-communication overlap: 78542194000
+[2025-09-18 17:47:50.374] [workload] [info] sys[0] finished, 881468923533 cycles, exposed communication 745928403533 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[0], Wall time: 881468923533
+[2025-09-18 17:47:50.374] [statistics] [info] sys[0], Comm time: 865769189533
+[2025-09-18 17:47:50.374] [statistics] [info] sys[0], GPU time: 135540520000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[0], Total compute-communication overlap: 119840786000
+[2025-09-18 17:47:50.374] [workload] [info] sys[4] finished, 881468923533 cycles, exposed communication 745928403533 cycles.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[4]. Post statistics processing start.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[4]. Post statistics processing end.
+[2025-09-18 17:47:50.374] [statistics] [info] sys[4], Wall time: 881468923533
+[2025-09-18 17:47:50.374] [statistics] [info] sys[4], Comm time: 865769189533
+[2025-09-18 17:47:50.374] [statistics] [info] sys[4], GPU time: 135540520000
+[2025-09-18 17:47:50.374] [statistics] [info] sys[4], Total compute-communication overlap: 119840786000
+[2025-09-18 17:47:50.375] [system] [warning] Exiting
+[2025-09-18 18:30:52.203] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.203] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.203] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.203] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.204] [workload] [info] sys[0] finished, 96040775 cycles, exposed communication 96040775 cycles.
+[2025-09-18 18:30:52.204] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 18:30:52.204] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 18:30:52.204] [statistics] [info] sys[0], Wall time: 96040775
+[2025-09-18 18:30:52.204] [statistics] [info] sys[0], Comm time: 96040775
+[2025-09-18 18:30:52.204] [workload] [info] sys[1] finished, 96040775 cycles, exposed communication 96040775 cycles.
+[2025-09-18 18:30:52.204] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 18:30:52.204] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 18:30:52.204] [statistics] [info] sys[1], Wall time: 96040775
+[2025-09-18 18:30:52.204] [statistics] [info] sys[1], Comm time: 96040775
+[2025-09-18 18:30:52.204] [system] [warning] Exiting
+[2025-09-18 18:30:52.277] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.277] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.277] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.277] [system::topology::RingTopology] [info] ring of node 0, id: 0 dimension: local total nodes in ring: 2 index in ring: 0 offset: 1 total nodes in ring: 2
+[2025-09-18 18:30:52.278] [workload] [info] sys[0] finished, 86005563 cycles, exposed communication 86005563 cycles.
+[2025-09-18 18:30:52.278] [statistics] [info] sys[0]. Post statistics processing start.
+[2025-09-18 18:30:52.278] [statistics] [info] sys[0]. Post statistics processing end.
+[2025-09-18 18:30:52.278] [statistics] [info] sys[0], Wall time: 86005563
+[2025-09-18 18:30:52.278] [statistics] [info] sys[0], Comm time: 86005563
+[2025-09-18 18:30:52.278] [workload] [info] sys[1] finished, 86005563 cycles, exposed communication 86005563 cycles.
+[2025-09-18 18:30:52.278] [statistics] [info] sys[1]. Post statistics processing start.
+[2025-09-18 18:30:52.278] [statistics] [info] sys[1]. Post statistics processing end.
+[2025-09-18 18:30:52.278] [statistics] [info] sys[1], Wall time: 86005563
+[2025-09-18 18:30:52.278] [statistics] [info] sys[1], Comm time: 86005563
+[2025-09-18 18:30:52.278] [system] [warning] Exiting

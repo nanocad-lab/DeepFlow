@@ -83,9 +83,9 @@ def set_hw_params_cfg(cfg: Dict[str, Any], n_workers: int, t: str, kp1: int, kp2
     sch["kp1"] = int(kp1)
     sch["kp2"] = int(kp2)
 
-    # Network backend selection
-    nb = cfg.setdefault("network_backend", {})
-    nb["model"] = str(backend)  # "analytical" | "astra"
+    # Execution backend selection
+    eb = cfg.setdefault("execution_backend", {})
+    eb["model"] = str(backend)  # "analytical" | "astra"
     # keep existing astra section if present
     return cfg
 
@@ -107,9 +107,9 @@ def set_hw_params_cfg_llm(cfg: Dict[str, Any], n_workers: int, backend: str, int
     sch["kp1"] = 1
     sch["kp2"] = 1
 
-    # Network backend selection
-    nb = cfg.setdefault("network_backend", {})
-    nb["model"] = str(backend)
+    # Execution backend selection
+    eb = cfg.setdefault("execution_backend", {})
+    eb["model"] = str(backend)
     # Optionally override intra topology for benchmarking
     if intra_topo is not None:
         nt = cfg.setdefault("network_topology", {})

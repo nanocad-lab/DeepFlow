@@ -1,6 +1,7 @@
 sw_param:
   kernel_launch_overhead: 9e-6
   precision: 2
+  h2d_bandwidth: 13297674240  # Bytes/s; set -1 to disable H2D timing
 tech_param:
   core:
     operating_frequency: 1.41e9
@@ -162,11 +163,11 @@ scheduling_param:
   t: RC
   kp1: 1
   kp2: 1
-network_backend:
+execution_backend:
   model: astra # analytical | astra
   astra:
     backend: astra
-    mode: isolated
+    mode: hybrid  # hybrid | hybrid_congestion | full_astrasim
     collectives:
       # Allowed values per op: auto | ring | direct | halvingDoubling | doubleBinaryTree
       # Note: if topology is 'switch' and value is 'auto', we default to 'halvingDoubling'.

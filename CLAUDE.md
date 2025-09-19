@@ -67,8 +67,8 @@ Configurations are split into two main categories:
 The system supports both old-style configs (configs/old-configs/) and new hardware-specific configs.
 
 ### AstraSim Integration
-- Network backend can be switched between `analytical` (DeepFlow's built-in) and `astra` (AstraSim integration)
-- Configuration via `network_backend.model` in YAML files
+- Execution backend can be switched between `analytical` (DeepFlow's built-in) and `astra` (AstraSim integration)
+- Configuration via `execution_backend.model` in YAML files
 - Automatic fallback to analytical model if AstraSim fails
 - Cached results in `astra_cache/` directory with JSON cache files
 

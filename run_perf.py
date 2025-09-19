@@ -80,45 +80,18 @@ def run_GEMM(
 
 
     TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
-    TC.validating_GEMM = True
 
     # Forward timing
-    forward_tuple = None
     forward_time = None
     forward_red = 0.0
     if TC.kp1 == 1 and TC.kp2 == 1:  # no parallelism
-        forward_tuple = TC.getCf(TC.M, TC.K, TC.N)
-        forward_time = forward_tuple[0]
+        forward_time = TC.getCf(TC.M, TC.K, TC.N)
     elif TC.t == "CR":
-        forward_tuple = TC.getDistGEMM_f_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cf_CR")
-        forward_time = forward_tuple[0]
-        # Reduction for CR forward: RS over kp1 rows
-        total_bytes = math.ceil(TC.precision * TC.M * TC.N)
-        forward_red = TC.network_model.collective(
-            kind="reduce_scatter",
-            size_bytes=total_bytes,
-            participants=int(TC.kp1),
-            ib=TC.IBK1,
-            ll=TC.LLK1,
-            local_bytes=0.0,
-            debug_label="Cf_CR",
-        )
+        gemm_time, forward_red = TC.getDistGEMM_f_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cf_CR")
+        forward_time = gemm_time + forward_red
     elif TC.t == "RC":
-        forward_tuple = TC.getDistGEMM_f_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cf_RC")
-        forward_time = forward_tuple[0]
-        # Reduction for RC forward: AG over kp2 columns
-        dim0 = TC.M // TC.kp1 if TC.kp1 else TC.M
-        total_bytes = math.ceil(TC.precision * dim0 * TC.N)
-        size_bytes = math.ceil(total_bytes / TC.kp2)
-        forward_red = TC.network_model.collective(
-            kind="all_gather",
-            size_bytes=size_bytes,
-            participants=int(TC.kp2),
-            ib=TC.IBK2,
-            ll=TC.LLK2,
-            local_bytes=3 * total_bytes,
-            debug_label="Cf_RC",
-        )
+        gemm_time, forward_red = TC.getDistGEMM_f_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cf_RC")
+        forward_time = gemm_time + forward_red
     else:
         print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
         sys.exit(1)
@@ -134,12 +107,12 @@ def run_GEMM(
             grad_wt_time, _, _, _ = TC.getGEMMTime(TC.K, TC.M, TC.N, "Cb_wt")
             backward_time = grad_act_time + grad_wt_time
         elif TC.t == "CR":
-            bg_gemm, bg_red = TC.getDistGEMM_b_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cb_CR")
-            backward_time = bg_gemm + bg_red
+            gemm_time, bg_red = TC.getDistGEMM_b_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cb_CR")
+            backward_time = gemm_time + bg_red
             backward_red = bg_red
         elif TC.t == "RC":
-            bg_gemm, bg_red = TC.getDistGEMM_b_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cb_RC")
-            backward_time = bg_gemm + bg_red
+            gemm_time, bg_red = TC.getDistGEMM_b_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cb_RC")
+            backward_time = gemm_time + bg_red
             backward_red = bg_red
         # Data-parallel reduction of weight gradients (follow LSTM policy)
         if TC.dp and TC.dp > 1:
@@ -190,22 +163,12 @@ def run_LLM(
         output_file = exp_dir + "/summary_m%s_n%s_k%s_layer%s.txt" %(m, n, k, i+1) ##Output dir should be created manually
 
         TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
-        TC.validating_GEMM = True
-
-        if TC.kp1 == 1 and TC.kp2 ==1: #no parallelism
-            gemm_time = TC.getCf(m, k, n)
-        elif TC.t == "CR":
-            gemm_time = TC.getDistGEMM_f_kp1(m, k, n, TC.kp1, "Cf_CR")
-        elif TC.t == "RC":
-            gemm_time = TC.getDistGEMM_f_kp2(m, k, n, TC.kp1, TC.kp2, "Cf_RC")
-        else:
-            print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
-            sys.exit()
+        gemm_time_info = TC.getGEMMTime(m, k, n, "Cf")
 
         with open(output_file, "w") as f:
-            f.write("Best Order: {}\n".format(gemm_time[1]))
-            f.write("Best Tile: {}\n".format(gemm_time[2]))
-            f.write("Time: {}\n".format(gemm_time[0]))
+            f.write("Best Order: {}\n".format(gemm_time_info[1]))
+            f.write("Best Tile: {}\n".format(gemm_time_info[2]))
+            f.write("Time: {}\n".format(gemm_time_info[0]))
             
     # output_dir_LLM = os.path.join(exp_dir, "output_LLM")
     caltime(TC.num_layers ,TC.batch_size, TC.seq_len,TC.n_tokens, TC.communication_time, TC.N_PP, exp_dir, exp_dir)

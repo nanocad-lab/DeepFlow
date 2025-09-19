@@ -11,7 +11,7 @@ Scope (M0):
 - Topology derived from DeepFlow YAML: network_topology.intra_node ∈ {fc, ring}
   maps to AstraSim {FullyConnected, Ring}.
 - npus_count pulled from DeepFlow DP (scheduling_param.dp).
-- Chooses collective algorithms per network_backend.astra.collectives with
+- Chooses collective algorithms per execution_backend.astra.collectives with
   an 'auto' policy: FullyConnected -> direct for AG/A2A; ring for AR/RS.
 
 No invocation of AstraSim here; just emit configs and comm-only ETs.
@@ -147,10 +147,10 @@ def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", np
             f.write(net_content)
         os.replace(tmp_path, net_yaml)
 
-    # System JSON collectives from parsed network_backend
-    nb = getattr(hw_obj, "network_backend", None)
-    if nb and nb.astra:
-        coll = nb.astra.collectives
+    # System JSON collectives from parsed execution backend
+    exec_backend = getattr(hw_obj, "execution_backend", None)
+    if exec_backend and exec_backend.astra:
+        coll = exec_backend.astra.collectives
         ag = _choose_collective(coll.all_gather, topo, "all-gather")
         ar = _choose_collective(coll.all_reduce, topo, "all-reduce")
         rs = _choose_collective(coll.reduce_scatter, topo, "reduce-scatter")
@@ -331,9 +331,9 @@ def get_remote_memory_path() -> str:
 # -----------------------------
 
 def _collectives_from_hw(hw_obj, topo: str) -> Dict[str, str]:
-    nb = getattr(hw_obj, "network_backend", None)
-    if nb and nb.astra:
-        coll = nb.astra.collectives
+    exec_backend = getattr(hw_obj, "execution_backend", None)
+    if exec_backend and exec_backend.astra:
+        coll = exec_backend.astra.collectives
         return {
             "all_gather": _choose_collective(coll.all_gather, topo, "all-gather"),
             "all_reduce": _choose_collective(coll.all_reduce, topo, "all-reduce"),
@@ -358,6 +358,21 @@ def _hash_sig(canonical: str) -> str:
     """Return a sha256 hex digest for the canonical signature string."""
     h = hashlib.sha256()
     h.update(canonical.encode("utf-8"))
+    return h.hexdigest()
+
+
+def _hash_file_bundle(paths: List[str]) -> str:
+    """Return a sha256 hex digest for the concatenated contents of the given files."""
+    h = hashlib.sha256()
+    for path in sorted(set(paths)):
+        if not os.path.exists(path):
+            continue
+        with open(path, "rb") as fh:
+            while True:
+                chunk = fh.read(1024 * 1024)
+                if not chunk:
+                    break
+                h.update(chunk)
     return h.hexdigest()
 
 
@@ -465,6 +480,7 @@ def run_cache_astrasim(
     size_bytes: int,
     astra_config_dir: str = "./astra_cache",
     cache_path: str = "./astra_cache/cache.json",
+    bundle_paths: Optional[List[str]] = None,
 ) -> Tuple[List[float], float]:
     """
     Cached AstraSim run: generates configs (skips existing workload),
@@ -514,36 +530,17 @@ def run_cache_astrasim(
         "collectives": colls,
         "backend": "analytical",
     }
+    if bundle_paths:
+        sig.update(
+            {
+                "multinode": True,
+                "num_workers": getattr(getattr(hw_obj, "system_config", None), "num_workers", None),
+                "dp": getattr(getattr(hw_obj, "sch_config", None), "dp", None),
+                "lp": getattr(getattr(hw_obj, "sch_config", None), "lp", None),
+                "mb": getattr(getattr(hw_obj, "sch_config", None), "mb", None),
+            }
+        )
     canonical = _canonical_sig(sig)
-    key = _hash_sig(canonical)
-    # Locked read/check to avoid races with concurrent writers; on timeout, proceed best-effort
-    with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
-        cache = _load_cache(cache_path)
-        if locked:
-            # Migrate any legacy entry keyed by canonical JSON string
-            if canonical in cache and key not in cache:
-                cache[key] = cache.pop(canonical)
-                _save_cache(cache_path, cache)
-    if key in cache:
-        entry = cache[key]
-        cached_per = entry.get("per_node_sec", [])
-        cached_max = float(entry.get("max_sec", 0.0))
-        # Validate: non-empty, positive max, and length matches npus
-        if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
-            _cache_dbg(f"HIT key={key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
-            return cached_per, cached_max
-        else:
-            # Remove bad cache entry under lock
-            with _cache_file_lock(cache_path, timeout_s=5.0, poll_s=0.05) as locked:
-                if locked:
-                    fresh = _load_cache(cache_path)
-                    if key in fresh:
-                        try:
-                            fresh.pop(key)
-                            _save_cache(cache_path, fresh)
-                        except Exception:
-                            pass
-            _cache_dbg(f"DROP_INVALID key={key} comm={comm} npus={npus_count} size={size_bytes}")
 
     # Generate configs
     files = generate_astrasim_configs_from_hw(hw_obj, out_dir=astra_config_dir, npus_count=npus_count)
@@ -553,8 +550,65 @@ def run_cache_astrasim(
     base_dir = os.path.join(astra_config_dir, "workload", comm.lower(), f"{npus_count}npus_{label}")
     prefix = os.path.join(base_dir, f"{comm.lower()}_{label}")
     expected = [f"{prefix}.{r}.et" for r in range(npus_count)]
-    if not all(os.path.exists(p) for p in expected):
-        generate_workload_et(comm, npus_count, size_bytes, astra_config_dir=astra_config_dir)
+    if not bundle_paths:
+        if not all(os.path.exists(p) for p in expected):
+            generate_workload_et(comm, npus_count, size_bytes, astra_config_dir=astra_config_dir)
+
+    remote_mem_path = get_remote_memory_path()
+
+    if bundle_paths:
+        bundle_list = list(bundle_paths)
+        for path in (files["system_json"], files["network_yaml"]):
+            if path not in bundle_list:
+                bundle_list.append(path)
+        if remote_mem_path and os.path.exists(remote_mem_path) and remote_mem_path not in bundle_list:
+            bundle_list.append(remote_mem_path)
+        cache_key = _hash_file_bundle(bundle_list)
+    else:
+        cache_key = _hash_sig(canonical)
+
+    # Locked read/check to avoid races with concurrent writers; on timeout, proceed best-effort
+    with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
+        cache = _load_cache(cache_path)
+        if bundle_paths:
+            entry = cache.get(cache_key) if cache else None
+            if entry:
+                cached_per = entry.get("per_node_sec", [])
+                cached_max = float(entry.get("max_sec", 0.0))
+                if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
+                    _cache_dbg(f"HIT bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
+                    return cached_per, cached_max
+                if locked:
+                    fresh = _load_cache(cache_path)
+                    if cache_key in fresh:
+                        try:
+                            fresh.pop(cache_key)
+                            _save_cache(cache_path, fresh)
+                        except Exception:
+                            pass
+                _cache_dbg(f"DROP_INVALID bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
+        else:
+            entry = cache.get(cache_key) if cache else None
+            if locked:
+                # Migrate any legacy entry keyed by canonical JSON string
+                if cache and canonical in cache and cache_key not in cache:
+                    cache[cache_key] = cache.pop(canonical)
+                    _save_cache(cache_path, cache)
+            if entry:
+                cached_per = entry.get("per_node_sec", [])
+                cached_max = float(entry.get("max_sec", 0.0))
+                if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
+                    _cache_dbg(f"HIT key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
+                    return cached_per, cached_max
+                if locked:
+                    fresh = _load_cache(cache_path)
+                    if cache_key in fresh:
+                        try:
+                            fresh.pop(cache_key)
+                            _save_cache(cache_path, fresh)
+                        except Exception:
+                            pass
+                _cache_dbg(f"DROP_INVALID key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
 
     # Execute AstraSim with retry if zero time observed
     attempts = 0
@@ -567,7 +621,7 @@ def run_cache_astrasim(
             workload_prefix=prefix,
             system_json=files["system_json"],
             network_yaml=files["network_yaml"],
-            remote_memory_json=get_remote_memory_path(),
+            remote_memory_json=remote_mem_path,
         )
         # consider valid only if non-empty, positive, and matches npus length
         if per_node_sec and max_sec > 0 and len(per_node_sec) == int(npus_count) and all((t > 0 for t in per_node_sec)):
@@ -576,29 +630,37 @@ def run_cache_astrasim(
         last_outcome_zero = True
         # brief backoff before retrying
         time.sleep(0.5)
-        _cache_dbg(f"RETRY attempt={attempts} key={key} comm={comm} npus={npus_count} size={size_bytes}")
+        retry_key = cache_key
+        _cache_dbg(f"RETRY attempt={attempts} key={retry_key} comm={comm} npus={npus_count} size={size_bytes}")
     if last_outcome_zero:
         raise RuntimeError(
             f"AstraSim returned zero time for {comm} size={size_bytes} npus={npus_count} after 5 retries"
         )
 
     # Update cache under lock to prevent lost updates; if lock cannot be acquired, skip caching
+    cache_entry = {
+        "signature": sig,
+        "canonical": canonical,
+        "per_node_sec": per_node_sec,
+        "max_sec": max_sec,
+        "workload_prefix": prefix,
+        "system_json": files["system_json"],
+        "network_yaml": files["network_yaml"],
+    }
+    if bundle_paths:
+        cache_entry.update({
+            "bundle_hash": cache_key,
+            "bundle_paths": bundle_list,
+        })
+
     with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
         if locked:
             cache = _load_cache(cache_path)
-            cache[key] = {
-                "signature": sig,
-                "canonical": canonical,
-                "per_node_sec": per_node_sec,
-                "max_sec": max_sec,
-                "workload_prefix": prefix,
-                "system_json": files["system_json"],
-                "network_yaml": files["network_yaml"],
-            }
+            cache[cache_key] = cache_entry
             _save_cache(cache_path, cache)
-            _cache_dbg(f"MISS_WRITE key={key} comm={comm} npus={npus_count} size={size_bytes} max={max_sec}")
+            _cache_dbg(f"MISS_WRITE key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={max_sec}")
         else:
-            _cache_dbg(f"SKIP_WRITE_LOCK key={key} comm={comm} npus={npus_count} size={size_bytes}")
+            _cache_dbg(f"SKIP_WRITE_LOCK key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
 
     return per_node_sec, max_sec
 
@@ -650,9 +712,6 @@ def run_astrasim_analytical(
     ]
     if comm_group_json and os.path.exists(comm_group_json):
         cmd.append(f"--comm-group-configuration={comm_group_json}")
-
-    cmd_str = " ".join(cmd) 
-    print(f"[AstraSim] Running command: {cmd_str}")
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
     out = proc.stdout
@@ -909,7 +968,3 @@ if __name__ == "__main__":
                 print(f"\n❌ FAILED: Could not complete {congestion_model} tests")
 
     print("\n=== Test Complete ===")
-
-
-
-

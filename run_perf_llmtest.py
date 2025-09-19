@@ -82,51 +82,18 @@ def run_GEMM(
 
 
     TC = TimeCalculation(exp_hw_config, exp_model_config, mode)
-    TC.validating_GEMM = True
 
     # Forward timing
-    forward_tuple = None
     forward_time = None
     forward_red = 0.0
     if TC.kp1 == 1 and TC.kp2 == 1:  # no parallelism
-        ft, _, _, _ = TC.getGEMMTime(TC.M, TC.K, TC.N, "Cf")
-        forward_time = ft
+        forward_time = TC.getCf(TC.M, TC.K, TC.N)
     elif TC.t == "CR":
-        ft_pair = TC.getDistGEMM_f_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cf_CR")
-        # In current implementation, this returns (compute_scalar, reduction_scalar)
-        if isinstance(ft_pair, tuple) and len(ft_pair) == 2:
-            forward_time, forward_red = ft_pair[0] + ft_pair[1], ft_pair[1]
-        else:
-            forward_time = ft_pair[0]
-            # recompute reduction explicitly to be safe
-            total_bytes = math.ceil(TC.precision * TC.M * TC.N)
-            forward_red = TC.network_model.collective(
-                kind="reduce_scatter",
-                size_bytes=total_bytes,
-                participants=int(TC.kp1),
-                ib=TC.IBK1,
-                ll=TC.LLK1,
-                local_bytes=0.0,
-                debug_label="Cf_CR",
-            )
+        gemm_time, forward_red = TC.getDistGEMM_f_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cf_CR")
+        forward_time = gemm_time + forward_red
     elif TC.t == "RC":
-        ft_pair = TC.getDistGEMM_f_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cf_RC")
-        if isinstance(ft_pair, tuple) and len(ft_pair) == 2:
-            forward_time, forward_red = ft_pair[0] + ft_pair[1], ft_pair[1]
-        else:
-            forward_time = ft_pair[0]
-            dim0 = TC.M // TC.kp1 if TC.kp1 else TC.M
-            total_bytes = math.ceil(TC.precision * dim0 * TC.N)
-            size_bytes = math.ceil(total_bytes / TC.kp2)
-            forward_red = TC.network_model.collective(
-                kind="all_gather",
-                size_bytes=size_bytes,
-                participants=int(TC.kp2),
-                ib=TC.IBK2,
-                ll=TC.LLK2,
-                local_bytes=3 * total_bytes,
-                debug_label="Cf_RC",
-            )
+        gemm_time, forward_red = TC.getDistGEMM_f_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cf_RC")
+        forward_time = gemm_time + forward_red
     else:
         print("Incorrect parallelism type, CR: Column-Row, RC: Row-Column")
         sys.exit(1)
@@ -141,12 +108,12 @@ def run_GEMM(
             grad_wt_time, _, _, _ = TC.getGEMMTime(TC.K, TC.M, TC.N, "Cb_wt")
             backward_time = grad_act_time + grad_wt_time
         elif TC.t == "CR":
-            bg_gemm, bg_red = TC.getDistGEMM_b_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cb_CR")
-            backward_time = bg_gemm + bg_red
+            gemm_time, bg_red = TC.getDistGEMM_b_kp1(TC.M, TC.K, TC.N, TC.kp1, "Cb_CR")
+            backward_time = gemm_time + bg_red
             backward_red = bg_red
         elif TC.t == "RC":
-            bg_gemm, bg_red = TC.getDistGEMM_b_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cb_RC")
-            backward_time = bg_gemm + bg_red
+            gemm_time, bg_red = TC.getDistGEMM_b_kp2(TC.M, TC.K, TC.N, TC.kp1, TC.kp2, "Cb_RC")
+            backward_time = gemm_time + bg_red
             backward_red = bg_red
         # Data-parallel reduction after backward, if applicable
         if TC.dp and TC.dp > 1:

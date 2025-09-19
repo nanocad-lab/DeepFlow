@@ -8,6 +8,9 @@ import sys
 import config
 import shutil
 import itertools
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Tuple
 # import numpy as np
 import simulate_LLM
 from parallelism import Parallelism
@@ -37,25 +40,83 @@ else:
     m=1e6
     second = "us"
 
+
+class ExecutionMode(Enum):
+    ANALYTICAL = "analytical"
+    HYBRID = "hybrid"
+    HYBRID_CONGESTION = "hybrid_congestion"
+    FULL_ASTRASIM = "full_astrasim"
+
+
+@dataclass
+class ExecutionResult:
+    total_time: float
+    graph_root: Any
+    mode: ExecutionMode
+
+
 class TimeCalculationLLM(TimeCalculation):
     def __init__(self, hw_config, model_config, mode):
 # Mode parameter
-        
-        super().__init__(hw_config, model_config, mode)
+        execution_mode = self._derive_execution_mode(hw_config)
+        astra_policy = self._map_execution_mode_to_policy(execution_mode)
+
+        super().__init__(
+            hw_config,
+            model_config,
+            mode,
+            astra_policy_override=astra_policy,
+        )
+        self.execution_mode = execution_mode
         self._reduction_total_llm = 0.0
         self.all_reduce = all_reduce # when the reduce happens in data parallelism options: "the end"  "every layer"
-    def getGEMMTime_RC(self, m, k, n, name): #kp2
-        # Get the GEMM time for the RC (Row-Column) data layout
-        GEMM_time = self.getGEMMTime(m // self.kp_hidden_dim2, k, n // self.kp_hidden_dim1, name)
-        reduction_time = 0 #todo All-Reduce across GPUs.
-        return GEMM_time[0] + reduction_time
-    def getGEMMTime_CR(self, m, k, n, dim1, dim2, name): #kp1
-        # Get the GEMM time for the CR data layout
-        GEMM_time = self.getGEMMTime(m, k // self.kp_hidden_dim1, n, name)
-        reduction_time = 0 #todo All-Gather of input activations before GEMM.
-        return GEMM_time[0] + reduction_time
 
+    @staticmethod
+    def _derive_execution_mode(hw_config) -> ExecutionMode:
+        backend = getattr(hw_config, "execution_backend", None)
+        if not backend or getattr(backend, "model", "analytical").lower() != "astra":
+            return ExecutionMode.ANALYTICAL
 
+        mode_str = "hybrid"
+        astra_cfg = getattr(backend, "astra", None)
+        if astra_cfg and getattr(astra_cfg, "mode", None):
+            mode_str = str(astra_cfg.mode).lower()
+
+        for candidate in ExecutionMode:
+            if candidate.value == mode_str:
+                return candidate
+        print(f"[WARN] Unknown execution mode '{mode_str}', defaulting to 'hybrid'.")
+        return ExecutionMode.HYBRID
+
+    @staticmethod
+    def _map_execution_mode_to_policy(mode: ExecutionMode) -> str:
+        if mode == ExecutionMode.ANALYTICAL:
+            return 'analytical'
+        if mode == ExecutionMode.FULL_ASTRASIM:
+            return 'full'
+        # Treat hybrid congestion the same as hybrid for now
+        return 'hybrid'
+
+    def _distributed_gemm_forward(self, m: int, k: int, n: int, name: str) -> Tuple[float, float]:
+        if self.t is None or (self.kp1 == 1 and self.kp2 == 1):
+            gemm_time = self.getGEMMTime(m, k, n, name)[0]
+            return gemm_time, 0.0
+        if self.t == "CR":
+            return self.getDistGEMM_f_kp1(m, k, n, self.kp1, name)
+        if self.t == "RC":
+            return self.getDistGEMM_f_kp2(m, k, n, self.kp1, self.kp2, name)
+        raise ValueError(f"Invalid tensor parallel strategy: {self.t}")
+
+    def _distributed_gemm_backward(self, m: int, k: int, n: int, name: str) -> Tuple[float, float]:
+        if self.t is None or (self.kp1 == 1 and self.kp2 == 1):
+            grad_act_time, _, _, _ = self.getGEMMTime(m, n, k, f"{name}_act")
+            grad_wt_time, _, _, _ = self.getGEMMTime(k, m, n, f"{name}_wt")
+            return grad_act_time + grad_wt_time, 0.0
+        if self.t == "CR":
+            return self.getDistGEMM_b_kp1(m, k, n, self.kp1, name)
+        if self.t == "RC":
+            return self.getDistGEMM_b_kp2(m, k, n, self.kp1, self.kp2, name)
+        raise ValueError(f"Invalid tensor parallel strategy: {self.t}")
 
     def get_node_f(self, gemm, name):
 
@@ -65,26 +126,14 @@ class TimeCalculationLLM(TimeCalculation):
         m = gemm[0]
         k = gemm[1]
         n = gemm[2]
-        
-        if self.t == None:
-            
-            GEMM_time = self.getGEMMTime(m, k, n, name)[0]
-            print(f"Calculating GEMM for {name} with shape ({m}, {k}, {n})")
-        elif self.t == "RC":
-            GEMM_time = self.getGEMMTime_RC(m, k, n, name)
-            print(f"Calculating distributed GEMM for {name} with shape ({m}, {k}, {n})")
-        elif self.t == "CR":
-            GEMM_time = self.getGEMMTime_CR(m, k, n, name)
-            print(f"Calculating distributed GEMM for {name} with shape ({m}, {k}, {n})")
-        else:
-            raise ValueError("Invalid tp strategy")
+        gemm_time, reduction_time = self._distributed_gemm_forward(m, k, n, name)
 
         if self.debug:
-            print("{} GEMM_time: {:,}\n".format(name, GEMM_time[0]))
-        if self.validating_GEMM:
-            return GEMM_time
-        else:
-            return GEMM_time + self.O #gemm time plus kernel launch overhead
+            print(f"{name} GEMM_time: {gemm_time:,}; reduction_time: {reduction_time:,}")
+
+        total = gemm_time + reduction_time
+        self._reduction_total_llm += reduction_time
+        return total
 
     def get_node_b(self, gemm, name):
         """Get node Time on Backward Path
@@ -93,43 +142,29 @@ class TimeCalculationLLM(TimeCalculation):
         m = gemm[0]
         k = gemm[1]
         n = gemm[2]
-        if self.t == None:
-            grad_act_time, _, _, _ = self.getGEMMTime( # Get activation gradient time
-                m, n, k, "{}_act".format(name)
-            )
-            grad_wt_time, _, _, _ = self.getGEMMTime( # Get weight gradient time
-                k, m, n, "{}_wt".format(name)
-            )
-        elif self.t == "RC":
-            grad_act_time = self.getGEMMTime_RC(
-                m, n, k, "{}_act".format(name)
-            )
-            grad_wt_time = self.getGEMMTime_RC(
-                k, m, n, "{}_wt".format(name)
-            )
-        elif self.t == "CR":
-            grad_act_time = self.getGEMMTime_CR(
-                m, n, k, "{}_act".format(name)
-            )
-            grad_wt_time = self.getGEMMTime_CR(
-                k, m, n, "{}_wt".format(name)
-            )
+        gemm_time, reduction_time = self._distributed_gemm_backward(m, k, n, name)
 
-        GEMM_time = grad_act_time + grad_wt_time
-
-
-        return GEMM_time + self.O #gemm time plus kernel launch overhead
+        total = gemm_time + reduction_time
+        self._reduction_total_llm += reduction_time
+        return total
 
     def getEmbedding_f(self):
         """
         Calculates the total time required for embedding operations, including computation and data transfer.
         """
-        # Get embedding time
-        embedding_mem = 2 * (self.seq_len * self.miniB * self.hidden_dim * self.precision)
+        batch = self._effective_transformer_batch()
+        embedding_mem = 2 * self.seq_len * batch * self.hidden_dim * self.precision
         embedding_time = self.roofline(0, embedding_mem, name="embedding_f") + self.O
-        embedding_transfer_time = 2 * self.seq_len * self.miniB * self.hidden_dim * self.precision / self.H2Dbw
+        if self.h2d_bandwidth and self.h2d_bandwidth > 0:
+            embedding_transfer_time = embedding_mem / self.h2d_bandwidth
+        else:
+            embedding_transfer_time = 0.0
         if self.debug:
-            print("Embedding_mem: {:,}".format(int(embedding_mem / 1e9)))
+            print(
+                "Embedding_mem: {:,}, transfer_time: {:.6f}".format(
+                    int(embedding_mem / 1e9), embedding_transfer_time
+                )
+            )
         return embedding_time + embedding_transfer_time
 
     def getLinearSoftmax_f(self, gemm):
@@ -140,21 +175,7 @@ class TimeCalculationLLM(TimeCalculation):
         k = gemm[1]
         n = gemm[2]
         
-        if self.t == None:
-            GEMM_time = self.getGEMMTime(
-                m, k, n, "linear_softmax_f"
-            )
-            print(f"Calculating GEMM for linear_softmax_f with shape ({m}, {k}, {n})")
-        elif self.t == "RC":
-            GEMM_time = self.getGEMMTime_RC(
-                m, k, n, "linear_softmax_f"
-            )
-            print(f"Calculating distributed GEMM for linear_softmax_f with shape ({m}, {k}, {n})")
-        elif self.t == "CR":
-            GEMM_time = self.getGEMMTime_CR(
-                m, k, n, "linear_softmax_f"
-            )
-            print(f"Calculating distributed GEMM for linear_softmax_f with shape ({m}, {k}, {n})")
+        gemm_time, reduction_time = self._distributed_gemm_forward(m, k, n, "linear_softmax_f")
         point_flop = m * (3 * n - 1)
         point_mem = self.precision * m * (7 * n)
         point_time = (
@@ -170,7 +191,9 @@ class TimeCalculationLLM(TimeCalculation):
             )
             print("point_time: {:,}\n".format(point_time))
 
-        return GEMM_time + point_time
+        total = gemm_time + reduction_time + point_time
+        self._reduction_total_llm += reduction_time
+        return total
     def getScaleSoftmax_f(self, gemm):
 
         m = gemm[0] # get the gemm shape of former layer which is attention_score layer here
@@ -309,36 +332,14 @@ class TimeCalculationLLM(TimeCalculation):
         m = gemm[0]
         k = gemm[1]
         n = gemm[2]
-        if self.t == None:
-            grad_wt_time, _, _, _ = self.getGEMMTime(
-                k, m, n, "linear_softmax_b_wt"
-            )
-            grad_act_time, _, _, _ = self.getGEMMTime(
-                m, n, k, "linear_softmax_b_act"
-            )
-        elif self.t == "RC":
-            grad_act_time = self.getGEMMTime_RC(
-                m, n, k, "linear_softmax_b_act"
-            )
-            grad_wt_time = self.getGEMMTime_RC(
-                k, m, n, "linear_softmax_b_wt"
-            )
-        elif self.t == "CR":
-            grad_act_time = self.getGEMMTime_CR(
-                m, n, k, "linear_softmax_b_act"
-            )
-            grad_wt_time = self.getGEMMTime_CR(
-                k, m, n, "linear_softmax_b_wt"
-            )
-
-        GEMM_time = grad_wt_time + grad_act_time
+        gemm_time, reduction_time = self._distributed_gemm_backward(m, k, n, "linear_softmax_b")
         point_flop = m * n * 5
         # 1: one for one of the divisions, grad(A) (y=A/B)
         # 2: one for division and multiplication, grad(B)
         # 1: one for addition, copies turn into add
         # 1: one for sigmoid
 
-        point_mem = self.precision * self.miniB * self.vocab_size * 11
+        point_mem = self.precision * m * 11
         # 3: grad(A) in pointwise division
         # 3: grad(B) in pointwise division
         # 3: addition in copy backprop
@@ -357,18 +358,17 @@ class TimeCalculationLLM(TimeCalculation):
             )
             print("(gr) Linear Softmax point_time: {:,}\n".format(point_time))
 
-        return GEMM_time + point_time
+        total = gemm_time + reduction_time + point_time
+        self._reduction_total_llm += reduction_time
+        return total
     
     def getEmbedding_b(self):
-
-        embedding_mem = 2 * self.seq_len * self.miniB * self.hidden_dim * self.precision
-        embedding_mem_time = (
-            self.roofline(0, embedding_mem, name="embedding_b") + self.O
-        )
+        batch = self._effective_transformer_batch()
+        embedding_mem = 2 * self.seq_len * batch * self.hidden_dim * self.precision
+        embedding_mem_time = self.roofline(0, embedding_mem, name="embedding_b") + self.O
 
         if self.debug:
             print("(gr) Embedding_mem: {:,}".format(int(embedding_mem / 1e9)))
-        # return data_transfer_time + embedding_mem_time
         return embedding_mem_time
     
     def check_memory(self, hw_config, model_config): #check whether memory usage exceeds capacity
@@ -645,17 +645,97 @@ class TimeCalculationLLM(TimeCalculation):
             transformer_time_f, transformer_time_b, embedding_f, embedding_b,
             linear_softmax_f, linear_softmax_b
         )
-        
-        
+
+
+    def _effective_transformer_batch(self) -> int:
+        if self.lp > 1:
+            return self.microB
+        if self.dp > 1:
+            return self.miniB
+        return self.batch_size
+
+    def _build_comm_metadata(
+        self,
+        reduction_sizes: Dict[str, int],
+        local_comp: Dict[str, float],
+        embedding_size: int,
+        softmax_size: int,
+        cross_layer_bytes: int,
+    ) -> Dict[str, Dict[str, Any]]:
+        return {
+            'transformer': {
+                'size': reduction_sizes['total_size'],
+                'type': 'all_reduce',
+                'participants': self.dp,
+                'interconnect_type': 'dp',
+                'local_comp_time': local_comp['total_local']
+            },
+            'embedding': {
+                'size': embedding_size,
+                'type': 'all_reduce',
+                'participants': self.dp,
+                'interconnect_type': 'dp',
+                'local_comp_time': 0
+            },
+            'softmax': {
+                'size': softmax_size,
+                'type': 'all_reduce',
+                'participants': self.dp,
+                'interconnect_type': 'dp',
+                'local_comp_time': 0
+            },
+            'cross_layer': {
+                'size': cross_layer_bytes,
+                'type': 'pipeline',
+                'participants': 2,
+                'interconnect_type': 'lp',
+                'local_comp_time': 0
+            }
+        }
+
+    def _build_interconnect_params(self) -> Dict[str, Tuple[float, float]]:
+        return {
+            'dp': (self.IBD, self.LLD),
+            'lp': (self.IBL, self.LLL),
+            'kp1': (self.IBK1, self.LLK1),
+            'kp2': (self.IBK2, self.LLK2)
+        }
+
+    def _build_pipeline_graph(
+        self,
+        num_micro_batches: int,
+        num_layers: int,
+        transformer_time_f: float,
+        transformer_time_b: float,
+        embedding_f: float,
+        embedding_b: float,
+        linear_softmax_f: float,
+        linear_softmax_b: float,
+        comm_metadata: Dict[str, Dict[str, Any]],
+    ) -> Tuple[Graph, Any, Dict[str, Tuple[float, float]]]:
+        graph = simulate_LLM.Graph(
+            num_batch=num_micro_batches,
+            num_layer=num_layers,
+            lp=self.lp,
+            dp=self.dp,
+            all_reduce=self.all_reduce,
+            T_embedding_f=embedding_f,
+            T_linear_softmax_f=linear_softmax_f,
+            T_embedding_b=embedding_b,
+            T_linear_softmax_b=linear_softmax_b,
+            T_transformer_f=transformer_time_f,
+            T_transformer_b=transformer_time_b,
+            comm_metadata=comm_metadata,
+        )
+        root = graph.construct_fwd_bwd_graph()
+        interconnect_params = self._build_interconnect_params()
+        return graph, root, interconnect_params
+
+    
     def calcTime_LLM(self):
         """Calculate time for LLM model."""
         # Extract model parameters
-        if self.lp > 1: #simulate transformer for each pipeline stage with micro-batchsize
-            batch_size = self.microB
-        elif self.dp > 1: #simulate transformer for each data parallel worker with mini-batchsize
-            batch_size = self.miniB
-        else:
-            batch_size = self.batch_size
+        batch_size = self._effective_transformer_batch()
         vocab_size = self.vocab_size
         num_layers = self.num_layers
         hidden_dim = self.hidden_dim
@@ -708,91 +788,55 @@ class TimeCalculationLLM(TimeCalculation):
         print("total number of workers: {}".format(self.num_workers))
         print("number of workers for each data parallelism batch: {}".format(self.num_workers_dp))
         print("number of workers for each pipeline stage: {}".format(self.num_workers_lp))
-        # Calculate communication sizes and local computation times separately
+
         reduction_sizes = self.getDataParallelReductionSizes(hidden_dim, ffn_dim)
         local_comp = self.getDataParallelLocalComputation(hidden_dim, ffn_dim)
-
-        # Calculate embedding and softmax sizes
         embedding_size = math.ceil(self.precision * vocab_size * hidden_dim) + math.ceil(self.precision * seq_len * hidden_dim)
         softmax_size = math.ceil(self.precision * hidden_dim * vocab_size)
+        cross_layer_bytes = self.getInterLayerCommLatency_LLM(batch_size, hidden_dim, seq_len)[1]
 
-        comm_metadata = {
-            'transformer': {
-                'size': reduction_sizes['total_size'],
-                'type': 'all_reduce',
-                'participants': self.dp,
-                'interconnect_type': 'dp',  # Data parallel
-                'local_comp_time': local_comp['total_local']
-            },
-            'embedding': {
-                'size': embedding_size,
-                'type': 'all_reduce',
-                'participants': self.dp,
-                'interconnect_type': 'dp',  # Data parallel
-                'local_comp_time': 0  # No local computation for embedding reduction
-            },
-            'softmax': {
-                'size': softmax_size,
-                'type': 'all_reduce',
-                'participants': self.dp,
-                'interconnect_type': 'dp',  # Data parallel
-                'local_comp_time': 0  # No local computation for softmax reduction
-            },
-            'cross_layer': {
-                'size': self.getInterLayerCommLatency_LLM(batch_size, hidden_dim, seq_len)[1],
-                'type': 'pipeline',
-                'participants': 2,
-                'interconnect_type': 'lp',  # Pipeline parallel
-                'local_comp_time': 0  # No local computation for cross-layer latency
-            }
-        }
+        comm_metadata = self._build_comm_metadata(
+            reduction_sizes=reduction_sizes,
+            local_comp=local_comp,
+            embedding_size=embedding_size,
+            softmax_size=softmax_size,
+            cross_layer_bytes=cross_layer_bytes,
+        )
 
-        # g = Graph(
-        g = simulate_LLM.Graph(
-            num_batch=num_micro_batches, num_layer=num_layers, lp=self.lp, dp=self.dp, all_reduce=self.all_reduce,
-            T_embedding_f=embedding_f, T_linear_softmax_f=linear_softmax_f,
-            T_embedding_b=embedding_b, T_linear_softmax_b=linear_softmax_b,
-            # Tb=0, Tf=0, T_reduction_transformer=0, T_grad_transformer=0,
-            # T_reduction_embedding=0, T_reduction_linear_softmax=0,
-            T_transformer_f=transformer_time_f, T_transformer_b=transformer_time_b,
+        graph, graph_root, interconnect_params = self._build_pipeline_graph(
+            num_micro_batches=num_micro_batches,
+            num_layers=num_layers,
+            transformer_time_f=transformer_time_f,
+            transformer_time_b=transformer_time_b,
+            embedding_f=embedding_f,
+            embedding_b=embedding_b,
+            linear_softmax_f=linear_softmax_f,
+            linear_softmax_b=linear_softmax_b,
             comm_metadata=comm_metadata,
         )
 
-        # Phase 2: Convert communication sizes to times using network model
-        interconnect_params = {
-            'dp': (self.IBD, self.LLD),
-            'lp': (self.IBL, self.LLL),
-            'kp1': (self.IBK1, self.LLK1),
-            'kp2': (self.IBK2, self.LLK2)
-        }
-        # fw_roots = g.construct_fwd_graph()
-        # bw_roots = g.construct_bwd_graph()
-        fw_bw_root = g.construct_fwd_bwd_graph()
-        # fw_root = g.convert_comm_sizes_to_times(fw_roots[0], self.network_model, interconnect_params)
-        # bw_root = g.convert_comm_sizes_to_times(bw_roots[0], self.network_model, interconnect_params)
-        fw_bw_root = g.convert_comm_sizes_to_times(fw_bw_root, self.network_model, interconnect_params)
-        # Avoid graph rendering when running under astra_test or when disabled explicitly
-        # time_fw = g.simulate(fw_root)
-        # time_bw = g.simulate(bw_root)
-        time_fw_bw = g.simulate(fw_bw_root)
+        dispatcher = LLMExecutionDispatcher(
+            time_calc=self,
+            graph=graph,
+            graph_root=graph_root,
+            interconnect_params=interconnect_params,
+        )
+        mode = self.execution_mode
+        try:
+            result = dispatcher.run(mode)
+        except NotImplementedError as exc:
+            raise NotImplementedError(f"{exc}. Selected execution mode '{mode.value}'.") from exc
 
-        # print(f"time_fw: {time_fw}\ntime_bw: {time_bw}")
-        print(f'time_fw_bw: {time_fw_bw}')
+        time_fw_bw = result.total_time
 
-    
+        pipeline_root = result.graph_root
+        graph = dispatcher.graph
 
-        if os.environ.get("ASTRA_TEST") or os.environ.get("DISABLE_LLM_GRAPH"):
-            # simulate wiht astrasim too
-            # write the graph to a file as a pkl file
-            # with open("fw_bw_graph.pkl", "wb") as f:
-            #     pickle.dump(fw_bw_root, f)  
-            run_astra_simulation_only_onepath(fw_bw_root, self, "./astra_comparison_output")\
-            
-            g.save_graph(fw_bw_root, "output_graph/","fw_bw_graph")
-        else:
-            g.save_graph(fw_bw_root, "output_graph/","fw_bw_graph")
+        if os.environ.get("ASTRA_TEST"):
+            run_astra_simulation_only_onepath(pipeline_root, self, "./astra_comparison_output")
 
-        # self.tot_time = time_fw + time_bw
+        graph.save_graph(pipeline_root, "output_graph/", "fw_bw_graph")
+
         self.tot_time = time_fw_bw
 
         output_file = "LLM_time_results.txt"
@@ -814,3 +858,40 @@ class TimeCalculationLLM(TimeCalculation):
 
     def getReductionTotal(self):
         return getattr(self, "_reduction_total_llm", 0.0)
+
+
+class LLMExecutionDispatcher:
+    def __init__(
+        self,
+        time_calc: TimeCalculationLLM,
+        graph: Graph,
+        graph_root: Any,
+        interconnect_params: Dict[str, Tuple[float, float]],
+    ) -> None:
+        self.time_calc = time_calc
+        self.graph = graph
+        self.root = graph_root
+        self.interconnect_params = interconnect_params
+
+    def run(self, mode: ExecutionMode) -> ExecutionResult:
+        if mode == ExecutionMode.ANALYTICAL:
+            return self._run_pipeline_with_analytical_comm(ExecutionMode.ANALYTICAL)
+        if mode == ExecutionMode.HYBRID:
+            # internally, .collective() distinguishes between ANALYTICAL and HYBRID execution modes.
+            return self._run_pipeline_with_analytical_comm(ExecutionMode.HYBRID)
+        if mode == ExecutionMode.HYBRID_CONGESTION:
+            raise NotImplementedError("Hybrid congestion-aware execution is not implemented yet")
+        if mode == ExecutionMode.FULL_ASTRASIM:
+            raise NotImplementedError("Full AstraSim execution is not implemented yet")
+        raise ValueError(f"Unsupported execution mode: {mode}")
+
+    def _run_pipeline_with_analytical_comm(self, declared_mode: ExecutionMode) -> ExecutionResult:
+        timed_root = self.graph.convert_comm_sizes_to_times(
+            self.root,
+            self.time_calc.network_model,
+            self.interconnect_params,
+        )
+        # Persist timed root for any downstream consumer
+        self.root = timed_root
+        total_time = self.graph.simulate(timed_root)
+        return ExecutionResult(total_time=total_time, graph_root=timed_root, mode=declared_mode)
