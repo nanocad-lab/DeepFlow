@@ -72,6 +72,10 @@ output/
 output_graph/
 venv/
 astra_cache/
+log/err.log
+log/log.log
 log/
+astra_comparison_output/
 mat_dims_llm.txt
 Transformer_breakdown_results.txt
+fw_bw_graph.pkl

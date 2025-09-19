@@ -24,6 +24,9 @@ class Node:
     def add_child(self, obj):
         self.children.append(obj)
         obj.parents.append(self)
+
+    def __repr__(self):
+        return f"Node({self.name},op={self.op_id},hw={self.hw_id},{round(self.duration, 2)})"
     
 class Data_batch:
     def __init__(self, name, batch_id, duration):
@@ -67,6 +70,9 @@ class Edge:
   def add_child(self, obj):
       self.children.append(obj)
       obj.parents.append(self)
+
+  def __repr__(self):
+      return f"Edge({self.name},op={self.op_id},{round(self.duration, 2)})"
       
 class Gradient:
   def __init__(self, name, op_id, hw_id, duration):
@@ -90,6 +96,7 @@ class Graph:
     def __init__(
         self,
         lp,     #pipeline depth or number of gpus
+        dp,     #data parallelism depth or number of gpus
         num_layer,    #number of layers
         num_batch,     #number of micro-batches
         T_embedding_f,    #forward embedding time
@@ -111,6 +118,7 @@ class Graph:
         self.num_batch = num_batch
         self.num_layer = num_layer
         self.lp = lp
+        self.dp = dp
         self.T_embedding_f = T_embedding_f
         self.T_embedding_b = T_embedding_b
         self.T_linear_softmax_f = T_linear_softmax_f
@@ -162,8 +170,6 @@ class Graph:
 
         # If there's local computation time, create local node after edge
         local_comp_time = comm_data.get('local_comp_time', 0)
-        print(f"name: {name}")
-        print(f"local_comp_time: {local_comp_time}")
         if local_comp_time > 0:
             local_node = Node(
                 name=f"{name}_local_comp",
@@ -210,7 +216,7 @@ class Graph:
                         local_ops=0.0,
                         debug_label=f"{child.name}_conversion"
                     )
-                    print(f"Converted {child.name} size {child.comm_size_bytes} bytes to duration {child.duration:.6f} sec using {interconnect_type} (ib={ib}, ll={ll})")
+                    # print(f"Converted {child.name} size {child.comm_size_bytes} bytes to duration {child.duration:.6f} sec using {interconnect_type} (ib={ib}, ll={ll})")
 
                 # Recursively process this child
                 traverse_and_convert(child, visited)
@@ -478,37 +484,37 @@ class Graph:
                 
 
             # all-reduce
-
-            R_edge[b].append(self.create_comm_edge("Reduce_Embedding", op_id, transformer_nodes_b[b][-1].hw_id , "embedding", is_all_reduce=True))
-            op_id += 1
-            if self.all_reduce == "the end":
-                R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, transformer_nodes_b[b][-1].hw_id  , "transformer", is_all_reduce=True))
+            if self.dp > 1:
+                R_edge[b].append(self.create_comm_edge("Reduce_Embedding", op_id, transformer_nodes_b[b][-1].hw_id , "embedding", is_all_reduce=True))
                 op_id += 1
-
-                R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,  transformer_nodes_b[b][0].hw_id, "softmax", is_all_reduce=True))
-                op_id += 1
-            # Attach All-Reduce Edges
-                softmax_node_b[b].add_child(R_edge[b][-1])
-                embedding_node_b[b].add_child(R_edge[b][0])
-                transformer_nodes_b[b][0].add_child(R_edge[b][1])
-
-            elif self.all_reduce == "every layer":
-                for i in range(0, self.num_layer):
-                    R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, transformer_nodes_b[b][i].hw_id  , "transformer", is_all_reduce=True))
+                if self.all_reduce == "the end":
+                    R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, transformer_nodes_b[b][-1].hw_id  , "transformer", is_all_reduce=True))
                     op_id += 1
-                    # G_edge[b].append(Gradient("Grad_transformer", op_id, transformer_nodes_b[b][-1].hw_id, self.T_grad_transformer))
-                    # op_id += 1
-                    # R_edge[b][-1].add_child(G_edge[b][-1])
 
-                R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,  transformer_nodes_b[b][0].hw_id, "softmax", is_all_reduce=True))
-                op_id += 1
-            # Attach All-Reduce Edges
-                softmax_node_b[b].add_child(R_edge[b][-1])
-                embedding_node_b[b].add_child(R_edge[b][0])
-                for i in range(0, self.num_layer):
-                    transformer_nodes_b[b][i].add_child(R_edge[b][i + 1])
-            else:
-                sys.exit("Invalid all_reduce option")
+                    R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,  transformer_nodes_b[b][0].hw_id, "softmax", is_all_reduce=True))
+                    op_id += 1
+                # Attach All-Reduce Edges
+                    softmax_node_b[b].add_child(R_edge[b][-1])
+                    embedding_node_b[b].add_child(R_edge[b][0])
+                    transformer_nodes_b[b][0].add_child(R_edge[b][1])
+
+                elif self.all_reduce == "every layer":
+                    for i in range(0, self.num_layer):
+                        R_edge[b].append(self.create_comm_edge("Reduce_transformer", op_id, transformer_nodes_b[b][i].hw_id  , "transformer", is_all_reduce=True))
+                        op_id += 1
+                        # G_edge[b].append(Gradient("Grad_transformer", op_id, transformer_nodes_b[b][-1].hw_id, self.T_grad_transformer))
+                        # op_id += 1
+                        # R_edge[b][-1].add_child(G_edge[b][-1])
+
+                    R_edge[b].append(self.create_comm_edge("Reduce_Softmax", op_id,  transformer_nodes_b[b][0].hw_id, "softmax", is_all_reduce=True))
+                    op_id += 1
+                # Attach All-Reduce Edges
+                    softmax_node_b[b].add_child(R_edge[b][-1])
+                    embedding_node_b[b].add_child(R_edge[b][0])
+                    for i in range(0, self.num_layer):
+                        transformer_nodes_b[b][i].add_child(R_edge[b][i + 1])
+                else:
+                    sys.exit("Invalid all_reduce option")
                     
                 
                 
@@ -1002,6 +1008,7 @@ def main():
         num_layer=2,
         num_batch=3,
         lp=2,
+        dp=2,    
         all_reduce="every layer",  # "the end"  #"every layer"
 
         T_linear_softmax_f=0,

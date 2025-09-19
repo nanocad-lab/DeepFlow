@@ -118,8 +118,8 @@ perimeter_breakdown:
   intra_node: 0.33
   inter_node: 0.33
 system_hierarchy:
-  num_devices_per_node: 12
-  num_nodes: 2
+  num_devices_per_node: 8
+  num_nodes: 1
   inter_derate: 1
   intra_derate: 1
   kp1_inter: false
@@ -128,8 +128,8 @@ system_hierarchy:
   lp_inter: false
 network_topology:
   # Allowed values: ring | fc | switch
-  inter_node: ring
-  intra_node: ring
+  inter_node: fc
+  intra_node: fc
 memory_hierarchy:
   l0:
     type: SRAM-R
@@ -147,11 +147,11 @@ memory_hierarchy:
 scheduling_param:
     auto: False 
     dp: 2       #should be the same as num_nodes?
-    lp: 3 # pipeline stages 
-    mb: 3 # number of micro-batches
+    lp: 4 # pipeline stages 
+    mb: 4 # number of micro-batches
 
-    kp1: 2
-    kp2: 2
+    kp1: 1
+    kp2: 1
     t: "RC"   #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
 ######################LSTM parameters
     kp_hidden_dim1: 1

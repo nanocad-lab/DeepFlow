@@ -3,18 +3,18 @@
 ==============================================
 Performance Results
 ==============================================
-qkv_proj_f: 265.87517730496455us
-attention_score_f: 19.20733785177886us
-attention_scale_softmax_f: 45.00989339390738us
-attention_output_f: 18.643087617048984us
-output_proj_f: 100.62505910165486us
-residual1_f: 9.052764767506083us
-layernorm1_f: 27.158294302518247us
-ffn1_f: 348.50023640661936us
-ffn2_f: 348.51536643026003us
-residual2_f: 9.052764767506083us
-layernorm2_f: 27.158294302518247us
-linear_softmax_f: 8125.876649658435us
-MHA Time: 449.3605552693546us
-FFN Time: 697.0156028368795us
-Transformer Time (1 layer): 1218.798276246283us
+qkv_proj_f: 1804989.9577620171us
+attention_score_f: 299689.8381928027us
+attention_scale_softmax_f: 36930.24590163935us
+attention_output_f: 300828.29738201556us
+output_proj_f: 601675.3192540059us
+residual1_f: 393.22131147540983us
+layernorm1_f: 1179.6639344262294us
+ffn1_f: 2406647.277016023us
+ffn2_f: 2406757.4504859466us
+residual2_f: 393.22131147540983us
+layernorm2_f: 1179.6639344262294us
+linear_softmax_f: 58843193.01244613us
+MHA Time: 3044113.6584924804us
+FFN Time: 4813404.72750197us
+Transformer Time (1 layer): 7860664.156486254us

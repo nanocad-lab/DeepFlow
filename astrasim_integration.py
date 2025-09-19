@@ -102,6 +102,7 @@ def _derive_topology_from_hw(hw_obj) -> str:
     # Unused config-generation helpers removed; see generate_astrasim_configs_from_hw
 
 def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", npus_count: Optional[int] = None) -> Dict[str, str]:
+    
     os.makedirs(out_dir, exist_ok=True)
     # Use per-npus network file to avoid cross-run clobbering
     net_yaml = os.path.join(out_dir, f"network_analytical_{int(npus_count)}.yml")
@@ -629,6 +630,7 @@ def run_astrasim_analytical(
     system_json: str,
     network_yaml: str,
     remote_memory_json: str,
+    comm_group_json: Optional[str] = None,
     binary_path: Optional[str] = None,
 ) -> Tuple[List[float], float]:
     """
@@ -646,6 +648,11 @@ def run_astrasim_analytical(
         f"--remote-memory-configuration={remote_memory_json}",
         f"--network-configuration={network_yaml}",
     ]
+    if comm_group_json and os.path.exists(comm_group_json):
+        cmd.append(f"--comm-group-configuration={comm_group_json}")
+
+    cmd_str = " ".join(cmd) 
+    print(f"[AstraSim] Running command: {cmd_str}")
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
     out = proc.stdout

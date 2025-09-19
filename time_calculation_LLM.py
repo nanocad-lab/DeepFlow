@@ -3,6 +3,7 @@
 # import click
 import math
 import os
+import pickle
 import sys
 import config
 import shutil
@@ -12,7 +13,7 @@ import simulate_LLM
 from parallelism import Parallelism
 from topology import Topology
 from simulate_LLM import Graph
-
+from astra_comparison import run_astra_simulation_only, run_astra_simulation_only_onepath
 import LLM_util
 from hw_component import Core, MemoryHierarchy, Network
 from model import Model_LSTM, Model_GEMM, Model_LLM 
@@ -412,6 +413,7 @@ class TimeCalculationLLM(TimeCalculation):
     
     def getInterLayerCommLatency_LLM(self, batch_size, hidden_dim, seq_len): #calculate the cross-layer communication latency
         w = 0
+        w_size = 0
         if self.lp > 1:
             w_size = self.precision * batch_size * hidden_dim * seq_len
             transfer_time = w_size / self.IBL + self.LLL
@@ -747,7 +749,7 @@ class TimeCalculationLLM(TimeCalculation):
 
         # g = Graph(
         g = simulate_LLM.Graph(
-            num_batch=num_micro_batches, num_layer=num_layers, lp=self.lp, all_reduce=self.all_reduce,
+            num_batch=num_micro_batches, num_layer=num_layers, lp=self.lp, dp=self.dp, all_reduce=self.all_reduce,
             T_embedding_f=embedding_f, T_linear_softmax_f=linear_softmax_f,
             T_embedding_b=embedding_b, T_linear_softmax_b=linear_softmax_b,
             # Tb=0, Tf=0, T_reduction_transformer=0, T_grad_transformer=0,
@@ -777,11 +779,17 @@ class TimeCalculationLLM(TimeCalculation):
         # print(f"time_fw: {time_fw}\ntime_bw: {time_bw}")
         print(f'time_fw_bw: {time_fw_bw}')
 
+    
+
         if os.environ.get("ASTRA_TEST") or os.environ.get("DISABLE_LLM_GRAPH"):
-            pass
+            # simulate wiht astrasim too
+            # write the graph to a file as a pkl file
+            # with open("fw_bw_graph.pkl", "wb") as f:
+            #     pickle.dump(fw_bw_root, f)  
+            run_astra_simulation_only_onepath(fw_bw_root, self, "./astra_comparison_output")\
+            
+            g.save_graph(fw_bw_root, "output_graph/","fw_bw_graph")
         else:
-            # g.save_graph(fw_root, "output_graph/","fw_graph")
-            # g.save_graph(bw_root, "output_graph/","bw_graph")
             g.save_graph(fw_bw_root, "output_graph/","fw_bw_graph")
 
         # self.tot_time = time_fw + time_bw
