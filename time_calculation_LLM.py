@@ -21,9 +21,11 @@ from hw_component import Core, MemoryHierarchy, Network
 from model import Model_LSTM, Model_GEMM, Model_LLM
 from tile import TiledGEMM, formatBytes
 from astra_comparison import run_astra_simulation_only_onepath
+from functools import lru_cache
 
 from simulate_LLM import visualize_graph
 from time_calculation import TimeCalculation
+from util import disk_cache_method
 # algByte = False  # algorithmic ops false
 # proj = False  # consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
 validating_v100 = True

@@ -22,7 +22,6 @@ algByte = False  # algorithmic ops false
 proj = False  # consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
 validating_v100 = False
 
-
 class NetworkModel:
     def __init__(self, hw_config, precision, kernel_overhead, roofline_cb, astra_policy: Optional[str] = None):
         self.hw_config = hw_config
