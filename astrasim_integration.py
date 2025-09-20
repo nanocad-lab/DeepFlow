@@ -40,6 +40,8 @@ import et_def_pb2 as pb  # type: ignore
 from protolib import encodeMessage as chakra_encode  # type: ignore
 
 
+ASTRA_DEBUG = True
+
 def _save_json(path: str, data: Dict[str, Any]) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
@@ -820,7 +822,7 @@ def run_astrasim_analytical(
         cmd.append(f"--comm-group-configuration={comm_group_json}")
 
     # print command 
-    if os.environ.get("ASTRA_DEBUG") == 1:
+    if ASTRA_DEBUG:
         print("Command:")
         print(" ".join(cmd))
 

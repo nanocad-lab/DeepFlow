@@ -23,7 +23,7 @@ sys.setrecursionlimit(10000)
 from astrasim_integration import (
     _new_comp_node, _new_comm_node, write_et_node,
     run_astrasim_analytical, generate_astrasim_configs_from_hw,
-    get_remote_memory_path, run_cache_astrasim
+    get_remote_memory_path, run_cache_astrasim, ASTRA_DEBUG
 )
 from simulate_LLM import visualize_graph
 
@@ -905,7 +905,9 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         rank_count = len(rank_ids)
 
         for rank in rank_ids:
-            if os.environ.get("ASTRA_DEBUG") == 1:
+            if rank > 100:
+                break
+            if ASTRA_DEBUG:
                 _visualize_et_files([f"{output_dir}/fwd/llm_graph.{rank}.et"])
             _dump_et_text([f"{output_dir}/fwd/llm_graph.{rank}.et"])
         # exit()

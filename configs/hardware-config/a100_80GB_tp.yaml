@@ -119,7 +119,7 @@ perimeter_breakdown:
   intra_node: 0.33
   inter_node: 0.33
 system_hierarchy:
-  num_devices_per_node: 4
+  num_devices_per_node: 8
   num_nodes: 1
   inter_derate: 1
   intra_derate: 1
@@ -129,8 +129,8 @@ system_hierarchy:
   lp_inter: false
 network_topology:
   # Allowed values: ring | fc | switch
-  inter_node: ring
-  intra_node: ring
+  inter_node: fc
+  intra_node: fc
 memory_hierarchy:
   l0:
     type: SRAM-R
@@ -148,8 +148,8 @@ memory_hierarchy:
 scheduling_param:
     auto: False 
     dp: 2       #should be the same as num_nodes?
-    lp: 2 # pipeline stages 
-    mb: 2 # number of micro-batches
+    lp: 4 # pipeline stages 
+    mb: 4 # number of micro-batches
 
     kp1: 1
     kp2: 1
@@ -172,7 +172,7 @@ execution_backend:
   model: astra # analytical | astra
   astra:
     backend: astra
-    mode: full_astrasim_flattened  # hybrid | full_astrasim_hierarchical | full_astrasim_flattened
+    mode: full_astrasim_hierarchical  # hybrid | full_astrasim_hierarchical | full_astrasim_flattened
     collectives:
       # Allowed values per op: auto | ring | direct | halvingDoubling | doubleBinaryTree
       # Note: if topology is 'switch' and value is 'auto', we default to 'halvingDoubling'.
