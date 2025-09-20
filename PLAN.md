@@ -23,7 +23,7 @@
 1. **Configuration and Plumbing**  
    - Rename `network_backend` → `execution_backend` and drop legacy shims.  
    - Preserve the top-level `model` toggle (`analytical|astra`).  
-   - Extend `execution_backend.astra.mode` to accept `hybrid`, `hybrid_congestion`, `full_astrasim`.  
+   - Extend `execution_backend.astra.mode` to accept `hybrid`, `full_astrasim_hierarchical`, `full_astrasim_flattened`.
    - Provide validation/helpers so CLI/tests can query `execution_mode` deterministically.
 
 2. **Graph Generation Enhancements**  
@@ -50,7 +50,7 @@ execution_backend:
   model: analytical | astra
   astra:
     backend: analytical   # existing knob, remains optional
-    mode: hybrid | hybrid_congestion | full_astrasim
+    mode: hybrid | full_astrasim_hierarchical | full_astrasim_flattened
     collectives:
       all_reduce: auto
       all_gather: auto
@@ -58,7 +58,7 @@ execution_backend:
       all_to_all: auto
 ```
 - When `model: analytical`, DeepFlow executes in Analytical mode and the `astra` block is ignored.  
-- When `model: astra`, `astra.mode` selects between Hybrid, Hybrid Congestion-Aware, and Full AstraSim behaviour.  
+- When `model: astra`, `astra.mode` selects between Hybrid, Full AstraSim (hierarchical), and the placeholder Full AstraSim flattened behaviour.
 - Additional per-mode parameters (e.g., TP settings for the transformer block graph) will be added under `execution_backend.astra` as follow-on work.
 
 ## Open Questions / Follow-Ups

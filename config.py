@@ -462,7 +462,7 @@ ExecutionBackendAstra = _namedtuple(
     "ExecutionBackendAstra",
     [
         "backend",   # analytical | ns3 | garnet
-        "mode",      # hybrid | hybrid_congestion | full_astrasim
+        "mode",      # hybrid | full_astrasim_hierarchical | full_astrasim_flattened
         "collectives",
         "sys_options",
     ],
