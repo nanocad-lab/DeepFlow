@@ -340,7 +340,13 @@ def convert_deepflow_graph_to_chakra_et(
         return ordered
 
     all_objects = collect_objects(graph_root)
-    compute_nodes = [obj for obj in all_objects if getattr(obj, "hw_id", None) is not None and obj.hw_id >= 0]
+    compute_nodes = [
+        obj
+        for obj in all_objects
+        if getattr(obj, "hw_id", None) is not None
+        and obj.hw_id >= 0
+        and not getattr(obj, "flatten_placeholder", False)
+    ]
     if not compute_nodes:
         raise ValueError("DeepFlow graph did not expose any executable compute nodes (hw_id >= 0).")
 
@@ -889,9 +895,17 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
             f"{output_dir}/fwd",
         )
         rank_count = len(rank_ids)
+        # TODO:
+        # Astrasim doesn't play well with only 1 rank.
+        # When that happens, let's duplicate to 2 ranks. No collectives exist so this should not have an effect.
+        if rank_count == 1:
+            # duplicate the .et file
+            shutil.copy(f"{output_dir}/fwd/llm_graph.0.et", f"{output_dir}/fwd/llm_graph.1.et")
+            rank_ids = [rank_ids[0], rank_ids[0]+1]
+        rank_count = len(rank_ids)
 
         for rank in rank_ids:
-            if os.environ.get("ASTRA_DEBUG") == 1:
+            if True:
                 _visualize_et_files([f"{output_dir}/fwd/llm_graph.{rank}.et"])
             _dump_et_text([f"{output_dir}/fwd/llm_graph.{rank}.et"])
         # exit()

@@ -119,7 +119,7 @@ perimeter_breakdown:
   intra_node: 0.33
   inter_node: 0.33
 system_hierarchy:
-  num_devices_per_node: 192
+  num_devices_per_node: 4
   num_nodes: 1
   inter_derate: 1
   intra_derate: 1
@@ -147,11 +147,11 @@ memory_hierarchy:
 
 scheduling_param:
     auto: False 
-    dp: 24       #should be the same as num_nodes?
-    lp: 4 # pipeline stages 
-    mb: 4 # number of micro-batches
+    dp: 2       #should be the same as num_nodes?
+    lp: 2 # pipeline stages 
+    mb: 2 # number of micro-batches
 
-    kp1: 2
+    kp1: 1
     kp2: 1
     t: "CR"   #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
 ######################LSTM parameters
@@ -172,7 +172,7 @@ execution_backend:
   model: astra # analytical | astra
   astra:
     backend: astra
-    mode: full_astrasim_hierarchical  # hybrid | full_astrasim_hierarchical | full_astrasim_flattened
+    mode: full_astrasim_flattened  # hybrid | full_astrasim_hierarchical | full_astrasim_flattened
     collectives:
       # Allowed values per op: auto | ring | direct | halvingDoubling | doubleBinaryTree
       # Note: if topology is 'switch' and value is 'auto', we default to 'halvingDoubling'.
@@ -182,5 +182,5 @@ execution_backend:
       all_to_all: auto
     sys_options:
       endpoint_delay: 10
-      active_chunks_per_dimension: 16
-      preferred_dataset_splits: 16
+      active_chunks_per_dimension: 1
+      preferred_dataset_splits: 1

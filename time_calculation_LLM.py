@@ -63,6 +63,288 @@ class TransformerTimings:
     backward: float
 
 
+class PipelineGraphFlattener:
+    """Expand pipeline transformer nodes into explicit tensor-parallel subgraphs."""
+
+    def __init__(
+        self,
+        pipeline_graph: Graph,
+        transformer_graph: Graph,
+    ) -> None:
+        if transformer_graph is None:
+            raise ValueError("Transformer graph is required for flattening")
+
+        transformer_cfg = getattr(transformer_graph, "transformer_cfg", None) or {}
+        gemm_entries = transformer_cfg.get("gemms")
+        if not gemm_entries:
+            raise ValueError("Transformer GEMM template is missing")
+
+        self.pipeline_graph = pipeline_graph
+        self.transformer_graph = transformer_graph
+        self._gemm_entries = list(gemm_entries)
+        tp_degree = transformer_cfg.get("tp_degree")
+        if tp_degree is None:
+            tp_degree = max(1, getattr(pipeline_graph, "kp1", 1) * getattr(pipeline_graph, "kp2", 1))
+        self._tp_degree = max(1, int(tp_degree))
+
+        self._clone_cache: Dict[int, Any] = {}
+        self._op_id_counter: int = 0
+
+    @property
+    def tp_degree(self) -> int:
+        return self._tp_degree
+
+    def build(self, root: Any) -> Any:
+        """Return a flattened clone of the provided pipeline root."""
+
+        if root is None:
+            raise ValueError("Pipeline root is required for flattening")
+        return self._clone(root)
+
+    def _clone(self, obj: Any) -> Any:
+        if obj is None:
+            return None
+
+        obj_id = id(obj)
+        if obj_id in self._clone_cache:
+            return self._clone_cache[obj_id]
+
+        if isinstance(obj, simulate_LLM.Node):
+            if obj.name in {"transformer", "transformer_b"}:
+                entry_edge = self._expand_transformer_node(obj)
+                self._clone_cache[obj_id] = entry_edge
+                return entry_edge
+
+            cloned = simulate_LLM.Node(
+                obj.name,
+                self._next_op_id(),
+                obj.hw_id,
+                obj.duration,
+                fwd=obj.fwd,
+            )
+            self._clone_cache[obj_id] = cloned
+            self._copy_metadata(obj, cloned)
+            for child in getattr(obj, "children", []):
+                child_clone = self._clone(child)
+                if child_clone is not None:
+                    cloned.add_child(child_clone)
+            return cloned
+
+        if isinstance(obj, simulate_LLM.Edge):
+            cloned_edge = simulate_LLM.Edge(
+                obj.name,
+                self._next_op_id(),
+                obj.duration,
+                is_all_reduce=getattr(obj, "is_all_reduce", False),
+                comm_size_bytes=getattr(obj, "comm_size_bytes", 0),
+                comm_type=getattr(obj, "comm_type", None),
+                participants=getattr(obj, "participants", 1),
+                comm_interconnect_type=getattr(obj, "comm_interconnect_type", None),
+            )
+            self._clone_cache[obj_id] = cloned_edge
+            self._copy_metadata(obj, cloned_edge)
+            for child in getattr(obj, "children", []):
+                child_clone = self._clone(child)
+                if child_clone is not None:
+                    cloned_edge.add_child(child_clone)
+            return cloned_edge
+
+        if isinstance(obj, simulate_LLM.Data_batch):
+            cloned_batch = simulate_LLM.Data_batch(obj.name, obj.batch_id, obj.duration)
+            self._clone_cache[obj_id] = cloned_batch
+            for child in getattr(obj, "children", []):
+                child_clone = self._clone(child)
+                if child_clone is not None:
+                    cloned_batch.add_child(child_clone)
+            return cloned_batch
+
+        if isinstance(obj, simulate_LLM.Gradient):
+            cloned_grad = simulate_LLM.Gradient(obj.name, self._next_op_id(), obj.hw_id, obj.duration)
+            self._clone_cache[obj_id] = cloned_grad
+            self._copy_metadata(obj, cloned_grad)
+            for child in getattr(obj, "children", []):
+                child_clone = self._clone(child)
+                if child_clone is not None:
+                    cloned_grad.add_child(child_clone)
+            return cloned_grad
+
+        raise TypeError(f"Unsupported graph element type: {type(obj)!r}")
+
+    def _expand_transformer_node(self, node: simulate_LLM.Node) -> simulate_LLM.Edge:
+        node_id = id(node)
+        if node_id in self._clone_cache:
+            cached_entry = self._clone_cache[node_id]
+            if isinstance(cached_entry, simulate_LLM.Edge):
+                return cached_entry
+
+        stage_id = getattr(node, "stage_id", node.hw_id)
+        micro_batch = getattr(node, "micro_batch_index", None)
+        layer_index = getattr(node, "layer_index", None)
+        direction = getattr(node, "direction", "forward" if node.fwd else "backward")
+
+        entry_name = f"transformer_{direction}_entry_mb{micro_batch}_l{layer_index}"
+        exit_name = f"transformer_{direction}_exit_mb{micro_batch}_l{layer_index}"
+
+        entry_edge = simulate_LLM.Edge(entry_name, self._next_op_id(), 0.0)
+        exit_node = simulate_LLM.Node(
+            exit_name,
+            self._next_op_id(),
+            self._hw_id_for_rank(stage_id, 0),
+            0.0,
+            fwd=(direction == "forward"),
+        )
+        entry_edge.stage_id = stage_id
+        exit_node.stage_id = stage_id
+        entry_edge.micro_batch_index = micro_batch
+        exit_node.micro_batch_index = micro_batch
+        entry_edge.layer_index = layer_index
+        exit_node.layer_index = layer_index
+        entry_edge.direction = direction
+        exit_node.direction = direction
+
+        self._clone_cache[node_id] = entry_edge
+
+        rank_tails: List[Any] = []
+
+        for tp_rank in range(self._tp_degree):
+            previous = entry_edge
+            hw_id = self._hw_id_for_rank(stage_id, tp_rank)
+
+            gemm_iterable = self._gemm_entries
+            if direction == "backward":
+                gemm_iterable = list(reversed(self._gemm_entries))
+
+            for gemm_idx, entry in enumerate(gemm_iterable):
+                entry_name = entry.get("name", f"g{gemm_idx}")
+                cfg = entry.get(direction, {})
+                duration = cfg.get("duration")
+                if duration is None:
+                    raise ValueError(
+                        f"Missing duration for transformer entry '{entry_name}' in direction '{direction}'"
+                    )
+
+                gemm_node = simulate_LLM.Node(
+                    name=self._format_gemm_name(entry_name, direction, micro_batch, layer_index, tp_rank),
+                    op_id=self._next_op_id(),
+                    hw_id=hw_id,
+                    duration=duration,
+                    fwd=(direction == "forward"),
+                )
+                gemm_node.stage_id = stage_id
+                gemm_node.tp_rank = tp_rank
+                gemm_node.micro_batch_index = micro_batch
+                gemm_node.layer_index = layer_index
+                gemm_node.direction = direction
+
+                previous.add_child(gemm_node)
+                previous = gemm_node
+
+                for comm_key in cfg.get("comm_keys", []):
+                    comm_edge = self._create_transformer_comm_edge(
+                        comm_key,
+                        hw_id,
+                        stage_id,
+                        micro_batch,
+                        layer_index,
+                        direction,
+                        tp_rank,
+                    )
+                    previous.add_child(comm_edge)
+                    previous = comm_edge
+
+            rank_tails.append(previous)
+        for tail in rank_tails:
+            tail.add_child(exit_node)
+
+        dp_children: List[Any] = []
+        other_children: List[Any] = []
+
+        for child in getattr(node, "children", []):
+            comm_type = getattr(child, "comm_interconnect_type", None)
+            if comm_type == "dp":
+                dp_children.append(child)
+            else:
+                other_children.append(child)
+
+        dp_clones: List[Any] = []
+        for child in dp_children:
+            child_clone = self._clone(child)
+            if child_clone is None:
+                continue
+            exit_node.add_child(child_clone)
+            dp_clones.append(child_clone)
+
+        downstream_parents: List[Any]
+        if dp_clones:
+            downstream_parents = [dp_clones[-1]]
+        else:
+            downstream_parents = [exit_node]
+
+        for child in other_children:
+            child_clone = self._clone(child)
+            if child_clone is None:
+                continue
+            for parent in downstream_parents:
+                parent.add_child(child_clone)
+
+        return entry_edge
+
+    def _create_transformer_comm_edge(
+        self,
+        comm_key: str,
+        hw_id: int,
+        stage_id: int,
+        micro_batch: Optional[int],
+        layer_index: Optional[int],
+        direction: str,
+        tp_rank: int,
+    ) -> simulate_LLM.Edge:
+        comm_info = self.transformer_graph.comm_metadata.get(comm_key, {})
+        is_all_reduce = comm_info.get("type") == "all_reduce"
+
+        comm_edge = self.transformer_graph.create_comm_edge(
+            name=comm_key,
+            op_id=self._next_op_id(),
+            comm_key=comm_key,
+            is_all_reduce=is_all_reduce,
+            local_hw_id=hw_id,
+        )
+        comm_edge.stage_id = stage_id
+        comm_edge.micro_batch_index = micro_batch
+        comm_edge.layer_index = layer_index
+        comm_edge.direction = direction
+        comm_edge.tp_rank = tp_rank
+        return comm_edge
+
+    def _copy_metadata(self, source: Any, target: Any) -> None:
+        for attr in (
+            "micro_batch_index",
+            "layer_index",
+            "direction",
+            "stage_id",
+            "tp_rank",
+        ):
+            if hasattr(source, attr):
+                setattr(target, attr, getattr(source, attr))
+
+    def _format_gemm_name(
+        self,
+        base_name: str,
+        direction: str,
+        micro_batch: Optional[int],
+        layer_index: Optional[int],
+        tp_rank: int,
+    ) -> str:
+        return f"{base_name}_{direction}_mb{micro_batch}_l{layer_index}_rank{tp_rank}"
+
+    def _next_op_id(self) -> int:
+        self._op_id_counter += 1
+        return self._op_id_counter
+
+    def _hw_id_for_rank(self, stage_id: int, tp_rank: int) -> int:
+        stage_int = int(stage_id) if stage_id is not None else 0
+        return stage_int * self._tp_degree + tp_rank
+
 class TimeCalculationLLM(TimeCalculation):
     def __init__(self, hw_config, model_config, mode):
 # Mode parameter
@@ -1122,6 +1404,7 @@ class LLMExecutionDispatcher:
         self.transformer_graph = transformer_graph
         self.transformer_forward_root = transformer_forward_root
         self.transformer_backward_root = transformer_backward_root
+        self.flattened_root: Optional[Any] = None
 
     def run(self, mode: ExecutionMode) -> ExecutionResult:
         if mode == ExecutionMode.ANALYTICAL:
@@ -1168,19 +1451,111 @@ class LLMExecutionDispatcher:
         return ExecutionResult(total_time=max_sec, graph_root=self.pipeline_root, mode=ExecutionMode.FULL_ASTRASIM_HIERARCHICAL)
 
     def _run_full_astrasim_flattened(self) -> ExecutionResult:
-        """Placeholder for the flattened AstraSim execution mode.
+        if not self.pipeline_root:
+            raise RuntimeError("Pipeline graph root is not available for flattening")
+        if not self.transformer_graph:
+            raise RuntimeError("Transformer graph metadata is required for flattening")
 
-        The eventual implementation should collapse the hierarchical two-phase
-        pipeline into a single "mega-graph" that enumerates every transformer
-        block as GEMM + collective operations inside one AstraSim workload. The
-        dispatcher will need to stitch together pipeline, tensor, and data
-        parallel collectives explicitly before invoking AstraSim.
-        """
-        raise NotImplementedError(
-            "Full_astrasim_flattened should build a single-level graph that models the entire "
-            "transformer stage as GEMM + collective operations within one AstraSim workload."
-            " The execution path has not been implemented yet."
+        output_dir = "./astra_flattened_graph"
+        os.makedirs(output_dir, exist_ok=True)
+        base_path = os.path.join(output_dir, "pipeline_unflattened")
+        dot = visualize_graph(self.pipeline_root, filename=base_path)
+        try:
+            dot.render(base_path, format="png", cleanup=True)
+        except Exception as exc:
+            print(f"[WARN] Failed to render pipeline graph: {exc}")
+
+        flattener = PipelineGraphFlattener(
+            pipeline_graph=self.pipeline_graph,
+            transformer_graph=self.transformer_graph,
         )
+        flattened_root = flattener.build(self.pipeline_root)
+        if flattened_root is None:
+            raise RuntimeError("Pipeline flattening produced an empty graph")
+
+        timed_root = self.pipeline_graph.convert_comm_sizes_to_times(
+            flattened_root,
+            self.time_calc.network_model,
+            self.interconnect_params,
+        )
+
+        self.flattened_root = timed_root
+        setattr(self.time_calc, "flattened_pipeline_root", timed_root)
+        self.pipeline_root = timed_root
+
+        output_dir = "./astra_flattened_graph"
+        os.makedirs(output_dir, exist_ok=True)
+        base_path = os.path.join(output_dir, "pipeline_flattened")
+        dot = visualize_graph(timed_root, filename=base_path)
+        try:
+            dot.render(base_path, format="png", cleanup=True)
+        except Exception as exc:  # pragma: no cover - visualization best-effort
+            print(f"[WARN] Failed to render flattened pipeline graph: {exc}")
+
+        unique_hw_ids = self._collect_hw_ids(timed_root)
+        if not unique_hw_ids:
+            raise RuntimeError("Flattened pipeline graph exposes no compute nodes with hardware IDs")
+
+        per_rank_sec, max_sec = run_astra_simulation_only_onepath(
+            timed_root,
+            self.time_calc,
+            "./astra_pipeline_output_flat",
+        )
+
+        if not per_rank_sec:
+            raise RuntimeError("AstraSim flattened execution returned no per-rank timings")
+
+        dp_count = max(1, getattr(self.time_calc, "dp", 1))
+        expected_rank_count = dp_count * len(unique_hw_ids)
+        if len(per_rank_sec) != expected_rank_count:
+            raise RuntimeError(
+                "AstraSim rank count mismatch for flattened execution: "
+                f"expected {expected_rank_count}, got {len(per_rank_sec)}"
+            )
+
+        if max_sec <= 0:
+            raise RuntimeError("AstraSim flattened execution returned non-positive duration")
+
+        self.time_calc.pipeline_astrasim_per_rank = per_rank_sec
+        self.time_calc.pipeline_astrasim_time = max_sec
+        setattr(self.time_calc, "flattened_astrasim_per_rank", per_rank_sec)
+        setattr(self.time_calc, "flattened_astrasim_total", max_sec)
+
+        return ExecutionResult(
+            total_time=max_sec,
+            graph_root=timed_root,
+            mode=ExecutionMode.FULL_ASTRASIM_FLATTENED,
+        )
+
+    def _collect_hw_ids(self, root: Any) -> Set[int]:
+        visited: Set[int] = set()
+        hw_ids: Set[int] = set()
+
+        def enqueue_children(obj: Any) -> None:
+            for child in getattr(obj, "children", []):
+                stack.append(child)
+
+        stack: List[Any]
+        if isinstance(root, (list, tuple)):
+            stack = list(root)
+        else:
+            stack = [root]
+
+        while stack:
+            obj = stack.pop()
+            obj_id = id(obj)
+            if obj_id in visited:
+                continue
+            visited.add(obj_id)
+
+            if isinstance(obj, simulate_LLM.Node):
+                hw_id = getattr(obj, "hw_id", None)
+                if hw_id is not None and hw_id >= 0:
+                    hw_ids.add(int(hw_id))
+
+            enqueue_children(obj)
+
+        return hw_ids
 
     def _run_transformer_astrasim(self, mode: ExecutionMode) -> Optional[TransformerTimings]:
         del mode  # mode currently unused but kept for signature consistency

@@ -141,11 +141,19 @@ def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", np
         f"latency: [ {ll_ns} ]   # ns\n"
     )
     os.makedirs(os.path.dirname(net_yaml), exist_ok=True)
-    with _cache_file_lock(net_yaml, timeout_s=5.0, poll_s=0.05):
+    single_threaded = bool(os.environ.get("ASTRA_TEST", "").strip() == "0")
+    if not single_threaded:
+        with _cache_file_lock(net_yaml, timeout_s=5.0, poll_s=0.05):
+            tmp_path = net_yaml + ".tmp"
+            with open(tmp_path, "w") as f:
+                f.write(net_content)
+            os.replace(tmp_path, net_yaml)
+    else:
         tmp_path = net_yaml + ".tmp"
         with open(tmp_path, "w") as f:
             f.write(net_content)
         os.replace(tmp_path, net_yaml)
+
 
     # System JSON collectives from parsed execution backend
     exec_backend = getattr(hw_obj, "execution_backend", None)
@@ -765,9 +773,6 @@ def run_cache_astrasim(
 
     return per_node_sec, max_sec
 
-    # Unused generate_astrasim_run_files removed; use run_cache_astrasim instead
-
-
 # -----------------------------
 # AstraSim runner (analytical)
 # -----------------------------
@@ -813,6 +818,11 @@ def run_astrasim_analytical(
     ]
     if comm_group_json and os.path.exists(comm_group_json):
         cmd.append(f"--comm-group-configuration={comm_group_json}")
+
+    # print command 
+    if True:
+        print("Command:")
+        print(" ".join(cmd))
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
     out = proc.stdout

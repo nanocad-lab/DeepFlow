@@ -264,6 +264,10 @@ class Graph:
 
                 hw_id = min(l // self.layer_per_device , self.lp - 1)#assign hw_id for transformer
                 transformer_node = Node("transformer", op_id, hw_id, transformer_f_time)
+                transformer_node.micro_batch_index = b
+                transformer_node.layer_index = l
+                transformer_node.direction = "forward"
+                transformer_node.stage_id = hw_id
                 op_id += 1
 
                 transformer_nodes[b][l]=transformer_node
@@ -337,6 +341,10 @@ class Graph:
 
                 hw_id = min(l // self.layer_per_device , self.lp - 1)
                 transformer_node_b = Node("transformer_b", op_id, hw_id, transformer_b_time, fwd=False)
+                transformer_node_b.micro_batch_index = b
+                transformer_node_b.layer_index = l
+                transformer_node_b.direction = "backward"
+                transformer_node_b.stage_id = hw_id
                 op_id += 1
                 transformer_nodes_b[b][l] = transformer_node_b
 
