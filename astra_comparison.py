@@ -23,7 +23,7 @@ sys.setrecursionlimit(10000)
 from astrasim_integration import (
     _new_comp_node, _new_comm_node, write_et_node,
     run_astrasim_analytical, generate_astrasim_configs_from_hw,
-    get_remote_memory_path
+    get_remote_memory_path, run_cache_astrasim
 )
 from simulate_LLM import visualize_graph
 
@@ -814,23 +814,31 @@ def run_astra_simulation_only(fwd_root, bwd_root, time_calc_obj, output_dir: str
         remote_memory_json = get_remote_memory_path()
         comm_groups_path = _write_comm_groups_json(output_dir, getattr(time_calc_obj, "dp", 1), fwd_ranks)
 
-        # Run AstraSim simulation on forward graph
+        # Run AstraSim simulation on forward graph (cached, bundle ETs)
         print(f"[AstraSim] Executing forward simulation with {rank_count} ranks...")
-        fwd_times, fwd_total = run_astrasim_analytical(
-            fwd_et_prefix,
-            astra_configs["system_json"],
-            astra_configs["network_yaml"],
-            remote_memory_json,
-            comm_group_json=comm_groups_path
+        fwd_bundle = [f"{fwd_et_prefix}.{r}.et" for r in fwd_ranks]
+        fwd_times, fwd_total = run_cache_astrasim(
+            time_calc_obj.hw_config,
+            comm="graph",
+            npus_count=rank_count,
+            size_bytes=0,
+            astra_config_dir="./astra_cache",
+            cache_path="./astra_cache/cache.json",
+            bundle_paths=fwd_bundle,
+            comm_group_json=comm_groups_path,
         )
 
         print(f"[AstraSim] Executing backward simulation with {rank_count} ranks...")
-        bwd_times, bwd_total = run_astrasim_analytical(
-            bwd_et_prefix,
-            astra_configs["system_json"],
-            astra_configs["network_yaml"],
-            remote_memory_json,
-            comm_group_json=comm_groups_path
+        bwd_bundle = [f"{bwd_et_prefix}.{r}.et" for r in bwd_ranks]
+        bwd_times, bwd_total = run_cache_astrasim(
+            time_calc_obj.hw_config,
+            comm="graph",
+            npus_count=rank_count,
+            size_bytes=0,
+            astra_config_dir="./astra_cache",
+            cache_path="./astra_cache/cache.json",
+            bundle_paths=bwd_bundle,
+            comm_group_json=comm_groups_path,
         )
 
         conversion_and_sim_time = time.time() - astrasim_start
@@ -895,14 +903,18 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         comm_groups_dp = dp_count if dp_override is not None else getattr(time_calc_obj, "dp", 1)
         comm_groups_path = _write_comm_groups_json(output_dir, comm_groups_dp, rank_ids)
 
-        # Run AstraSim simulation on forward graph
+        # Run AstraSim simulation on forward graph (cached, bundle ETs)
         print(f"[AstraSim] Executing forward simulation with {rank_count} ranks...")
-        fwd_times, fwd_total = run_astrasim_analytical(
-            fwd_et_prefix,
-            astra_configs["system_json"],
-            astra_configs["network_yaml"],
-            remote_memory_json,
-            comm_group_json=comm_groups_path
+        fwd_bundle = [f"{fwd_et_prefix}.{r}.et" for r in rank_ids]
+        fwd_times, fwd_total = run_cache_astrasim(
+            time_calc_obj.hw_config,
+            comm="graph",
+            npus_count=rank_count,
+            size_bytes=0,
+            astra_config_dir="./astra_cache",
+            cache_path="./astra_cache/cache.json",
+            bundle_paths=fwd_bundle,
+            comm_group_json=comm_groups_path,
         )
 
 

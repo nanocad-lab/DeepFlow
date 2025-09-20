@@ -5,6 +5,8 @@ import os
 import sys
 import config
 import os
+import time
+import atexit
 from astrasim_integration import ensure_cache_unlocked_if_standalone
 import pandas as pd
 import yaml
@@ -17,6 +19,19 @@ from LLM_util import  process_gemm_shapes, caltime
 algByte = False  # algorithmic ops false
 proj = False  # consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
 validating_v100 = True
+
+# Global wall-clock timer: report total program runtime at exit
+_program_start_time = time.perf_counter()
+
+def _report_total_wall_time() -> None:
+    try:
+        elapsed = time.perf_counter() - _program_start_time
+        print("Program wall-clock time: {:.3f}s".format(elapsed))
+    except Exception:
+        # Best-effort only
+        pass
+
+atexit.register(_report_total_wall_time)
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run performance analysis for LSTM, GEMM, or LLM models.")
     parser.add_argument("--hardware_config", required=True, help="Path to the hardware configuration file.")

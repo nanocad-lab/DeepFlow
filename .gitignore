@@ -77,7 +77,10 @@ log/log.log
 log/
 astra_comparison_output/
 astra_transformer_output/
+astra_transformer_output_forward/
+astra_transformer_output_backward/
 astra_pipeline_output/
 mat_dims_llm.txt
 Transformer_breakdown_results.txt
 fw_bw_graph.pkl
+Transformer_breakdown_results.txt

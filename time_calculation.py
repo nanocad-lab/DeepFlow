@@ -1649,13 +1649,16 @@ class TimeCalculation:
         return gemm_time, reduction_time
 
 
-    # TODO(getDistGEMM_b_kp2):
+    # (getDistGEMM_b_kp2):
     # - Collectives used here should all be ALL-GATHERs (partial=False, allReduce=False):
     #   * wt1: gather row(A^T) across dim1
     #   * wt2: gather column grad(A') across dim1
     #   * act1: gather row grad(A') across dim2
     #   * act2: gather column(w^T) across dim2
     # - Remove heuristic "/2" scaling on wt1 and act2. !!!!
+    # TODO TODO TODO: We have removed the heuristic /2 scaling for ANALYTICAL *AND* ASTRA mode. This will change results.
+    # BEFORE MERGE: CAREFULLY CONSIDER AND ADDRESS THIS.
+    # IF YOU SEE THIS MESSAGE IN MAINLINE DEEPFLOW PLEASE LET ME KNOW. -GK
     def getDistGEMM_b_kp2(self, m, k, n, dim1, dim2, name):
         ######################################################################################
         # calculate grad wrt. weights (A^T. grad(A'))
@@ -1670,7 +1673,7 @@ class TimeCalculation:
             ll=self.LLK1,
             local_bytes=3 * total_bytes,
             debug_label=name or "comm",
-        ) / 2
+        )
         # To calculate grad wrt weights (A^T, grad(A')),
         # gather column grad(A')
         total_bytes = math.ceil(self.precision * m * (n / dim2))
@@ -1711,7 +1714,7 @@ class TimeCalculation:
             ll=self.LLK2,
             local_bytes=3 * total_bytes,
             debug_label=name or "comm",
-        ) / 2
+        )
 
         reduction_time = (
             reduction_time_wt1

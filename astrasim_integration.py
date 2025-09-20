@@ -514,6 +514,7 @@ def run_cache_astrasim(
     astra_config_dir: str = "./astra_cache",
     cache_path: str = "./astra_cache/cache.json",
     bundle_paths: Optional[List[str]] = None,
+    comm_group_json: Optional[str] = None,
 ) -> Tuple[List[float], float]:
     """
     Cached AstraSim run: generates configs (skips existing workload),
@@ -541,6 +542,10 @@ def run_cache_astrasim(
                 lf.write(msg + "\n")
         except Exception:
             pass
+
+    # If ASTRA_TEST=0, assume single-threaded execution: bypass cache file locks
+    # to reduce overhead and access the cache directly.
+    single_threaded = bool(os.environ.get("ASTRA_TEST", "").strip() == "0")
 
     # Compute network params and topology from HW
     (intra_ib_bps, intra_ll_s), _ = compute_intra_inter_ib_ll_from_hw(hw_obj)
@@ -581,12 +586,30 @@ def run_cache_astrasim(
     # Generate configs
     files = generate_astrasim_configs_from_hw(hw_obj, out_dir=astra_config_dir, npus_count=npus_count)
 
-    # Ensure workload ET exists (skip writing if all ranks present)
-    label = _size_label(size_bytes)
-    base_dir = os.path.join(astra_config_dir, "workload", comm.lower(), f"{npus_count}npus_{label}")
-    prefix = os.path.join(base_dir, f"{comm.lower()}_{label}")
-    expected = [f"{prefix}.{r}.et" for r in range(npus_count)]
-    if not bundle_paths:
+    # Determine workload prefix
+    if bundle_paths:
+        # Derive prefix from provided ET paths: take first *.N.et
+        workload_prefix = None
+        for p in bundle_paths:
+            if p.endswith(".et"):
+                m = re.match(r"(.+)\.\d+\.et$", p)
+                if m:
+                    workload_prefix = m.group(1)
+                    break
+        if workload_prefix is None:
+            # Fallback: if a single-rank ET file without numeric suffix
+            for p in bundle_paths:
+                if p.endswith(".et"):
+                    workload_prefix = p[:-3]
+                    break
+        if workload_prefix is None:
+            raise ValueError("bundle_paths provided but no *.rank.et files found to derive workload prefix")
+    else:
+        # Ensure workload ET exists (skip writing if all ranks present)
+        label = _size_label(size_bytes)
+        base_dir = os.path.join(astra_config_dir, "workload", comm.lower(), f"{npus_count}npus_{label}")
+        workload_prefix = os.path.join(base_dir, f"{comm.lower()}_{label}")
+        expected = [f"{workload_prefix}.{r}.et" for r in range(npus_count)]
         if not all(os.path.exists(p) for p in expected):
             generate_workload_et(comm, npus_count, size_bytes, astra_config_dir=astra_config_dir)
 
@@ -599,12 +622,13 @@ def run_cache_astrasim(
                 bundle_list.append(path)
         if remote_mem_path and os.path.exists(remote_mem_path) and remote_mem_path not in bundle_list:
             bundle_list.append(remote_mem_path)
+        if comm_group_json and os.path.exists(comm_group_json) and comm_group_json not in bundle_list:
+            bundle_list.append(comm_group_json)
         cache_key = _hash_file_bundle(bundle_list)
     else:
         cache_key = _hash_sig(canonical)
 
-    # Locked read/check to avoid races with concurrent writers; on timeout, proceed best-effort
-    with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
+    if single_threaded:
         cache = _load_cache(cache_path)
         if bundle_paths:
             entry = cache.get(cache_key) if cache else None
@@ -614,37 +638,68 @@ def run_cache_astrasim(
                 if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
                     _cache_dbg(f"HIT bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
                     return cached_per, cached_max
-                if locked:
-                    fresh = _load_cache(cache_path)
-                    if cache_key in fresh:
-                        try:
-                            fresh.pop(cache_key)
-                            _save_cache(cache_path, fresh)
-                        except Exception:
-                            pass
+                # Drop invalid entry directly (single-threaded assumption)
+                try:
+                    if cache_key in cache:
+                        cache.pop(cache_key)
+                        _save_cache(cache_path, cache)
+                except Exception:
+                    pass
                 _cache_dbg(f"DROP_INVALID bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
         else:
             entry = cache.get(cache_key) if cache else None
-            if locked:
-                # Migrate any legacy entry keyed by canonical JSON string
-                if cache and canonical in cache and cache_key not in cache:
-                    cache[cache_key] = cache.pop(canonical)
-                    _save_cache(cache_path, cache)
             if entry:
                 cached_per = entry.get("per_node_sec", [])
                 cached_max = float(entry.get("max_sec", 0.0))
                 if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
                     _cache_dbg(f"HIT key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
                     return cached_per, cached_max
-                if locked:
-                    fresh = _load_cache(cache_path)
-                    if cache_key in fresh:
-                        try:
-                            fresh.pop(cache_key)
-                            _save_cache(cache_path, fresh)
-                        except Exception:
-                            pass
+                # Drop invalid without lock
+                try:
+                    if cache_key in cache:
+                        cache.pop(cache_key)
+                        _save_cache(cache_path, cache)
+                except Exception:
+                    pass
                 _cache_dbg(f"DROP_INVALID key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
+    else:
+        # Locked read/check to avoid races with concurrent writers; on timeout, proceed best-effort
+        with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
+            cache = _load_cache(cache_path)
+            if bundle_paths:
+                entry = cache.get(cache_key) if cache else None
+                if entry:
+                    cached_per = entry.get("per_node_sec", [])
+                    cached_max = float(entry.get("max_sec", 0.0))
+                    if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
+                        _cache_dbg(f"HIT bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
+                        return cached_per, cached_max
+                    if locked:
+                        fresh = _load_cache(cache_path)
+                        if cache_key in fresh:
+                            try:
+                                fresh.pop(cache_key)
+                                _save_cache(cache_path, fresh)
+                            except Exception:
+                                pass
+                    _cache_dbg(f"DROP_INVALID bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
+            else:
+                entry = cache.get(cache_key) if cache else None
+                if entry:
+                    cached_per = entry.get("per_node_sec", [])
+                    cached_max = float(entry.get("max_sec", 0.0))
+                    if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
+                        _cache_dbg(f"HIT key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
+                        return cached_per, cached_max
+                    if locked:
+                        fresh = _load_cache(cache_path)
+                        if cache_key in fresh:
+                            try:
+                                fresh.pop(cache_key)
+                                _save_cache(cache_path, fresh)
+                            except Exception:
+                                pass
+                    _cache_dbg(f"DROP_INVALID key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
 
     # Execute AstraSim with retry if zero time observed
     attempts = 0
@@ -654,10 +709,11 @@ def run_cache_astrasim(
     while attempts < 5:
         attempts += 1
         per_node_sec, max_sec = run_astrasim_analytical(
-            workload_prefix=prefix,
+            workload_prefix=workload_prefix,
             system_json=files["system_json"],
             network_yaml=files["network_yaml"],
             remote_memory_json=remote_mem_path,
+            comm_group_json=comm_group_json,
         )
         # consider valid only if non-empty, positive, and matches npus length
         if per_node_sec and max_sec > 0 and len(per_node_sec) == int(npus_count) and all((t > 0 for t in per_node_sec)):
@@ -679,7 +735,7 @@ def run_cache_astrasim(
         "canonical": canonical,
         "per_node_sec": per_node_sec,
         "max_sec": max_sec,
-        "workload_prefix": prefix,
+        "workload_prefix": workload_prefix,
         "system_json": files["system_json"],
         "network_yaml": files["network_yaml"],
     }
@@ -689,14 +745,23 @@ def run_cache_astrasim(
             "bundle_paths": bundle_list,
         })
 
-    with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
-        if locked:
+    if single_threaded:
+        try:
             cache = _load_cache(cache_path)
             cache[cache_key] = cache_entry
             _save_cache(cache_path, cache)
             _cache_dbg(f"MISS_WRITE key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={max_sec}")
-        else:
-            _cache_dbg(f"SKIP_WRITE_LOCK key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
+        except Exception:
+            _cache_dbg(f"SKIP_WRITE_ERROR key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
+    else:
+        with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
+            if locked:
+                cache = _load_cache(cache_path)
+                cache[cache_key] = cache_entry
+                _save_cache(cache_path, cache)
+                _cache_dbg(f"MISS_WRITE key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={max_sec}")
+            else:
+                _cache_dbg(f"SKIP_WRITE_LOCK key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
 
     return per_node_sec, max_sec
 
