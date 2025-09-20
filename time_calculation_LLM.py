@@ -20,7 +20,6 @@ import LLM_util
 from hw_component import Core, MemoryHierarchy, Network
 from model import Model_LSTM, Model_GEMM, Model_LLM
 from tile import TiledGEMM, formatBytes
-from astrasim_integration import run_astrasim_graph
 from astra_comparison import run_astra_simulation_only_onepath
 
 from simulate_LLM import visualize_graph
@@ -45,8 +44,8 @@ else:
 class ExecutionMode(Enum):
     ANALYTICAL = "analytical"
     HYBRID = "hybrid"
-    HYBRID_CONGESTION = "hybrid_congestion"
-    FULL_ASTRASIM = "full_astrasim"
+    FULL_ASTRASIM_HIERARCHICAL = "full_astrasim_hierarchical"
+    FULL_ASTRASIM_FLATTENED = "full_astrasim_flattened"
 
 
 @dataclass
@@ -54,6 +53,12 @@ class ExecutionResult:
     total_time: float
     graph_root: Any
     mode: ExecutionMode
+
+
+@dataclass
+class TransformerTimings:
+    forward: float
+    backward: float
 
 
 class TimeCalculationLLM(TimeCalculation):
@@ -75,11 +80,14 @@ class TimeCalculationLLM(TimeCalculation):
         self.pipeline_root: Optional[Any] = None
         self.pipeline_interconnect: Optional[Dict[str, Tuple[float, float]]] = None
         self.transformer_graph: Optional[Graph] = None
-        self.transformer_graph_root: Optional[Any] = None
-        self.transformer_analytical_time: Optional[float] = None
-        self.transformer_astrasim_time: Optional[float] = None
-        self.transformer_astrasim_per_rank: Optional[List[float]] = None
-        self.transformer_time_scale: Optional[float] = None
+        self.transformer_forward_root: Optional[Any] = None
+        self.transformer_backward_root: Optional[Any] = None
+        self.transformer_analytical_time_forward: Optional[float] = None
+        self.transformer_analytical_time_backward: Optional[float] = None
+        self.transformer_astrasim_time_forward: Optional[float] = None
+        self.transformer_astrasim_time_backward: Optional[float] = None
+        self.transformer_astrasim_per_rank_forward: Optional[List[float]] = None
+        self.transformer_astrasim_per_rank_backward: Optional[List[float]] = None
         self.pipeline_astrasim_time: Optional[float] = None
         self.pipeline_astrasim_per_rank: Optional[List[float]] = None
 
@@ -104,9 +112,12 @@ class TimeCalculationLLM(TimeCalculation):
     def _map_execution_mode_to_policy(mode: ExecutionMode) -> str:
         if mode == ExecutionMode.ANALYTICAL:
             return 'analytical'
-        if mode == ExecutionMode.FULL_ASTRASIM:
+        if mode in (
+            ExecutionMode.FULL_ASTRASIM_HIERARCHICAL,
+            ExecutionMode.FULL_ASTRASIM_FLATTENED,
+        ):
             return 'full'
-        # Treat hybrid congestion the same as hybrid for now
+        # Hybrid still uses the analytical pipeline, so keep the hybrid policy.
         return 'hybrid'
 
     def _distributed_gemm_forward(self, m: int, k: int, n: int, name: str) -> Tuple[float, float]:
@@ -991,13 +1002,18 @@ class TimeCalculationLLM(TimeCalculation):
             comm_metadata=transformer_comm_metadata,
             misc_metadata={},
         )
-        self.transformer_graph_root = self.transformer_graph.construct_transformer_graph()
+        self.transformer_forward_root = self.transformer_graph.construct_transformer_graph(direction="forward")
+        self.transformer_backward_root = self.transformer_graph.construct_transformer_graph(direction="backward")
 
-        analytical_time = 0.0
+        analytical_forward = 0.0
+        analytical_backward = 0.0
         for entry in transformer_gemm_entries:
-            analytical_time += entry["forward"]["duration"] + entry["forward"].get("reduction", 0.0)
-            analytical_time += entry["backward"]["duration"] + entry["backward"].get("reduction", 0.0)
-        self.transformer_analytical_time = analytical_time
+            forward_component = entry["forward"]["duration"] + entry["forward"].get("reduction", 0.0)
+            backward_component = entry["backward"]["duration"] + entry["backward"].get("reduction", 0.0)
+            analytical_forward += forward_component
+            analytical_backward += backward_component
+        self.transformer_analytical_time_forward = analytical_forward
+        self.transformer_analytical_time_backward = analytical_backward
 
         pipeline_graph_obj, graph_root, interconnect_params = self._build_pipeline_graph(
             num_micro_batches=num_micro_batches,
@@ -1021,7 +1037,8 @@ class TimeCalculationLLM(TimeCalculation):
             pipeline_root=self.pipeline_root,
             interconnect_params=self.pipeline_interconnect,
             transformer_graph=self.transformer_graph,
-            transformer_root=self.transformer_graph_root,
+            transformer_forward_root=self.transformer_forward_root,
+            transformer_backward_root=self.transformer_backward_root,
         )
         mode = self.execution_mode
         try:
@@ -1038,10 +1055,29 @@ class TimeCalculationLLM(TimeCalculation):
 
         self.pipeline_graph.save_graph(pipeline_root, "output_graph/", "fw_bw_graph")
 
-        if self.transformer_analytical_time is not None:
-            print(f"Analytical transformer time: {self.transformer_analytical_time:.1f}s")
+        if self.transformer_analytical_time_forward is not None:
+            print(
+                f"Analytical transformer forward time: "
+                f"{self.transformer_analytical_time_forward:.1f}s"
+            )
+        if self.transformer_analytical_time_backward is not None:
+            print(
+                f"Analytical transformer backward time: "
+                f"{self.transformer_analytical_time_backward:.1f}s"
+            )
 
-        self.transformer_graph.save_graph(self.transformer_graph_root, "output_graph/", "transformer_graph")
+        if self.transformer_forward_root is not None:
+            self.transformer_graph.save_graph(
+                self.transformer_forward_root,
+                "output_graph/",
+                "transformer_graph_forward",
+            )
+        if self.transformer_backward_root is not None:
+            self.transformer_graph.save_graph(
+                self.transformer_backward_root,
+                "output_graph/",
+                "transformer_graph_backward",
+            )
 
         self.tot_time = time_fw_bw
 
@@ -1074,25 +1110,26 @@ class LLMExecutionDispatcher:
         pipeline_root: Any,
         interconnect_params: Dict[str, Tuple[float, float]],
         transformer_graph: Optional[Graph] = None,
-        transformer_root: Optional[Any] = None,
+        transformer_forward_root: Optional[Any] = None,
+        transformer_backward_root: Optional[Any] = None,
     ) -> None:
         self.time_calc = time_calc
         self.pipeline_graph = pipeline_graph
         self.pipeline_root = pipeline_root
         self.interconnect_params = interconnect_params
         self.transformer_graph = transformer_graph
-        self.transformer_root = transformer_root
+        self.transformer_forward_root = transformer_forward_root
+        self.transformer_backward_root = transformer_backward_root
 
     def run(self, mode: ExecutionMode) -> ExecutionResult:
         if mode == ExecutionMode.ANALYTICAL:
             return self._run_pipeline_with_analytical_comm(ExecutionMode.ANALYTICAL)
         if mode == ExecutionMode.HYBRID:
-            # internally, .collective() distinguishes between ANALYTICAL and HYBRID execution modes.
-            return self._run_pipeline_with_analytical_comm(ExecutionMode.HYBRID)
-        if mode == ExecutionMode.HYBRID_CONGESTION:
-            return self._run_hybrid_congestion()
-        if mode == ExecutionMode.FULL_ASTRASIM:
-            return self._run_full_astrasim()
+            return self._run_hybrid()
+        if mode == ExecutionMode.FULL_ASTRASIM_HIERARCHICAL:
+            return self._run_full_astrasim_hierarchical()
+        if mode == ExecutionMode.FULL_ASTRASIM_FLATTENED:
+            return self._run_full_astrasim_flattened()
         raise ValueError(f"Unsupported execution mode: {mode}")
 
     def _run_pipeline_with_analytical_comm(self, declared_mode: ExecutionMode) -> ExecutionResult:
@@ -1106,71 +1143,81 @@ class LLMExecutionDispatcher:
         total_time = self.pipeline_graph.simulate(timed_root)
         return ExecutionResult(total_time=total_time, graph_root=timed_root, mode=declared_mode)
 
-    def _run_hybrid_congestion(self) -> ExecutionResult:
-        scale = self._run_transformer_astrasim(ExecutionMode.HYBRID_CONGESTION)
-        if scale is not None:
-            self._apply_transformer_scale(scale)
-        return self._run_pipeline_with_analytical_comm(ExecutionMode.HYBRID_CONGESTION)
+    def _run_hybrid(self) -> ExecutionResult:
+        transformer_time = self._run_transformer_astrasim(ExecutionMode.HYBRID)
+        if transformer_time is not None:
+            self._apply_transformer_time(transformer_time)
+        return self._run_pipeline_with_analytical_comm(ExecutionMode.HYBRID)
 
-    def _run_full_astrasim(self) -> ExecutionResult:
-        scale = self._run_transformer_astrasim(ExecutionMode.FULL_ASTRASIM)
-        if scale is not None:
-            self._apply_transformer_scale(scale)
+    def _run_full_astrasim_hierarchical(self) -> ExecutionResult:
+        transformer_time = self._run_transformer_astrasim(ExecutionMode.FULL_ASTRASIM_HIERARCHICAL)
+        if transformer_time is not None:
+            self._apply_transformer_time(transformer_time)
 
         dp_count = getattr(self.time_calc, "dp", 1) or 1
         if not self.pipeline_root:
             raise RuntimeError("Pipeline graph root is not available for AstraSim execution")
-
-        # per_rank_sec, max_sec = run_astrasim_graph(
-        #     graph_root=self.pipeline_root,
-        #     dp_count=int(dp_count),
-        #     hw_obj=self.time_calc.hw_config,
-        #     tag="pipeline_full",
-        # )
 
         per_rank_sec, max_sec = run_astra_simulation_only_onepath(self.pipeline_root, self.time_calc, "./astra_pipeline_output")
         self.time_calc.pipeline_astrasim_per_rank = per_rank_sec
         self.time_calc.pipeline_astrasim_time = max_sec
         if max_sec <= 0:
             raise RuntimeError("AstraSim pipeline execution returned non-positive duration")
-        return ExecutionResult(total_time=max_sec, graph_root=self.pipeline_root, mode=ExecutionMode.FULL_ASTRASIM)
+        return ExecutionResult(total_time=max_sec, graph_root=self.pipeline_root, mode=ExecutionMode.FULL_ASTRASIM_HIERARCHICAL)
 
-    def _run_transformer_astrasim(self, mode: ExecutionMode) -> Optional[float]:
-        if not self.transformer_root:
+    def _run_full_astrasim_flattened(self) -> ExecutionResult:
+        """Placeholder for the flattened AstraSim execution mode.
+
+        The eventual implementation should collapse the hierarchical two-phase
+        pipeline into a single "mega-graph" that enumerates every transformer
+        block as GEMM + collective operations inside one AstraSim workload. The
+        dispatcher will need to stitch together pipeline, tensor, and data
+        parallel collectives explicitly before invoking AstraSim.
+        """
+        raise NotImplementedError(
+            "Full_astrasim_flattened should build a single-level graph that models the entire "
+            "transformer stage as GEMM + collective operations within one AstraSim workload."
+            " The execution path has not been implemented yet."
+        )
+
+    def _run_transformer_astrasim(self, mode: ExecutionMode) -> Optional[TransformerTimings]:
+        del mode  # mode currently unused but kept for signature consistency
+        if not self.transformer_forward_root or not self.transformer_backward_root:
             return None
 
-        # per_rank_sec, max_sec = run_astrasim_graph(
-        #     graph_root=self.transformer_root,
-        #     dp_count=1,
-        #     hw_obj=self.time_calc.hw_config,
-        #     tag=f"transformer_{mode.value}",
-        # )
+        fwd_per_rank, fwd_max = run_astra_simulation_only_onepath(
+            self.transformer_forward_root,
+            self.time_calc,
+            "./astra_transformer_output_forward",
+            dp_override=1,
+        )
+        bwd_per_rank, bwd_max = run_astra_simulation_only_onepath(
+            self.transformer_backward_root,
+            self.time_calc,
+            "./astra_transformer_output_backward",
+            dp_override=1,
+        )
 
-        per_rank_sec, max_sec = run_astra_simulation_only_onepath(self.transformer_root, self.time_calc, "./astra_transformer_output", dp_override=1)
-        
-        self.time_calc.transformer_astrasim_per_rank = per_rank_sec
-        self.time_calc.transformer_astrasim_time = max_sec
-        if max_sec <= 0:
+        self.time_calc.transformer_astrasim_per_rank_forward = fwd_per_rank
+        self.time_calc.transformer_astrasim_per_rank_backward = bwd_per_rank
+        self.time_calc.transformer_astrasim_time_forward = fwd_max
+        self.time_calc.transformer_astrasim_time_backward = bwd_max
+
+        if fwd_max <= 0 or bwd_max <= 0:
             raise RuntimeError("AstraSim transformer execution returned non-positive duration")
 
-        analytical_total = getattr(self.time_calc, "transformer_analytical_time", None)
-        if not analytical_total or analytical_total <= 0:
-            raise RuntimeError("Analytical transformer time is unavailable for scaling")
+        return TransformerTimings(forward=fwd_max, backward=bwd_max)
 
-        scale = max_sec / analytical_total
-        self.time_calc.transformer_time_scale = scale
-        return scale
-
-    def _apply_transformer_scale(self, scale: float) -> None:
-        if scale <= 0:
-            raise ValueError("Transformer scaling factor must be positive")
+    def _apply_transformer_time(self, timings: TransformerTimings) -> None:
+        if timings.forward <= 0 or timings.backward <= 0:
+            raise ValueError("AstraSim transformer times must be positive")
 
         comp_times = getattr(self.pipeline_graph, "comp_times", None)
         if isinstance(comp_times, dict):
             if "transformer_f" in comp_times:
-                comp_times["transformer_f"] *= scale
+                comp_times["transformer_f"] = timings.forward
             if "transformer_b" in comp_times:
-                comp_times["transformer_b"] *= scale
+                comp_times["transformer_b"] = timings.backward
 
         visited: Set[int] = set()
         roots: List[Any]
@@ -1180,9 +1227,9 @@ class LLMExecutionDispatcher:
             roots = [self.pipeline_root]
 
         for root in roots:
-            self._scale_transformer_nodes(root, visited, scale)
+            self._assign_transformer_durations(root, visited, timings.forward, timings.backward)
 
-    def _scale_transformer_nodes(self, node: Any, visited: Set[int], scale: float) -> None:
+    def _assign_transformer_durations(self, node: Any, visited: Set[int], forward_value: float, backward_value: float) -> None:
         if node is None:
             return
         node_id = id(node)
@@ -1191,8 +1238,10 @@ class LLMExecutionDispatcher:
         visited.add(node_id)
 
         if isinstance(node, simulate_LLM.Node):
-            if node.name in {"transformer", "transformer_b"}:
-                node.duration *= scale
+            if node.name == "transformer":
+                node.duration = forward_value
+            elif node.name == "transformer_b":
+                node.duration = backward_value
 
         for child in getattr(node, "children", []):
-            self._scale_transformer_nodes(child, visited, scale)
+            self._assign_transformer_durations(child, visited, forward_value, backward_value)

@@ -172,7 +172,7 @@ execution_backend:
   model: analytical # analytical | astra
   astra:
     backend: astra
-    mode: hybrid  # hybrid | hybrid_congestion | full_astrasim
+    mode: hybrid  # hybrid | full_astrasim_hierarchical | full_astrasim_flattened
     collectives:
       # Allowed values per op: auto | ring | direct | halvingDoubling | doubleBinaryTree
       # Note: if topology is 'switch' and value is 'auto', we default to 'halvingDoubling'.
