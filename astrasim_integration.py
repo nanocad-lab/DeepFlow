@@ -820,7 +820,7 @@ def run_astrasim_analytical(
         cmd.append(f"--comm-group-configuration={comm_group_json}")
 
     # print command 
-    if True:
+    if os.environ.get("ASTRA_DEBUG") == 1:
         print("Command:")
         print(" ".join(cmd))
 

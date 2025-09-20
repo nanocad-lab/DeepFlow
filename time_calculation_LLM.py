@@ -274,11 +274,11 @@ class PipelineGraphFlattener:
             exit_node.add_child(child_clone)
             dp_clones.append(child_clone)
 
-        downstream_parents: List[Any]
+        downstream_parents: List[Any] = [exit_node]
         if dp_clones:
-            downstream_parents = [dp_clones[-1]]
-        else:
-            downstream_parents = [exit_node]
+            tail = dp_clones[-1]
+            if tail is not None and tail is not exit_node:
+                downstream_parents.append(tail)
 
         for child in other_children:
             child_clone = self._clone(child)

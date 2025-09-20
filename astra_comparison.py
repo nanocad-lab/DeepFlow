@@ -905,7 +905,7 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         rank_count = len(rank_ids)
 
         for rank in rank_ids:
-            if True:
+            if os.environ.get("ASTRA_DEBUG") == 1:
                 _visualize_et_files([f"{output_dir}/fwd/llm_graph.{rank}.et"])
             _dump_et_text([f"{output_dir}/fwd/llm_graph.{rank}.et"])
         # exit()
