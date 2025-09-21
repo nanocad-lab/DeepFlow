@@ -309,18 +309,18 @@ class TimeCalculation:
         if self.num_workers % (self.kp_hidden_dim1 * self.kp_hidden_dim2) != 0:
             raise ValueError("num_workers must be divisible by (kp_hidden_dim1 * kp_hidden_dim2)")
         num_workers = self.num_workers/(self.kp_hidden_dim1*self.kp_hidden_dim2)
-        print(f'num_workers after kp_hidden_dim1 and kp_hidden_dim2: {num_workers}')
+        # print(f'num_workers after kp_hidden_dim1 and kp_hidden_dim2: {num_workers}')
 
         if num_workers % self.dp != 0:
             raise ValueError("num_workers must be divisible by dp")
         self.num_workers_dp = num_workers / self.dp # number of workers for each data parallelism batch
-        print(f'num_workers_dp after dividing by dp: {self.num_workers_dp}')
+        # print(f'num_workers_dp after dividing by dp: {self.num_workers_dp}')
 
         if self.num_workers_dp % self.lp != 0:
             raise ValueError("num_workers_dp must be divisible by lp")
         self.num_workers_lp = self.num_workers_dp / self.lp if self.lp > 1 else self.num_workers_dp #number of workers per pipeline stage
-        print(f'num_workers_lp after dividing by lp: {self.num_workers_lp}')
-        print(f'lp: {self.lp}')
+        # print(f'num_workers_lp after dividing by lp: {self.num_workers_lp}')
+        # print(f'lp: {self.lp}')
         if self.num_workers_lp != 1:
             raise ValueError("num_workers_lp must be equal to 1")
         
@@ -812,112 +812,67 @@ class TimeCalculation:
 
 
     def getGEMMTime(self, dim1, dim2, dim3, name, original=False):
-        self.tileSpace = self.generateTileSpace(dim1, dim2, dim3, original=True)
-        tile2time = {}
-        gemm_dict = {}
-        orderSpace = self.generateOrder(dim1, dim2, dim3, name)
-        for order_dims in orderSpace:
+        # Streaming best selection to avoid building large dicts
+        best_time = float("inf")
+        best_choice = None  # type: Optional[tuple]
+        best_mem_access = None  # type: Optional[tuple]
+        best_gemm = None  # type: Optional[TiledGEMM]
+        best_metric = float("inf")
+
+        # Iterate directly over candidates from tile module; no string orders
+        for gemm in TiledGEMM.enumerate_candidates(self.core, self.memLayer, dim1, dim2, dim3, self.precision, original=False):
             if self.debug:
                 print("===============================================================")
-                print("order: {}".format(order_dims))
+                print(f"inner_code: {gemm._inner_code}")
                 print("===============================================================")
-            # print("TILE_SPACE: \n", self.tileSpace)
-            for tile_dims in self.tileSpace:
-                tile_dims = tile_dims + ((dim1, dim2, dim3),)
-                if self.debug:
-                    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-                    print("tile: {}".format(tile_dims))
-                    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-                
-                if original:
-                    GEMM_flop, mem_access = self.GEMM(order_dims, tile_dims, name)
-                    gemm_dict[(order_dims, tile_dims)] = None
-                else:
-                    gemm = TiledGEMM(
-                        order_dims, tile_dims, self.core, self.memLayer, self.precision
-                    )  # assumes 4 levels of memory hierarchy
-                    GEMM_flop = gemm.GEMM_flop
-                    mem_access = gemm.mem_accesses
-                    gemm_dict[(order_dims, tile_dims)] = gemm
 
-                mem_access_per_sm = mem_access
+            GEMM_flop = gemm.GEMM_flop
+            mem_access = gemm.mem_accesses
 
-                reuse_M = math.ceil(dim1 / tile_dims[-2][0])
-                reuse_K = math.ceil(dim2 / tile_dims[-2][1])
-                reuse_N = math.ceil(dim3 / tile_dims[-2][2])
-                mem_access_per_sm[1] = mem_access_per_sm[1] / min(self.core.num_bundle, reuse_M * reuse_K * reuse_N)
+            # Adjust shared accesses per effective SMs
+            mem_access_per_sm = list(mem_access)
+            reuse_M = (dim1 + gemm.l2_M - 1) // gemm.l2_M
+            reuse_K = (dim2 + gemm.l2_K - 1) // gemm.l2_K
+            reuse_N = (dim3 + gemm.l2_N - 1) // gemm.l2_N
+            eff_sm = min(self.core.num_bundle, reuse_M * reuse_K * reuse_N)
+            if eff_sm > 0:
+                mem_access_per_sm[1] = mem_access_per_sm[1] / eff_sm
 
-                GEMM_time = self.roofline(GEMM_flop, mem_access_per_sm, name) + self.O
+            GEMM_time = self.roofline(GEMM_flop, mem_access_per_sm, name) + self.O
 
-                tile2time[(order_dims, tile_dims)] = (GEMM_time, mem_access)
-                gemm_dict[(order_dims, tile_dims)] = gemm
+            tile_dims = (
+                (gemm.l0_M, gemm.l0_K, gemm.l0_N),
+                (gemm.l1_M, gemm.l1_K, gemm.l1_N),
+                (gemm.l2_M, gemm.l2_K, gemm.l2_N),
+            )
+            key = (gemm._inner_code, tile_dims)
 
-        best_tile = min(tile2time, key=tile2time.get)
-        best_time, _ = tile2time[best_tile]
+            # Tie-breaker metric identical to previous selection: hypot(dram, l2)
+            metric = math.hypot(mem_access[3], mem_access[2])
 
-        best_tile = min(
-            (tile for tile, (time, mem) in tile2time.items() if time == best_time),
-            key=lambda tile: math.hypot(tile2time[tile][1][3], tile2time[tile][1][2])
-        )
+            if (GEMM_time < best_time) or (GEMM_time == best_time and metric < best_metric):
+                best_time = GEMM_time
+                best_choice = key
+                best_mem_access = mem_access
+                best_gemm = gemm
+                best_metric = metric
 
-        best_time, mem_access = tile2time[best_tile]
-        best_gemm = gemm_dict[best_tile]
+        # best_choice, best_mem_access must be set if there was at least one candidate
+        mem_access = best_mem_access  # type: ignore
 
         if self.debug:
             print(repr(best_gemm))
             print(
-                "{}: Best Time: {:,} ms, Best Order: {}, Best Tile: {}\n".format(
-                    name, best_time * 1e3, best_tile[0], best_tile[1]
-                )
+                f"{name}: Best Time: {best_time * 1e3:,} ms, Best Inner: {best_choice[0]}, Best Tile: {best_choice[1]}\n"
             )
 
-        return best_time, best_tile[0], best_tile[1], mem_access
-
-    def generateOrder(self, dim1, dim2, dim3, name):
-        if self.dataflow == "best":  # best stationary
-            if dim1 >= max(dim2, dim3):
-                self.dataflow = "wst"
-            elif dim2 >= max(dim1, dim3):
-                self.dataflow = "ost"
-            elif dim3 >= max(dim1, dim2):
-                self.dataflow = "ast"
-
-        order = []
-        if self.dataflow == "wst":  # weight stationary
-            # order.append((dim2, dim3, dim1))
-            order.append("mnk")
-            if dim2 != dim3:
-                # order.append((dim3, dim2, dim1))
-                order.append("mkn")
-        elif self.dataflow == "ast":  # activation stationary
-            # order.append((dim1, dim2, dim3))
-            order.append("nmk")
-            if dim2 != dim1:
-                # order.append((dim2, dim1, dim3))
-                order.append("nkm")
-        elif self.dataflow == "ost":  # output stationary
-            # order.append((dim1, dim3, dim2))
-            order.append("knm")
-            if dim1 != dim3:
-                # order.append((dim3, dim1, dim2))
-                order.append("kmn")
-        elif self.dataflow == "none":  # not stationary
-            if dim1 != dim2 and dim2 != dim3 and dim1 != dim3:
-                # order=list(itertools.permutations([dim1, dim2, dim3]))
-                order = ["".join(i) for i in list(itertools.permutations("mnk"))]
-            elif dim1 == dim2 and dim2 != dim3:
-                # order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim3, dim1, dim2)]
-                order = ["nkm", "knm", "kmn"]
-            elif dim1 == dim3 and dim2 != dim1:
-                # order = [(dim1, dim2, dim3), (dim1, dim3, dim2), (dim2, dim1, dim3)]
-                order = ["nkm", "knm", "nmk"]
-            elif dim2 == dim3 and dim1 != dim2:
-                # order = [(dim1, dim2, dim3), (dim2, dim1, dim3), (dim2, dim3, dim1)]
-                order = ["nkm", "nmk", "mnk"]
-
-        order = ["".join(i) for i in list(itertools.permutations("mnk"))]
-
-        return order
+        # Inner code mapping for loop order (no strings):
+        # 0 -> inner 'm' (weight stationary)
+        # 1 -> inner 'k' (output stationary)
+        # 2 -> inner 'n' (activation stationary)
+        best_inner_code = best_choice[0]  # type: ignore[index]
+        best_tile_dims = best_choice[1]  # type: ignore[index]
+        return best_time, best_inner_code, best_tile_dims, mem_access
 
     def generateTileSpace(self, dim1=None, dim2=None, dim3=None, original=False):
         tile_space = []

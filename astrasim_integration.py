@@ -42,10 +42,26 @@ from protolib import encodeMessage as chakra_encode  # type: ignore
 
 ASTRA_DEBUG = False
 
-def _save_json(path: str, data: Dict[str, Any]) -> None:
+# In-memory memo for generated network YAML content this process already produced.
+# Keys are tuples of (path, npus_count, ib_gbps, ll_ns, topo)
+_NET_YAML_CACHE = set()
+# Track JSON saves per npus value to avoid repeated writes in the same run
+_JSON_WRITTEN_BY_NPUS = set()
+
+def _save_json(path: str, data: Dict[str, Any], npus_key: Optional[int] = None) -> None:
+    """Fast path: only write once per npus_key within this run.
+    If npus_key is None, write once and then skip further writes by using a sentinel key.
+    """
+    key = npus_key if npus_key is not None else path  # fall back to path sentinel
+    if key in _JSON_WRITTEN_BY_NPUS:
+        return
+    # Only now incur directory creation and IO
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w") as f:
         json.dump(data, f, indent=2)
+    os.replace(tmp_path, path)
+    _JSON_WRITTEN_BY_NPUS.add(key)
 
 
 def _gbps_from_bps(bps: float) -> float:
@@ -105,7 +121,6 @@ def _derive_topology_from_hw(hw_obj) -> str:
 
 def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", npus_count: Optional[int] = None) -> Dict[str, str]:
     
-    os.makedirs(out_dir, exist_ok=True)
     # Use per-npus network file to avoid cross-run clobbering
     net_yaml = os.path.join(out_dir, f"network_analytical_{int(npus_count)}.yml")
     sys_json = os.path.join(out_dir, "system_native_collectives.json")
@@ -135,26 +150,43 @@ def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", np
     ib_gbps = round(_gbps_from_bps(intra_ib_bps), 6)
     ll_ns = round(_ns_from_s(intra_ll_s), 3)
 
-    # Write network YAML under a file lock for this specific path
+    # Prepare network YAML content
     net_content = (
         f"topology: [ {topo} ]\n"
         f"npus_count: [ {int(npus_count)} ]\n"
         f"bandwidth: [ {ib_gbps} ]  # GB/s\n"
         f"latency: [ {ll_ns} ]   # ns\n"
     )
+    # Skip OS writes if we already created the exact same content this run,
+    # or if an existing file already has identical content on disk.
     os.makedirs(os.path.dirname(net_yaml), exist_ok=True)
-    single_threaded = bool(os.environ.get("ASTRA_TEST", "").strip() == "0")
-    if not single_threaded:
-        with _cache_file_lock(net_yaml, timeout_s=5.0, poll_s=0.05):
+    cache_key = (net_yaml, int(npus_count), ib_gbps, ll_ns, topo)
+    need_write = True
+    if cache_key in _NET_YAML_CACHE:
+        need_write = False
+    else:
+        try:
+            if os.path.exists(net_yaml):
+                with open(net_yaml, "r") as f:
+                    existing = f.read()
+                    if existing == net_content:
+                        need_write = False
+        except Exception:
+            pass
+    if need_write:
+        single_threaded = bool(os.environ.get("ASTRA_TEST", "0").strip() == "0")
+        if not single_threaded:
+            with _cache_file_lock(net_yaml, timeout_s=5.0, poll_s=0.05):
+                tmp_path = net_yaml + ".tmp"
+                with open(tmp_path, "w") as f:
+                    f.write(net_content)
+                os.replace(tmp_path, net_yaml)
+        else:
             tmp_path = net_yaml + ".tmp"
             with open(tmp_path, "w") as f:
                 f.write(net_content)
             os.replace(tmp_path, net_yaml)
-    else:
-        tmp_path = net_yaml + ".tmp"
-        with open(tmp_path, "w") as f:
-            f.write(net_content)
-        os.replace(tmp_path, net_yaml)
+    _NET_YAML_CACHE.add(cache_key)
 
 
     # System JSON collectives from parsed execution backend
@@ -199,7 +231,8 @@ def generate_astrasim_configs_from_hw(hw_obj, out_dir: str = "./astra_cache", np
             system[
                 "preferred-dataset-splits"
             ] = sys_opts.preferred_dataset_splits
-    _save_json(sys_json, system)
+    # Only write system JSON once per npus value in this process
+    _save_json(sys_json, system, npus_key=int(npus_count))
 
     return {"network_yaml": net_yaml, "system_json": sys_json}
 
@@ -556,7 +589,7 @@ def run_cache_astrasim(
 
     # If ASTRA_TEST=0, assume single-threaded execution: bypass cache file locks
     # to reduce overhead and access the cache directly.
-    single_threaded = bool(os.environ.get("ASTRA_TEST", "").strip() == "0")
+    single_threaded = bool(os.environ.get("ASTRA_TEST", "0").strip() == "0")
 
     # Compute network params and topology from HW
     (intra_ib_bps, intra_ll_s), _ = compute_intra_inter_ib_ll_from_hw(hw_obj)

@@ -32,6 +32,7 @@ def _report_total_wall_time() -> None:
         pass
 
 atexit.register(_report_total_wall_time)
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run performance analysis for LSTM, GEMM, or LLM models.")
     parser.add_argument("--hardware_config", required=True, help="Path to the hardware configuration file.")
@@ -221,6 +222,13 @@ if __name__ == "__main__":
     if os.path.exists(exp_dir):
         shutil.rmtree(exp_dir)
     os.makedirs(exp_dir, exist_ok=True)
+    global USE_NUMBA
+    USE_NUMBA = False
+    try:
+        import numba
+        USE_NUMBA = True
+    except ImportError:
+        print("Numba is not installed. DeepFlow will be slower, especially for large LLM systems.")
     
     
     if mode == "LLM":
