@@ -24,13 +24,14 @@ import hashlib
 import fcntl
 import time
 from contextlib import contextmanager
-
+import subprocess
+import re
 import ruamel.yaml as _yaml
 from hw_component import Network  # to compute intra/inter throughput/latency
+import sys
 
 # Chakra ET dependencies (vendored in ASTRA-sim extern).
 # Add their paths explicitly since they are inside 'astra-sim/extern/...'
-import sys
 BASE_DIR = os.path.dirname(__file__)
 CHAKRA_PB_DIR = os.path.join(BASE_DIR, 'astra-sim', 'extern', 'graph_frontend', 'chakra', 'schema', 'protobuf')
 CHAKRA_UTILS_DIR = os.path.join(BASE_DIR, 'astra-sim', 'extern', 'graph_frontend', 'chakra', 'src', 'third_party', 'utils')
@@ -772,8 +773,7 @@ def run_cache_astrasim(
 # AstraSim runner (analytical)
 # -----------------------------
 
-import subprocess
-import re
+
 
 
 def _astrasim_binary_path() -> str:
