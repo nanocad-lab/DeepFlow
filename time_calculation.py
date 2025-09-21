@@ -1590,6 +1590,10 @@ class TimeCalculation:
         return grad_time
 
 
+
+    # NOTE: for KP1/KP2 TP, CR AND RC:
+    # In the flattening case for full_astrasim_flattened we assume that the backward pass does ALL GATHER as the last collective.
+    # This is the default below. If this is changed, you will need to update the cross layer cross rank communication pipeline comms.
     # TODO(getDistGEMM_f_kp1):
     # - Confirm the intended collective is REDUCE-SCATTER (partial=True, allReduce=True).
     #   * Use RS if downstream consumers expect a sharded C[m, n] along kp1.
@@ -1730,6 +1734,7 @@ class TimeCalculation:
         GEMM_time = grad_wt_time + grad_act_time
 
         return GEMM_time, reduction_time
+
 
     def getDataParallelReduction(self, k, n, dim1, dim2, name):
         # k = 2 * self.D

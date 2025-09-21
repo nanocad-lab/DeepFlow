@@ -9,12 +9,14 @@ Non-mainlined test functionality - designed to be easily removable.
 
 import os
 import json
-import sys
+import sys  
 import time
 import shutil
 from collections import defaultdict
 from typing import Dict, List, Tuple, Any, Iterable, Set, Optional
-
+from collections import deque
+import itertools
+from itertools import count as _it_count
 
 # Increase recursion limit for deep transformer graphs (96+ layers)
 sys.setrecursionlimit(10000)
@@ -26,6 +28,11 @@ from astrasim_integration import (
     get_remote_memory_path, run_cache_astrasim, ASTRA_DEBUG
 )
 from simulate_LLM import visualize_graph
+
+# Global stash for TP communicator groups constructed during ET conversion
+_TP_GROUP_BASE_ID = 1000
+_LAST_TP_GROUPS: Optional[Dict[str, List[int]]] = None
+_TP_LABEL_DP_TO_ID: Dict[Tuple[str, int], str] = {}
 
 
 # Chakra ET dependencies
@@ -289,7 +296,7 @@ def _write_comm_groups_json(base_output_dir: str, dp_count: int, rank_ids: List[
         raise ValueError(f"Cannot partition {total_ranks} ranks into {dp} stages evenly")
     # dp-major mapping: ranks are ordered by dp first, then stage
     num_stages = total_ranks // dp
-    groups = {}
+    groups: Dict[str, List[int]] = {}
     for stage_idx in range(num_stages):
         group = []
         for dp_idx in range(dp):
@@ -297,6 +304,12 @@ def _write_comm_groups_json(base_output_dir: str, dp_count: int, rank_ids: List[
             group.append(rank)
         # AstraSim requires communicator group IDs > 0
         groups[str(stage_idx + 1)] = group
+    # Merge in any TP groups computed during ET conversion
+    global _LAST_TP_GROUPS
+    if _LAST_TP_GROUPS:
+        for gid, members in _LAST_TP_GROUPS.items():
+            groups[str(gid)] = list(sorted(members))
+
     os.makedirs(base_output_dir, exist_ok=True)
     path = os.path.join(base_output_dir, "comm_groups.json")
     try:
@@ -313,10 +326,9 @@ def convert_deepflow_graph_to_chakra_et(
     dp_size: int,
     output_dir: str,
 ) -> Tuple[str, List[int]]:
-    """Convert DeepFlow graph to AstraSim ET format by scheduling per stage and DP rank."""
-
-    from collections import deque
-    import itertools
+    """Convert DeepFlow graph to AstraSim ET format by scheduling per stage and DP rank.
+    This function is black magic. Don't touch it unless you know what you are doing.
+    Prefer changes *anywhere* else in the codebase if possible."""
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -602,6 +614,34 @@ def convert_deepflow_graph_to_chakra_et(
     pipeline_recv_cache: Dict[Tuple[Any, Any, int], int] = {}
     tag_counter = itertools.count(start=1)
 
+    # Build TP communicator groups (ids start at 1000) per label and dp
+    global _LAST_TP_GROUPS, _TP_LABEL_DP_TO_ID
+    _LAST_TP_GROUPS = {}
+    _TP_LABEL_DP_TO_ID = {}
+    tp_gid_counter = _it_count(start=_TP_GROUP_BASE_ID)
+
+    # Collect per-label TP members per dp index
+    for label in sorted(set(tp_collective_labels.values())):
+        # Find all edges carrying this label
+        edges_for_label = [edge for edge, lab in tp_collective_labels.items() if lab == label]
+        if not edges_for_label:
+            continue
+        # Determine stage for each edge
+        stages = [collective_info[e]["stage"] for e in edges_for_label]
+        # For each dp index, map to ranks
+        for dp_idx in range(dp_count):
+            members: List[int] = []
+            for e, st in zip(edges_for_label, stages):
+                try:
+                    members.append(stage_to_ranks[st][dp_idx])
+                except Exception:
+                    continue
+            if not members:
+                continue
+            gid = str(next(tp_gid_counter))
+            _TP_LABEL_DP_TO_ID[(label, dp_idx)] = gid
+            _LAST_TP_GROUPS[gid] = sorted(members)
+
     def ensure_pipeline(parent: Any, target: Any, dp_idx: int) -> int:
         parent_stage = getattr(parent, "hw_id", None)
         target_stage = collective_info[target]["stage"] if target in collective_info else compute_info[target]["stage"]
@@ -616,25 +656,39 @@ def convert_deepflow_graph_to_chakra_et(
             return cached
 
         edge_obj = pipeline_edge_map.get((parent, target))
-        size = int(getattr(edge_obj, "comm_size_bytes", 0)) if edge_obj else 0
-        tag = getattr(edge_obj, "op_id", next(tag_counter)) if edge_obj else next(tag_counter)
+        # if not edge_obj:
+        #     print("Pipeline edge map:")
+        #     import pprint
+        #     pprint.pprint(pipeline_edge_map)
+        #     raise ValueError(f"No edge object found for parent {parent} and target {target}")
+        # If there is no edge, assume it is a control dependency (size set to 0 automatically)
+        size = int(getattr(edge_obj, "comm_size_bytes", 0))
+        tag = getattr(edge_obj, "op_id", next(tag_counter))
 
         src_rank = rank_for(parent_stage, dp_idx)
         dst_rank = rank_for(target_stage, dp_idx)
         send_trace = rank_traces[src_rank]
         recv_trace = rank_traces[dst_rank]
+        is_control = False
+        if size == 0:
+            # control dependancy
+            size = 1 # has to be at least 1 byte for astrasim.
+            is_control = True
 
         send_id = send_trace.next_id
-        send_name = f"{getattr(edge_obj, 'name', 'pipeline')}_send_dp{dp_idx}"
-        send_node = _new_send_node(send_id, send_name, size, dst_rank, tag)
-        if parent in collective_info:
-            send_node.ctrl_deps.append(collective_et_ids[(parent, src_rank)])
+        if is_control:
+            send_name = f"{getattr(edge_obj, 'name', 'pipeline')}_send_control"
         else:
-            send_node.ctrl_deps.append(compute_et_ids[(parent, src_rank)])
+            send_name = f"{getattr(edge_obj, 'name', 'pipeline')}_send_dp{dp_idx}"
+        send_node = _new_send_node(send_id, send_name, size, dst_rank, tag)
+        send_node.ctrl_deps.append(compute_et_ids[(parent, src_rank)])
         send_trace.nodes.append(send_node)
 
         recv_id = recv_trace.next_id
-        recv_name = f"{getattr(edge_obj, 'name', 'pipeline')}_recv_dp{dp_idx}"
+        if is_control:
+            recv_name = f"{getattr(edge_obj, 'name', 'pipeline')}_recv_control"
+        else:
+            recv_name = f"{getattr(edge_obj, 'name', 'pipeline')}_recv_dp{dp_idx}"
         recv_node = _new_recv_node(recv_id, recv_name, size, src_rank, tag)
         # recv_node.ctrl_deps.append(send_id)
         recv_trace.nodes.append(recv_node)
@@ -677,8 +731,14 @@ def convert_deepflow_graph_to_chakra_et(
                         info["comm_type"],
                         info["size"],
                     )
-                    # Tag with dp communication group name (string id)
-                    if dp_count > 1 and task not in tp_collective_labels:
+                    # Attach communicator group
+                    # DP groups for non-TP collectives; TP groups for TP-labeled edges
+                    if task in tp_collective_labels:
+                        label = tp_collective_labels[task]
+                        gid = _TP_LABEL_DP_TO_ID.get((label, dp_idx))
+                        if gid:
+                            comm_node.attr.append(pb.AttributeProto(name="pg_name", string_val=str(gid)))
+                    elif dp_count > 1:
                         stage_idx = stage_index[stage]
                         group_id = str(stage_idx + 1)
                         comm_node.attr.append(pb.AttributeProto(name="pg_name", string_val=group_id))
@@ -760,107 +820,8 @@ def convert_deepflow_graph_to_chakra_et(
 
     et_prefix = f"{output_dir}/llm_graph"
     rank_ids = sorted(rank_traces.keys())
-    print(f"[AstraSim] Generated ET files for ranks {rank_ids}: {et_prefix}.{{0..{len(rank_ids)-1}}}.et")
+    print(f"[AstraSim] Generated ET files for ranks: {et_prefix}.{{0..{len(rank_ids)-1}}}.et")
     return et_prefix, rank_ids
-
-def run_astra_simulation_only(fwd_root, bwd_root, time_calc_obj, output_dir: str = "astra_comparison_output"):
-    """
-    Run AstraSim simulation on DeepFlow graph and print results.
-
-    Args:
-        fwd_root: Forward graph root node
-        bwd_root: Backward graph root node
-        time_calc_obj: TimeCalculationLLM object with hw_config and dp attributes
-        output_dir: Directory for temporary files and results
-    """
-    print("\n" + "="*60)
-    print("ASTRASIM SIMULATION RESULTS")
-    print("="*60)
-
-    try:
-        # Convert both forward and backward graphs to Chakra ET format
-        astrasim_start = time.time()
-
-        # For now, just convert forward graph (can extend to include backward later)
-        print(f"[AstraSim] Converting forward graph...")
-        # Clean previous forward outputs to avoid stale files
-        try:
-            fwd_dir = os.path.join(output_dir, "fwd")
-            if os.path.isdir(fwd_dir):
-                shutil.rmtree(fwd_dir)
-        except Exception as exc:
-            print(f"[WARN] Failed to clean {fwd_dir}: {exc}")
-        fwd_et_prefix, fwd_ranks = convert_deepflow_graph_to_chakra_et(
-            fwd_root,
-            time_calc_obj.dp,
-            f"{output_dir}/fwd",
-        )
-
-        print(f"[AstraSim] Converting backward graph...")
-        bwd_et_prefix, bwd_ranks = convert_deepflow_graph_to_chakra_et(
-            bwd_root,
-            time_calc_obj.dp,
-            f"{output_dir}/bwd",
-        )
-
-        if fwd_ranks != bwd_ranks:
-            raise ValueError(
-                "Forward and backward graphs map to different hardware IDs. "
-                f"Forward: {fwd_ranks}, Backward: {bwd_ranks}"
-            )
-
-        rank_count = len(fwd_ranks)
-        # Emit ET text dumps for both forward and backward graphs
-        _dump_et_text([f"{fwd_et_prefix}.{rank}.et" for rank in fwd_ranks])
-        _dump_et_text([f"{bwd_et_prefix}.{rank}.et" for rank in bwd_ranks])
-
-        # Generate AstraSim configuration files using actual hardware config
-        print(f"[AstraSim] Generating configuration files...")
-        astra_configs = generate_astrasim_configs_from_hw(time_calc_obj.hw_config, output_dir, rank_count)
-        remote_memory_json = get_remote_memory_path()
-        comm_groups_path = _write_comm_groups_json(output_dir, getattr(time_calc_obj, "dp", 1), fwd_ranks)
-
-        # Run AstraSim simulation on forward graph (cached, bundle ETs)
-        print(f"[AstraSim] Executing forward simulation with {rank_count} ranks...")
-        fwd_bundle = [f"{fwd_et_prefix}.{r}.et" for r in fwd_ranks]
-        fwd_times, fwd_total = run_cache_astrasim(
-            time_calc_obj.hw_config,
-            comm="graph",
-            npus_count=rank_count,
-            size_bytes=0,
-            astra_config_dir="./astra_cache",
-            cache_path="./astra_cache/cache.json",
-            bundle_paths=fwd_bundle,
-            comm_group_json=comm_groups_path,
-        )
-
-        print(f"[AstraSim] Executing backward simulation with {rank_count} ranks...")
-        bwd_bundle = [f"{bwd_et_prefix}.{r}.et" for r in bwd_ranks]
-        bwd_times, bwd_total = run_cache_astrasim(
-            time_calc_obj.hw_config,
-            comm="graph",
-            npus_count=rank_count,
-            size_bytes=0,
-            astra_config_dir="./astra_cache",
-            cache_path="./astra_cache/cache.json",
-            bundle_paths=bwd_bundle,
-            comm_group_json=comm_groups_path,
-        )
-
-        conversion_and_sim_time = time.time() - astrasim_start
-
-        # Print results
-        print(f"[AstraSim] Forward execution time: {fwd_total:.6f} seconds")
-        print(f"[AstraSim] Backward execution time: {bwd_total:.6f} seconds")
-        print(f"[AstraSim] Total execution time: {fwd_total + bwd_total:.6f} seconds")
-        print(f"[AstraSim] Simulation duration: {conversion_and_sim_time:.3f} seconds")
-
-        print("="*60)
-
-    except Exception as e:
-        print(f"[AstraSim] ERROR: Failed to run simulation: {e}")
-        print("="*60)
-        raise
 
 def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: str = "astra_comparison_output", dp_override: int = None):
     """
@@ -905,11 +866,11 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         rank_count = len(rank_ids)
 
         for rank in rank_ids:
-            if rank > 100:
+            if rank > 10:
                 break
             if ASTRA_DEBUG:
                 _visualize_et_files([f"{output_dir}/fwd/llm_graph.{rank}.et"])
-            _dump_et_text([f"{output_dir}/fwd/llm_graph.{rank}.et"])
+                _dump_et_text([f"{output_dir}/fwd/llm_graph.{rank}.et"])
         # exit()
 
         # Generate AstraSim configuration files using actual hardware config

@@ -254,7 +254,7 @@ class Graph:
             linear_softmax = Node(f"linear_softmax{b}", op_id, self.lp-1, linear_softmax_f_time)
             op_id += 1
             softmax_node.append(linear_softmax)
-            emb = Node(f"embeddding{b}", op_id, 0, embedding_f_time)      # hw_id = 0
+            emb = Node(f"embedding{b}", op_id, 0, embedding_f_time)      # hw_id = 0
             op_id += 1
             embedding_node.append(emb)
             data_batch_node[b].add_child(embedding_node[b])
@@ -279,7 +279,7 @@ class Graph:
 
 
                 if prev_node.hw_id == curr_node.hw_id:
-                    edge = Edge("cross_layer", op_id, 0)  # on same GPU
+                    edge = Edge("cross_layer", op_id, 0, comm_type="pipeline")  # on same GPU
                 else:
                     edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')  # on different GPU
                 op_id += 1
@@ -288,7 +288,7 @@ class Graph:
 
             first_node = transformer_nodes[b][0]   # first layer
             if first_node.hw_id == embedding_node[b].hw_id:
-                edge = Edge("Emb_node0", op_id, 0)
+                edge = Edge("Emb_node0", op_id, 0, comm_type="pipeline")
             else:
                 edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1
@@ -298,7 +298,7 @@ class Graph:
 
             last_node = transformer_nodes[b][-1]  # last layer
             if last_node.hw_id == softmax_node[b].hw_id:
-                node_Softmax = Edge("node_Softmax", op_id, 0)  # same GPU
+                node_Softmax = Edge("node_Softmax", op_id, 0, comm_type="pipeline")  # same GPU
             else:
                 node_Softmax = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1
@@ -328,7 +328,7 @@ class Graph:
             db_node.remove_self_from_children()
 
         for b in reversed(range(self.num_batch)): #connect each data batch node with corresponding nodes
-            emb_b = Node("embeddding_b", op_id, 0, embedding_b_time, fwd=False)      # hw_id = 0
+            emb_b = Node("embedding_b", op_id, 0, embedding_b_time, fwd=False)      # hw_id = 0
             op_id += 1
             embedding_node_b[b] = emb_b
             linear_softmax_b = Node("linear_softmax_b", op_id, self.lp-1, linear_softmax_b_time, fwd=False)
@@ -352,7 +352,7 @@ class Graph:
                 curr_node = transformer_nodes_b[b][l]         # current layer's qkv_proj.
                 next_ffn2  = transformer_nodes_b[b][l-1]            # next layer's layernorm.
                 if curr_node.hw_id == next_ffn2.hw_id:
-                    edge = Edge("cross_layer", op_id, 0)  
+                    edge = Edge("cross_layer", op_id, 0, comm_type="pipeline")  
                 else:
                     edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
                 op_id += 1
@@ -361,7 +361,7 @@ class Graph:
 
             qkv_0_b = transformer_nodes_b[b][0]     # first layer's qkv_proj
             if qkv_0_b.hw_id == emb_b.hw_id:
-                edge = Edge("Emb_node0", op_id, 0)
+                edge = Edge("Emb_node0", op_id, 0, comm_type="pipeline")
             else:
                 edge = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1
@@ -371,7 +371,7 @@ class Graph:
 
             prev_layer_norm2 = transformer_nodes_b[b][self.num_layer-1] # last layer's layernorm2
             if prev_layer_norm2.hw_id == softmax_node_b[b].hw_id:
-                layernorm_Softmax = Edge("layernorm2_Softmax", op_id, 0)  # same GPU
+                layernorm_Softmax = Edge("layernorm2_Softmax", op_id, 0, comm_type="pipeline")  # same GPU
             else:
                 layernorm_Softmax = self.create_comm_edge('cross_layer', op_id, 'cross_layer')
             op_id += 1

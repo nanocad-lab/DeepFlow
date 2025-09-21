@@ -111,9 +111,9 @@ class PipelineGraphFlattener:
 
         if isinstance(obj, simulate_LLM.Node):
             if obj.name in {"transformer", "transformer_b"}:
-                entry_edge = self._expand_transformer_node(obj)
-                self._clone_cache[obj_id] = entry_edge
-                return entry_edge
+                expanded = self._expand_transformer_node(obj)
+                self._clone_cache[obj_id] = expanded
+                return expanded
 
             cloned = simulate_LLM.Node(
                 obj.name,
@@ -127,7 +127,7 @@ class PipelineGraphFlattener:
             for child in getattr(obj, "children", []):
                 child_clone = self._clone(child)
                 if child_clone is not None:
-                    cloned.add_child(child_clone)
+                    self._attach(cloned, child_clone)
             return cloned
 
         if isinstance(obj, simulate_LLM.Edge):
@@ -146,7 +146,7 @@ class PipelineGraphFlattener:
             for child in getattr(obj, "children", []):
                 child_clone = self._clone(child)
                 if child_clone is not None:
-                    cloned_edge.add_child(child_clone)
+                    self._attach(cloned_edge, child_clone)
             return cloned_edge
 
         if isinstance(obj, simulate_LLM.Data_batch):
@@ -155,7 +155,7 @@ class PipelineGraphFlattener:
             for child in getattr(obj, "children", []):
                 child_clone = self._clone(child)
                 if child_clone is not None:
-                    cloned_batch.add_child(child_clone)
+                    self._attach(cloned_batch, child_clone)
             return cloned_batch
 
         if isinstance(obj, simulate_LLM.Gradient):
@@ -165,49 +165,29 @@ class PipelineGraphFlattener:
             for child in getattr(obj, "children", []):
                 child_clone = self._clone(child)
                 if child_clone is not None:
-                    cloned_grad.add_child(child_clone)
+                    self._attach(cloned_grad, child_clone)
             return cloned_grad
 
         raise TypeError(f"Unsupported graph element type: {type(obj)!r}")
 
-    def _expand_transformer_node(self, node: simulate_LLM.Node) -> simulate_LLM.Edge:
+    def _expand_transformer_node(self, node: simulate_LLM.Node) -> Tuple[Any, ...]:
         node_id = id(node)
         if node_id in self._clone_cache:
             cached_entry = self._clone_cache[node_id]
-            if isinstance(cached_entry, simulate_LLM.Edge):
-                return cached_entry
+            if isinstance(cached_entry, (list, tuple)):
+                return tuple(cached_entry)
 
         stage_id = getattr(node, "stage_id", node.hw_id)
         micro_batch = getattr(node, "micro_batch_index", None)
         layer_index = getattr(node, "layer_index", None)
         direction = getattr(node, "direction", "forward" if node.fwd else "backward")
 
-        entry_name = f"transformer_{direction}_entry_mb{micro_batch}_l{layer_index}"
-        exit_name = f"transformer_{direction}_exit_mb{micro_batch}_l{layer_index}"
-
-        entry_edge = simulate_LLM.Edge(entry_name, self._next_op_id(), 0.0)
-        exit_node = simulate_LLM.Node(
-            exit_name,
-            self._next_op_id(),
-            self._hw_id_for_rank(stage_id, 0),
-            0.0,
-            fwd=(direction == "forward"),
-        )
-        entry_edge.stage_id = stage_id
-        exit_node.stage_id = stage_id
-        entry_edge.micro_batch_index = micro_batch
-        exit_node.micro_batch_index = micro_batch
-        entry_edge.layer_index = layer_index
-        exit_node.layer_index = layer_index
-        entry_edge.direction = direction
-        exit_node.direction = direction
-
-        self._clone_cache[node_id] = entry_edge
-
+        rank_heads: List[Any] = []
         rank_tails: List[Any] = []
 
         for tp_rank in range(self._tp_degree):
-            previous = entry_edge
+            previous: Optional[Any] = None
+            head: Optional[Any] = None
             hw_id = self._hw_id_for_rank(stage_id, tp_rank)
 
             gemm_iterable = self._gemm_entries
@@ -236,8 +216,11 @@ class PipelineGraphFlattener:
                 gemm_node.layer_index = layer_index
                 gemm_node.direction = direction
 
-                previous.add_child(gemm_node)
+                if previous is not None:
+                    previous.add_child(gemm_node)
                 previous = gemm_node
+                if head is None:
+                    head = gemm_node
 
                 for comm_key in cfg.get("comm_keys", []):
                     comm_edge = self._create_transformer_comm_edge(
@@ -252,9 +235,11 @@ class PipelineGraphFlattener:
                     previous.add_child(comm_edge)
                     previous = comm_edge
 
-            rank_tails.append(previous)
-        for tail in rank_tails:
-            tail.add_child(exit_node)
+            if head is None:
+                raise ValueError("Transformer expansion produced no GEMM nodes")
+
+            rank_heads.append(head)
+            rank_tails.append(previous or head)
 
         dp_children: List[Any] = []
         other_children: List[Any] = []
@@ -266,28 +251,97 @@ class PipelineGraphFlattener:
             else:
                 other_children.append(child)
 
-        dp_clones: List[Any] = []
+        # Keep the main trunk pointing to the per-rank compute tails.
+        downstream_parents: List[Any] = list(rank_tails)
+
+        # Attach DP collectives as side branches from the compute tails, without
+        # reparenting the trunk. This preserves the true cross-layer pipeline
+        # edge between compute nodes for ET conversion.
         for child in dp_children:
             child_clone = self._clone(child)
             if child_clone is None:
                 continue
-            exit_node.add_child(child_clone)
-            dp_clones.append(child_clone)
+            self._attach(rank_tails[0], child_clone) # only attach to the first tail for DP collectives
 
-        downstream_parents: List[Any] = [exit_node]
-        if dp_clones:
-            tail = dp_clones[-1]
-            if tail is not None and tail is not exit_node:
-                downstream_parents.append(tail)
-
+        # Non-DP edges (e.g., cross_layer) stay on the trunk so (parent, target)
+        # compute → compute pipeline edges remain visible.
         for child in other_children:
+            # Special-case marked cross_layer edges (set in original graph):
+            # create one per TP rank and wire tail[r] -> cross_layer_r -> next_head[r].
+            is_pipeline_edge = False
+            if isinstance(child, simulate_LLM.Edge):
+                comm_type = getattr(child, "comm_type", None)
+                if comm_type == "pipeline":
+                    is_pipeline_edge = True
+            if is_pipeline_edge:
+                # Determine per-rank byte size (ceil split)
+                try:
+                    total_bytes = int(getattr(child, "comm_size_bytes", 0))
+                except Exception:
+                    total_bytes = 0
+                per_rank_bytes = int(math.ceil(float(total_bytes) / float(max(1, self._tp_degree))))
+
+                # Clone the original targets of this pipeline edge
+                target_clones: List[Any] = []
+                for tgt in getattr(child, "children", []):
+                    tgt_clone = self._clone(tgt)
+                    if tgt_clone is None:
+                        continue
+                    target_clones.append(tgt_clone)
+                if not target_clones:
+                    # No downstream target; skip safely
+                    continue
+
+                # For each TP rank, create its own pipeline edge and connect
+                for r, tail in enumerate(rank_tails):
+                    # Create rank-specific pipeline edge
+                    edge_obj = simulate_LLM.Edge(
+                        name=f"{getattr(child, 'name', '')}_rank{r}",
+                        op_id=self._next_op_id(),
+                        duration=0,
+                        is_all_reduce=False,
+                        comm_size_bytes=per_rank_bytes,
+                        comm_type="pipeline",
+                        participants=2,
+                        comm_interconnect_type="lp",
+                    )
+                    edge_obj.is_cross_layer = True
+                    tail.add_child(edge_obj)
+                    # Also anchor to the compute node (two parents) for mapping clarity
+                    last_compute = rank_heads[r]
+                    # Find the nearest compute ancestor for this rank: walk back from tail if needed
+                    compute_anchor = None
+                    cur = tail
+                    visited_ids = set()
+                    while cur is not None and id(cur) not in visited_ids:
+                        visited_ids.add(id(cur))
+                        if isinstance(cur, simulate_LLM.Node):
+                            compute_anchor = cur
+                            break
+                        parents = getattr(cur, "parents", [])
+                        cur = parents[-1] if parents else None
+                    if compute_anchor is not None and compute_anchor is not edge_obj:
+                        compute_anchor.add_child(edge_obj)
+
+                    # Connect to each cloned target, aligning ranks where possible
+                    for tgt_clone in target_clones:
+                        if isinstance(tgt_clone, (list, tuple)):
+                            # Map by identity index when available
+                            idx = r % len(tgt_clone)
+                            edge_obj.add_child(tgt_clone[idx])
+                        else:
+                            edge_obj.add_child(tgt_clone)
+                continue
+
+            # Default path for non-pipeline children
             child_clone = self._clone(child)
             if child_clone is None:
                 continue
-            for parent in downstream_parents:
-                parent.add_child(child_clone)
+            self._attach(downstream_parents, child_clone)
 
-        return entry_edge
+        heads_tuple = tuple(rank_heads)
+        self._clone_cache[node_id] = heads_tuple
+        return heads_tuple
 
     def _create_transformer_comm_edge(
         self,
@@ -326,6 +380,22 @@ class PipelineGraphFlattener:
         ):
             if hasattr(source, attr):
                 setattr(target, attr, getattr(source, attr))
+
+    def _attach(self, parent: Any, child: Any) -> None:
+        if parent is None or child is None:
+            return
+
+        if isinstance(parent, (list, tuple)):
+            for item in parent:
+                self._attach(item, child)
+            return
+
+        if isinstance(child, (list, tuple)):
+            for item in child:
+                self._attach(parent, item)
+            return
+
+        parent.add_child(child)
 
     def _format_gemm_name(
         self,
@@ -1337,7 +1407,7 @@ class TimeCalculationLLM(TimeCalculation):
         self.pipeline_root = pipeline_root
         self.pipeline_interconnect = dispatcher.interconnect_params
 
-        self.pipeline_graph.save_graph(pipeline_root, "output_graph/", "fw_bw_graph")
+        # self.pipeline_graph.save_graph(pipeline_root, "output_graph/", "fw_bw_graph")
 
         if self.transformer_analytical_time_forward is not None:
             print(
@@ -1456,8 +1526,8 @@ class LLMExecutionDispatcher:
         if not self.transformer_graph:
             raise RuntimeError("Transformer graph metadata is required for flattening")
 
-        output_dir = "./astra_flattened_graph"
-        os.makedirs(output_dir, exist_ok=True)
+        # output_dir = "./astra_flattened_graph"
+        # os.makedirs(output_dir, exist_ok=True)
         # base_path = os.path.join(output_dir, "pipeline_unflattened")
         # dot = visualize_graph(self.pipeline_root, filename=base_path)
         # try:
@@ -1476,8 +1546,8 @@ class LLMExecutionDispatcher:
         setattr(self.time_calc, "flattened_pipeline_root", flattened_root)
         self.pipeline_root = flattened_root
 
-        output_dir = "./astra_flattened_graph"
-        os.makedirs(output_dir, exist_ok=True)
+        # output_dir = "./astra_flattened_graph"
+        # os.makedirs(output_dir, exist_ok=True)
         # base_path = os.path.join(output_dir, "pipeline_flattened")
         # dot = visualize_graph(flattened_root, filename=base_path)
         # try:

@@ -40,7 +40,7 @@ import et_def_pb2 as pb  # type: ignore
 from protolib import encodeMessage as chakra_encode  # type: ignore
 
 
-ASTRA_DEBUG = True
+ASTRA_DEBUG = False
 
 def _save_json(path: str, data: Dict[str, Any]) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
