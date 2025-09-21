@@ -1,1 +1,5 @@
-[2025-09-18 15:59:54.303] [workload] [critical] For rank 0 ET node 5, communicator group 0 not found
+[2025-09-20 23:04:02.184] [workload] [critical] For rank 0 ET node 1, communicator group 1005 not found
+[2025-09-20 23:04:02.697] [workload] [critical] For rank 0 ET node 1, communicator group 1005 not found
+[2025-09-20 23:04:03.210] [workload] [critical] For rank 0 ET node 1, communicator group 1005 not found
+[2025-09-20 23:04:03.722] [workload] [critical] For rank 0 ET node 1, communicator group 1005 not found
+[2025-09-20 23:04:04.235] [workload] [critical] For rank 0 ET node 1, communicator group 1005 not found

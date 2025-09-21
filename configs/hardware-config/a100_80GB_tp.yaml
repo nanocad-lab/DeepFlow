@@ -119,7 +119,7 @@ perimeter_breakdown:
   intra_node: 0.33
   inter_node: 0.33
 system_hierarchy:
-  num_devices_per_node: 256
+  num_devices_per_node: 128
   num_nodes: 1
   inter_derate: 1
   intra_derate: 1
@@ -149,9 +149,9 @@ scheduling_param:
     auto: False 
     dp: 4       #should be the same as num_nodes?
     lp: 8 # pipeline stages 
-    mb: 8 # number of micro-batches
+    mb: 4 # number of micro-batches
 
-    kp1: 8
+    kp1: 4
     kp2: 1
     t: "CR"   #modification of t and kp1 and kp2 will update the scheduling algorithm if they are not null
 ######################LSTM parameters

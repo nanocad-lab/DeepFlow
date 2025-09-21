@@ -523,7 +523,8 @@ def run_cache_astrasim(
     size_bytes: int,
     astra_config_dir: str = "./astra_cache",
     cache_path: str = "./astra_cache/cache.json",
-    bundle_paths: Optional[List[str]] = None,
+    manifest_json_path: Optional[str] = None,
+    workload_prefix: Optional[str] = None,
     comm_group_json: Optional[str] = None,
 ) -> Tuple[List[float], float]:
     """
@@ -581,40 +582,18 @@ def run_cache_astrasim(
     }
     if sys_opts_sig is not None:
         sig["sys_options"] = sys_opts_sig
-    if bundle_paths:
-        sig.update(
-            {
-                "multinode": True,
-                "num_workers": getattr(getattr(hw_obj, "system_config", None), "num_workers", None),
-                "dp": getattr(getattr(hw_obj, "sch_config", None), "dp", None),
-                "lp": getattr(getattr(hw_obj, "sch_config", None), "lp", None),
-                "mb": getattr(getattr(hw_obj, "sch_config", None), "mb", None),
-            }
-        )
+    if manifest_json_path:
+        sig["multinode"] = True
     canonical = _canonical_sig(sig)
 
     # Generate configs
     files = generate_astrasim_configs_from_hw(hw_obj, out_dir=astra_config_dir, npus_count=npus_count)
 
-    # Determine workload prefix
-    if bundle_paths:
-        # Derive prefix from provided ET paths: take first *.N.et
-        workload_prefix = None
-        for p in bundle_paths:
-            if p.endswith(".et"):
-                m = re.match(r"(.+)\.\d+\.et$", p)
-                if m:
-                    workload_prefix = m.group(1)
-                    break
-        if workload_prefix is None:
-            # Fallback: if a single-rank ET file without numeric suffix
-            for p in bundle_paths:
-                if p.endswith(".et"):
-                    workload_prefix = p[:-3]
-                    break
-        if workload_prefix is None:
-            raise ValueError("bundle_paths provided but no *.rank.et files found to derive workload prefix")
-    else:
+    # Determine workload prefix for execution
+    if workload_prefix:
+        # Caller provided explicit ET workload prefix (preferred for graph runs)
+        pass
+    elif not manifest_json_path:
         # Ensure workload ET exists (skip writing if all ranks present)
         label = _size_label(size_bytes)
         base_dir = os.path.join(astra_config_dir, "workload", comm.lower(), f"{npus_count}npus_{label}")
@@ -622,94 +601,76 @@ def run_cache_astrasim(
         expected = [f"{workload_prefix}.{r}.et" for r in range(npus_count)]
         if not all(os.path.exists(p) for p in expected):
             generate_workload_et(comm, npus_count, size_bytes, astra_config_dir=astra_config_dir)
+    else:
+        # Backward-compat: if manifest was provided but no explicit workload_prefix, try to
+        # derive a prefix from manifest path directory name (not recommended).
+        workload_prefix = os.path.splitext(manifest_json_path)[0]
 
     remote_mem_path = get_remote_memory_path()
 
-    if bundle_paths:
-        bundle_list = list(bundle_paths)
+    # Build cache key
+    if manifest_json_path:
+        bundle_list: List[str] = []
+        bundle_list.append(manifest_json_path)
         for path in (files["system_json"], files["network_yaml"]):
-            if path not in bundle_list:
+            if path and os.path.exists(path):
                 bundle_list.append(path)
-        if remote_mem_path and os.path.exists(remote_mem_path) and remote_mem_path not in bundle_list:
+        if remote_mem_path and os.path.exists(remote_mem_path):
             bundle_list.append(remote_mem_path)
-        if comm_group_json and os.path.exists(comm_group_json) and comm_group_json not in bundle_list:
+        if comm_group_json and os.path.exists(comm_group_json):
             bundle_list.append(comm_group_json)
         cache_key = _hash_file_bundle(bundle_list)
     else:
+        # Microbenchmarks: use canonical signature
         cache_key = _hash_sig(canonical)
 
     if single_threaded:
         cache = _load_cache(cache_path)
-        if bundle_paths:
-            entry = cache.get(cache_key) if cache else None
-            if entry:
-                cached_per = entry.get("per_node_sec", [])
-                cached_max = float(entry.get("max_sec", 0.0))
-                if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
-                    _cache_dbg(f"HIT bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
-                    return cached_per, cached_max
-                # Drop invalid entry directly (single-threaded assumption)
-                try:
-                    if cache_key in cache:
-                        cache.pop(cache_key)
-                        _save_cache(cache_path, cache)
-                except Exception:
-                    pass
-                _cache_dbg(f"DROP_INVALID bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
-        else:
+        entry = cache.get(cache_key) if cache else None
+        if entry:
+            cached_per = entry.get("per_node_sec", [])
+            cached_max = float(entry.get("max_sec", 0.0))
+            if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
+                _cache_dbg(f"HIT key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
+                if str(comm).lower() == "graph":
+                    try:
+                        print(f"[AstraSim] Cache HIT: comm={comm}, npus={npus_count}, size={size_bytes}, total={cached_max:.6f}s")
+                    except Exception:
+                        pass
+                return cached_per, cached_max
+            # Drop invalid without lock
+            try:
+                if cache_key in cache:
+                    cache.pop(cache_key)
+                    _save_cache(cache_path, cache)
+            except Exception:
+                pass
+            _cache_dbg(f"DROP_INVALID key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
+    else:
+        # Locked read/check to avoid races with concurrent writers; on timeout, proceed best-effort
+        with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
+            cache = _load_cache(cache_path)
             entry = cache.get(cache_key) if cache else None
             if entry:
                 cached_per = entry.get("per_node_sec", [])
                 cached_max = float(entry.get("max_sec", 0.0))
                 if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
                     _cache_dbg(f"HIT key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
+                    if str(comm).lower() == "graph":
+                        try:
+                            print(f"[AstraSim] Cache HIT: comm={comm}, npus={npus_count}, size={size_bytes}, total={cached_max:.6f}s")
+                        except Exception:
+                            pass
                     return cached_per, cached_max
-                # Drop invalid without lock
-                try:
-                    if cache_key in cache:
-                        cache.pop(cache_key)
-                        _save_cache(cache_path, cache)
-                except Exception:
-                    pass
+                if locked:
+                    fresh = _load_cache(cache_path)
+                    if cache_key in fresh:
+                        try:
+                            fresh.pop(cache_key)
+                            _save_cache(cache_path, fresh)
+                        except Exception:
+                            pass
                 _cache_dbg(f"DROP_INVALID key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
-    else:
-        # Locked read/check to avoid races with concurrent writers; on timeout, proceed best-effort
-        with _cache_file_lock(cache_path, timeout_s=15.0, poll_s=0.05) as locked:
-            cache = _load_cache(cache_path)
-            if bundle_paths:
-                entry = cache.get(cache_key) if cache else None
-                if entry:
-                    cached_per = entry.get("per_node_sec", [])
-                    cached_max = float(entry.get("max_sec", 0.0))
-                    if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
-                        _cache_dbg(f"HIT bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
-                        return cached_per, cached_max
-                    if locked:
-                        fresh = _load_cache(cache_path)
-                        if cache_key in fresh:
-                            try:
-                                fresh.pop(cache_key)
-                                _save_cache(cache_path, fresh)
-                            except Exception:
-                                pass
-                    _cache_dbg(f"DROP_INVALID bundle_hash={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
-            else:
-                entry = cache.get(cache_key) if cache else None
-                if entry:
-                    cached_per = entry.get("per_node_sec", [])
-                    cached_max = float(entry.get("max_sec", 0.0))
-                    if cached_per and cached_max > 0 and len(cached_per) == int(npus_count) and all((t > 0 for t in cached_per)):
-                        _cache_dbg(f"HIT key={cache_key} comm={comm} npus={npus_count} size={size_bytes} max={cached_max}")
-                        return cached_per, cached_max
-                    if locked:
-                        fresh = _load_cache(cache_path)
-                        if cache_key in fresh:
-                            try:
-                                fresh.pop(cache_key)
-                                _save_cache(cache_path, fresh)
-                            except Exception:
-                                pass
-                    _cache_dbg(f"DROP_INVALID key={cache_key} comm={comm} npus={npus_count} size={size_bytes}")
 
     # Execute AstraSim with retry if zero time observed
     attempts = 0
@@ -749,10 +710,9 @@ def run_cache_astrasim(
         "system_json": files["system_json"],
         "network_yaml": files["network_yaml"],
     }
-    if bundle_paths:
+    if manifest_json_path:
         cache_entry.update({
-            "bundle_hash": cache_key,
-            "bundle_paths": bundle_list,
+            "manifest_path": manifest_json_path,
         })
 
     if single_threaded:

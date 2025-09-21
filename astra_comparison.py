@@ -281,41 +281,119 @@ def _dump_et_text(et_paths: List[str]) -> None:
             print(f"[WARN] Failed to write ET text dump for {et_path}: {exc}")
 
 
+def _write_manifest_for_prefix(et_prefix: str, ranks: List[int], astra_configs: Dict[str, str], comm_groups_path: Optional[str]) -> str:
+    """Write a lightweight, semantic manifest.json for the given ET workload.
+
+    The manifest includes per-rank ordered ops and the config paths.
+    """
+    ops: Dict[int, List[List]] = {}
+    for r in sorted(ranks):
+        et_path = f"{et_prefix}.{r}.et"
+        try:
+            fh = chakra_open(et_path)
+        except OSError:
+            continue
+        meta = pb.GlobalMetadata()
+        chakra_decode(fh, meta)
+        rank_ops: List[List] = []
+        while True:
+            node = pb.Node()
+            if not chakra_decode(fh, node):
+                break
+            t = int(node.type)
+            if t == pb.COMP_NODE:
+                dur = int(node.duration_micros or 0)
+                rank_ops.append(["COMP", dur])
+            elif t == pb.COMM_COLL_NODE:
+                ctype = None
+                csize = None
+                for attr in node.attr:
+                    if attr.name == "comm_type":
+                        ctype = int(getattr(attr, attr.WhichOneof("value")))
+                    elif attr.name == "comm_size":
+                        csize = int(getattr(attr, attr.WhichOneof("value")))
+                # participants is implicit in AstraSim for collectives; store None here (optional)
+                rank_ops.append(["COMM", int(ctype or -1), int(csize or 0), None])
+            elif t == pb.COMM_SEND_NODE:
+                csize = None
+                for attr in node.attr:
+                    if attr.name == "comm_size":
+                        csize = int(getattr(attr, attr.WhichOneof("value")))
+                rank_ops.append(["SEND", int(csize or 0)])
+            elif t == pb.COMM_RECV_NODE:
+                csize = None
+                for attr in node.attr:
+                    if attr.name == "comm_size":
+                        csize = int(getattr(attr, attr.WhichOneof("value")))
+                rank_ops.append(["RECV", int(csize or 0)])
+        try:
+            fh.close()
+        except Exception:
+            pass
+        ops[r] = rank_ops
+
+    manifest = {
+        "version": "df-astra-manifest/1",
+        "npus": len(ranks),
+        "ranks": {str(r): ops.get(r, []) for r in sorted(ranks)},
+        "cfg_paths": {
+            "system_json": astra_configs.get("system_json"),
+            "network_yaml": astra_configs.get("network_yaml"),
+            "remote_memory_json": get_remote_memory_path(),
+            "comm_group_json": comm_groups_path,
+        },
+    }
+
+    out_path = f"{os.path.dirname(et_prefix)}/manifest.json"
+    try:
+        with open(out_path, "w") as f:
+            json.dump(manifest, f, sort_keys=True, separators=(",", ":"))
+        print(f"[AstraSim] Wrote manifest to {out_path}")
+    except Exception as exc:
+        print(f"[WARN] Failed to write manifest: {exc}")
+    return out_path
+
+
 def _write_comm_groups_json(base_output_dir: str, dp_count: int, rank_ids: List[int]) -> Optional[str]:
     try:
         dp = int(dp_count)
     except Exception:
         dp = 1
-    if dp <= 1:
-        return None
     if not rank_ids:
         return None
     rank_ids = sorted(rank_ids)
     total_ranks = len(rank_ids)
-    if total_ranks % dp != 0:
-        raise ValueError(f"Cannot partition {total_ranks} ranks into {dp} stages evenly")
-    # dp-major mapping: ranks are ordered by dp first, then stage
-    num_stages = total_ranks // dp
+
     groups: Dict[str, List[int]] = {}
-    for stage_idx in range(num_stages):
-        group = []
-        for dp_idx in range(dp):
-            rank = dp_idx * num_stages + stage_idx
-            group.append(rank)
-        # AstraSim requires communicator group IDs > 0
-        groups[str(stage_idx + 1)] = group
-    # Merge in any TP groups computed during ET conversion
+
+    # Emit DP stage groups only when dp > 1
+    if dp > 1:
+        if total_ranks % dp != 0:
+            raise ValueError(f"Cannot partition {total_ranks} ranks into {dp} stages evenly")
+        # dp-major mapping: ranks are ordered by dp first, then stage
+        num_stages = total_ranks // dp
+        for stage_idx in range(num_stages):
+            group = []
+            for dp_idx in range(dp):
+                rank = dp_idx * num_stages + stage_idx
+                group.append(rank)
+            # AstraSim requires communicator group IDs > 0
+            groups[str(stage_idx + 1)] = group
+
+    # Merge in any TP groups computed during conversion (present even if dp == 1)
     global _LAST_TP_GROUPS
     if _LAST_TP_GROUPS:
         for gid, members in _LAST_TP_GROUPS.items():
             groups[str(gid)] = list(sorted(members))
+
+    if not groups:
+        return None
 
     os.makedirs(base_output_dir, exist_ok=True)
     path = os.path.join(base_output_dir, "comm_groups.json")
     try:
         with open(path, "w") as f:
             json.dump(groups, f, indent=2)
-        # print(f"[AstraSim] Wrote communicator groups to {path}")
         return path
     except OSError as exc:
         print(f"[WARN] Failed to write comm_groups.json: {exc}")
@@ -325,7 +403,7 @@ def convert_deepflow_graph_to_chakra_et(
     graph_root,
     dp_size: int,
     output_dir: str,
-) -> Tuple[str, List[int]]:
+) -> Tuple[str, List[int], str]:
     """Convert DeepFlow graph to AstraSim ET format by scheduling per stage and DP rank.
     This function is black magic. Don't touch it unless you know what you are doing.
     Prefer changes *anywhere* else in the codebase if possible."""
@@ -815,13 +893,88 @@ def convert_deepflow_graph_to_chakra_et(
                         node.ctrl_deps.append(rid)
 
 
+    # Build manifest ops directly from in-memory traces (graph-derived), not ET files
+    manifest_ranks: Dict[str, List[List]] = {}
+    def _manifest_op_key(op: List) -> tuple:
+        # Sort primarily by size/duration, with stable type ordering
+        try:
+            kind = op[0]
+        except Exception:
+            kind = None
+        if kind == "COMP":
+            # ["COMP", duration_us]
+            return (0, int(op[1]) if len(op) > 1 else 0, 0)
+        if kind == "COMM":
+            # ["COMM", comm_type, size_bytes, participants]
+            size_val = int(op[2]) if len(op) > 2 else 0
+            ctype_val = int(op[1]) if len(op) > 1 else -1
+            return (1, size_val, ctype_val)
+        if kind == "SEND":
+            # ["SEND", size_bytes]
+            return (2, int(op[1]) if len(op) > 1 else 0, 0)
+        if kind == "RECV":
+            # ["RECV", size_bytes]
+            return (3, int(op[1]) if len(op) > 1 else 0, 0)
+        # Fallback
+        return (9, 0, 0)
+
+    for rank, trace in sorted(rank_traces.items()):
+        rank_ops: List[List] = []
+        for node in trace.nodes:
+            t = int(node.type)
+            if t == pb.COMP_NODE:
+                dur = int(node.duration_micros or 0)
+                rank_ops.append(["COMP", dur])
+            elif t == pb.COMM_COLL_NODE:
+                ctype = None
+                csize = None
+                for attr in node.attr:
+                    if attr.name == "comm_type":
+                        which = attr.WhichOneof("value")
+                        ctype = int(getattr(attr, which)) if which else None
+                    elif attr.name == "comm_size":
+                        which = attr.WhichOneof("value")
+                        csize = int(getattr(attr, which)) if which else None
+                rank_ops.append(["COMM", int(ctype or -1), int(csize or 0), None])
+            elif t == pb.COMM_SEND_NODE:
+                csize = None
+                for attr in node.attr:
+                    if attr.name == "comm_size":
+                        which = attr.WhichOneof("value")
+                        csize = int(getattr(attr, which)) if which else None
+                rank_ops.append(["SEND", int(csize or 0)])
+            elif t == pb.COMM_RECV_NODE:
+                csize = None
+                for attr in node.attr:
+                    if attr.name == "comm_size":
+                        which = attr.WhichOneof("value")
+                        csize = int(getattr(attr, which)) if which else None
+                rank_ops.append(["RECV", int(csize or 0)])
+        # Sort ops to stabilize manifest across runs
+        rank_ops_sorted = sorted(rank_ops, key=_manifest_op_key)
+        manifest_ranks[str(int(rank))] = rank_ops_sorted
+
+    # Now actually write ET files
     for trace in rank_traces.values():
         trace.close()
 
     et_prefix = f"{output_dir}/llm_graph"
     rank_ids = sorted(rank_traces.keys())
     print(f"[AstraSim] Generated ET files for ranks: {et_prefix}.{{0..{len(rank_ids)-1}}}.et")
-    return et_prefix, rank_ids
+
+    # Emit manifest.json in the same output directory (graph-based signature)
+    manifest_path = os.path.join(output_dir, "manifest.json")
+    try:
+        with open(manifest_path, "w") as mf:
+            json.dump({
+                "version": "df-astra-manifest/1",
+                "npus": len(rank_ids),
+                "ranks": manifest_ranks,
+            }, mf, sort_keys=True, separators=(",", ":"))
+        print(f"[AstraSim] Wrote graph manifest to {manifest_path}")
+    except Exception as exc:
+        print(f"[WARN] Failed to write manifest: {exc}")
+    return et_prefix, rank_ids, manifest_path
 
 def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: str = "astra_comparison_output", dp_override: int = None):
     """
@@ -850,7 +1003,7 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         except Exception as exc:
             print(f"[WARN] Failed to clean {fwd_dir}: {exc}")
         dp_count = dp_override if dp_override is not None else time_calc_obj.dp
-        fwd_et_prefix, rank_ids = convert_deepflow_graph_to_chakra_et(
+        fwd_et_prefix, rank_ids, fwd_manifest = convert_deepflow_graph_to_chakra_et(
             fwdbwd_root,
             dp_count,
             f"{output_dir}/fwd",
@@ -880,9 +1033,8 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         comm_groups_dp = dp_count if dp_override is not None else getattr(time_calc_obj, "dp", 1)
         comm_groups_path = _write_comm_groups_json(output_dir, comm_groups_dp, rank_ids)
 
-        # Run AstraSim simulation on forward graph (cached, bundle ETs)
+        # Run AstraSim simulation on forward graph (cached via manifest)
         print(f"[AstraSim] Executing forward simulation with {rank_count} ranks...")
-        fwd_bundle = [f"{fwd_et_prefix}.{r}.et" for r in rank_ids]
         fwd_times, fwd_total = run_cache_astrasim(
             time_calc_obj.hw_config,
             comm="graph",
@@ -890,7 +1042,8 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
             size_bytes=0,
             astra_config_dir="./astra_cache",
             cache_path="./astra_cache/cache.json",
-            bundle_paths=fwd_bundle,
+            manifest_json_path=fwd_manifest,
+            workload_prefix=fwd_et_prefix,
             comm_group_json=comm_groups_path,
         )
 
