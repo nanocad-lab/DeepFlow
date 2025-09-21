@@ -241,6 +241,8 @@ def _simulate_accesses_sig(inner_code: Union[int, InnerLoop], M: int, K: int, N:
     l1_shared_total = (read_bytes + write_bytes) * max_reload
 
     # L2 accesses
+    # LOGIC BELOW THIS LINE CAN BE REWRITTEN IN A MORE EFFICIENT WAY
+    # IT HAS BEEN LEFT VERBOSE FOR READABILITY
     factor_M = reuse_M
     factor_K = reuse_K
     factor_N = reuse_N
@@ -379,6 +381,10 @@ class TiledGEMM:
             self.capacity, self.total_bytes,
         )
 
+
+    # This is a static class method. This means it is called from the class itself, not an object.
+    # It generates instances of the class.
+    # Generator (yield) means it will return one instance at a time and doesn't precompute. It's like a lazy for loop.
     @classmethod
     def enumerate_candidates(self, core, memLayer, dim1: int, dim2: int, dim3: int,
                               dtype_size: int = 2, original: bool = False):
