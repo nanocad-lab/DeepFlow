@@ -505,6 +505,15 @@ class TimeCalculationLLM(TimeCalculation):
         n = gemm[2]
         gemm_time, reduction_time = self._distributed_gemm_forward(m, k, n, name)
 
+        # TODO before final merge: delete this weird cache stuff and jsut use return args. Placeholder.
+        # Cache forward result by GEMM shape to avoid recomputation later
+        try:
+            cache = getattr(self, "_gemm_fb_cache")
+        except AttributeError:
+            cache = {}
+            setattr(self, "_gemm_fb_cache", cache)
+        cache[(int(m), int(k), int(n), 'f')] = (gemm_time, reduction_time)
+
         if self.debug:
             print(f"{name} GEMM_time: {gemm_time:,}; reduction_time: {reduction_time:,}")
 
@@ -520,6 +529,15 @@ class TimeCalculationLLM(TimeCalculation):
         k = gemm[1]
         n = gemm[2]
         gemm_time, reduction_time = self._distributed_gemm_backward(m, k, n, name)
+
+        # TODO before final merge: delete this weird cache stuff and jsut use return args. Placeholder.
+        # Cache backward result by GEMM shape to avoid recomputation later
+        try:
+            cache = getattr(self, "_gemm_fb_cache")
+        except AttributeError:
+            cache = {}
+            setattr(self, "_gemm_fb_cache", cache)
+        cache[(int(m), int(k), int(n), 'b')] = (gemm_time, reduction_time)
 
         total = gemm_time + reduction_time
         self._reduction_total_llm += reduction_time
@@ -1309,9 +1327,15 @@ class TimeCalculationLLM(TimeCalculation):
         transformer_gemm_entries = []
         transformer_comm_metadata: Dict[str, Dict[str, Any]] = {}
 
+        # Use cached results from node latency phase to avoid recomputation
+        cache = getattr(self, "_gemm_fb_cache", {})
         for base_name, (m, k, n) in gemm_specs:
-            fwd_time, fwd_red = self._distributed_gemm_forward(m, k, n, base_name + "_fwd")
-            bwd_time, bwd_red = self._distributed_gemm_backward(m, k, n, base_name + "_bwd")
+            fwd_time, fwd_red = cache.get((int(m), int(k), int(n), 'f'), (None, None))
+            if fwd_time is None:
+                fwd_time, fwd_red = self._distributed_gemm_forward(m, k, n, base_name + "_fwd")
+            bwd_time, bwd_red = cache.get((int(m), int(k), int(n), 'b'), (None, None))
+            if bwd_time is None:
+                bwd_time, bwd_red = self._distributed_gemm_backward(m, k, n, base_name + "_bwd")
 
             entry = {
                 "name": base_name,

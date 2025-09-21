@@ -615,6 +615,8 @@ def convert_deepflow_graph_to_chakra_et(
             tp_collective_groups[info["name"]].append(edge)
 
     tp_collective_labels: Dict[Any, str] = {}
+    # Map final labels (with suffix) to their member edges, preserving order
+    label_to_edges: Dict[str, List[Any]] = {}
     for base_name, edges in tp_collective_groups.items():
         if not edges:
             continue
@@ -629,6 +631,10 @@ def convert_deepflow_graph_to_chakra_et(
             group_members = sorted_edges[idx: idx + participants]
             for member in group_members:
                 tp_collective_labels[member] = label
+            # Record members for this final label in insertion order
+            if label not in label_to_edges:
+                label_to_edges[label] = []
+            label_to_edges[label].extend(group_members)
             idx += len(group_members)
             group_index += 1
 
@@ -698,10 +704,9 @@ def convert_deepflow_graph_to_chakra_et(
     _TP_LABEL_DP_TO_ID = {}
     tp_gid_counter = _it_count(start=_TP_GROUP_BASE_ID)
 
-    # Collect per-label TP members per dp index
-    for label in sorted(set(tp_collective_labels.values())):
-        # Find all edges carrying this label
-        edges_for_label = [edge for edge, lab in tp_collective_labels.items() if lab == label]
+    # Collect per-label TP members per dp index (use prebuilt mapping to avoid rescans)
+    for label in sorted(label_to_edges.keys()):
+        edges_for_label = label_to_edges.get(label, [])
         if not edges_for_label:
             continue
         # Determine stage for each edge
