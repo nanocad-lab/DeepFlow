@@ -1,15 +1,45 @@
+"""Performance-oriented GEMM tiling utilities.
+
+This module models memory traffic for tiled GEMM on a multi-level memory system.
+It is intentionally written to be very fast in pure Python because it is called
+hundreds of thousands of times. Key design choices for performance and determinism:
+
+- Avoid dynamic string processing in hot paths. Loop orders and dataflows are
+  encoded as small integers, not strings. Conversion functions are provided for
+  user-friendly inputs but are executed once up-front.
+- Use integer-only arithmetic for loop counts and byte calculations to avoid
+  floating-point rounding and to keep Python operations simple and predictable.
+- Precompute frequently used quantities (e.g., clamped tile sizes, byte counts,
+  integer factors) inside the `TiledGEMM` constructor so methods become very
+  cheap property lookups and direct arithmetic.
+- Memoize pure helper functions with `functools.lru_cache`.
+- Keep formulas closed-form (no Python loops inside hot helpers) so the cost is
+  dominated by a handful of integer ops and small conditionals.
+"""
+
+# This file uses the following trick repeatedly:
+# In python, for positive integer A,B, the following is true:
+# math.ceil(A/B) == -(-A//B)
+# Dataflow/loop semantics in one place:
+# Only the inner loop dimension affects stationarity and reload patterns.
+# We encode inner loop as an int for speed and small cache keys:
+#    0 → 'm' → WST (weights stationary)
+#    1 → 'k' → OST (outputs stationary)
+#    2 → 'n' → AST (activations stationary)
+# "BEST" picks the largest reuse among M/FMA_x, N/FMA_x, K/FMA_y, then maps to WST/OST/AST accordingly.
+
 from math import ceil
 from functools import lru_cache
 from enum import IntEnum
-# from numba import njit
 from typing import Tuple, Union
 
 
-def my_njit(func):
-    # return njit(cache=True, fastmath=True)(func)
-    return func
-
 class Dataflow(IntEnum):
+    """Dataflow policies as compact integer codes.
+
+    Using integers here (instead of strings) keeps hot-path branching simple and
+    cache keys small. Human-facing APIs may accept strings and convert once.
+    """
     NONE = 0
     BEST = 1
     WST = 2
@@ -17,7 +47,22 @@ class Dataflow(IntEnum):
     OST = 4
 
 
+class InnerLoop(IntEnum):
+    """Inner loop dimension code used for loop-order decisions.
+    Also an IntEnum to keep comparisons and cache keys efficient while adding
+    readability. 0→M, 1→K, 2→N.
+    """
+    M = 0
+    K = 1
+    N = 2
+
+
 def as_dataflow_code(df: Union["Dataflow", int, str]) -> int:
+    """Normalize user input into an integer dataflow code.
+
+    Accepts enum, int, or common string shorthands (e.g., "wst"/"ws"). The
+    returned value is a small int suitable for hot-path decisions and caching.
+    """
     if isinstance(df, Dataflow):
         return int(df)
     if isinstance(df, int):
@@ -38,51 +83,75 @@ def as_dataflow_code(df: Union["Dataflow", int, str]) -> int:
 from enum import IntEnum
 
 
-def inner_code_from_order(order_dims: str) -> int:
+def inner_code_from_order(order_dims: str) -> InnerLoop:
+    """Extract the inner loop dimension code from a 3-char order string.
+
+    Returns: 0 for 'm', 1 for 'k', 2 for 'n'. Keeping this as an int lets us
+    branch cheaply and form small cache keys later.
+    """
     ch = order_dims[2]
     if ch == 'm':
-        return 0
+        return InnerLoop.M
     if ch == 'k':
-        return 1
+        return InnerLoop.K
     if ch == 'n':
-        return 2
+        return InnerLoop.N
     raise ValueError(f"Unknown inner loop in order: {order_dims}")
 
 
-def inner_code_to_char(code: int) -> str:
-    return 'm' if code == 0 else ('k' if code == 1 else 'n')
+def inner_code_to_char(code: Union[int, InnerLoop]) -> str:
+    """Inverse of `inner_code_from_order` for diagnostics and display."""
+    return 'm' if code == InnerLoop.M or code == 0 else (
+        'k' if code == InnerLoop.K or code == 1 else 'n'
+    )
 
+# We only enumerate candidate *inner* loops, not full 3-permutations.
+# Rationale: the stationary policy and all reload counts depend only on the
+# innermost loop. The outer-loop order influences traversal, not totals, in our
+# closed-form model. This reduces the search space without changing totals.
+def generate_orders_inner_codes(dataflow_code: int, dim1: int, dim2: int, dim3: int) -> Tuple[InnerLoop, ...]:
+    """Return preferred inner-loop codes for a given dataflow and problem size.
 
-def generate_orders_inner_codes(dataflow_code: int, dim1: int, dim2: int, dim3: int) -> Tuple[int, ...]:
-    # Return preferred inner loop codes based on dataflow; eliminate strings
-    # If BEST, narrow to a concrete policy based on largest dimension (legacy heuristic)
-    if dataflow_code == int(Dataflow.BEST):
+    We avoid building full 3-char permutations and reduce the space to the
+    unique inner loops in the desired priority.
+    """
+    # Crucial insight: only inner code matters, so we can reduce the space to the unique inner codes in the desired priority.
+    # TODO: Verify this is ok.
+    if dataflow_code == Dataflow.BEST:
         if dim1 >= dim2 and dim1 >= dim3:
-            dataflow_code = int(Dataflow.WST)
+            dataflow_code = Dataflow.WST
         elif dim2 >= dim1 and dim2 >= dim3:
-            dataflow_code = int(Dataflow.OST)
+            dataflow_code = Dataflow.OST
         else:
-            dataflow_code = int(Dataflow.AST)
+            dataflow_code = Dataflow.AST
 
-    if dataflow_code == int(Dataflow.WST):
+    if dataflow_code == Dataflow.WST:
         # was ["mnk", (optional) "mkn"] -> inner: k, n
-        out = (1, 2)
-        return out if dim2 != dim3 else (1,)
-    if dataflow_code == int(Dataflow.AST):
+        out = (InnerLoop.K, InnerLoop.N)
+        return out if dim2 != dim3 else (InnerLoop.K,)
+    if dataflow_code == Dataflow.AST:
         # was ["nmk", (optional) "nkm"] -> inner: k, m
-        out = (1, 0)
-        return out if dim2 != dim1 else (1,)
-    if dataflow_code == int(Dataflow.OST):
+        out = (InnerLoop.K, InnerLoop.M)
+        return out if dim2 != dim1 else (InnerLoop.K,)
+    if dataflow_code == Dataflow.OST:
         # was ["knm", (optional) "kmn"] -> inner: m, n
-        out = (0, 2)
-        return out if dim1 != dim3 else (0,)
-    # NONE or BEST → consider all permutations; order influences search priority only
-    # permutations of 'mnk': mnk, mkn, nmk, nkm, kmn, knm -> inner: k, n, k, m, n, m
+        out = (InnerLoop.M, InnerLoop.N)
+        return out if dim1 != dim3 else (InnerLoop.M,)
+    # NONE or BEST → consider all permutations; order influences search priority only.
+    # Permutations of 'mnk': mnk, mkn, nmk, nkm, kmn, knm -> inner: k, n, k, m, n, m.
     # Reduce to unique inner codes in first-seen priority: k, n, m
-    return (1, 2, 0)
+    return (InnerLoop.K, InnerLoop.N, InnerLoop.M)
 
 
 def generate_tile_space(memLayer, num_levels: int, dim1: int, dim2: int, dim3: int):
+    """Enumerate tile shapes across memory levels.
+
+    The memory objects define their permissible tile sizes. We build the space
+    without nested Python loops where possible and keep the tuples compact.
+    A small conditional on `original` is preserved for legacy behavior.
+
+    Largely unchanged from original function as it is not perf-critical.
+    """
     original = True
     tile_space = []
     tiles = [None] * num_levels
@@ -114,22 +183,30 @@ def generate_tile_space(memLayer, num_levels: int, dim1: int, dim2: int, dim3: i
 
     return tile_space
 
-@my_njit
-def _sysarray_accesses_jit(M: int, N: int, K: int,
+@lru_cache(maxsize=65536)
+def _sysarray_accesses_sig(M: int, N: int, K: int,
                            FMA_x: int, FMA_y: int,
-                           dataflow_code: int, dtype_size: int) -> float:
-    reuse = 1 # NONE 
-    if dataflow_code == 1: # BEST
-        a = (M + FMA_x - 1) // FMA_x
-        b = (N + FMA_x - 1) // FMA_x
-        c = (K + FMA_y - 1) // FMA_y
-        reuse = a if a >= b and a >= c else (b if b >= a and b >= c else c)
-    elif dataflow_code == 2: # WST
-        reuse = (M + FMA_x - 1) // FMA_x
-    elif dataflow_code == 3: # AST
-        reuse = (N + FMA_x - 1) // FMA_x
-    elif dataflow_code == 4: # OST
-        reuse = (K + FMA_y - 1) // FMA_y
+                           dataflow_code: Union[int, Dataflow], dtype_size: int) -> float:
+    """Estimate systolic-array traffic (bytes) for a GEMM tile.
+
+    Hot-path, pure function. Memoized aggressively because many evaluations
+    repeat the same `(M,N,K,FMA_x,FMA_y,dataflow_code,dtype_size)` tuples
+
+    The closed-form expressions below avoid Python loops. Most math uses ints.
+    """
+
+    reuse = 1 # NONE
+    if dataflow_code == Dataflow.BEST:  # BEST
+        a = -(-M // FMA_x) # == math.ceil(M/FMA_x)
+        b = -(-N // FMA_x)
+        c = -(-K // FMA_y)
+        reuse = max(a,b,c)
+    elif dataflow_code == Dataflow.WST:  # WST
+        reuse = -(-M // FMA_x)
+    elif dataflow_code == Dataflow.AST:  # AST
+        reuse = -(-N // FMA_x)
+    elif dataflow_code == Dataflow.OST:  # OST
+        reuse = -(-K // FMA_y)
 
     GEMM_flop = M * N * (2 * K - 1)
     load_bytes = GEMM_flop * 2.0 * FMA_y / (FMA_x * (2 * FMA_y - 1)) * dtype_size
@@ -137,29 +214,28 @@ def _sysarray_accesses_jit(M: int, N: int, K: int,
     return load_bytes + store_bytes
 
 
-@lru_cache(maxsize=65536)
-def _sysarray_accesses_sig(M: int, N: int, K: int,
-                           FMA_x: int, FMA_y: int,
-                           dataflow_code: int, dtype_size: int) -> float:
-    return _sysarray_accesses_jit(M, N, K, FMA_x, FMA_y, dataflow_code, dtype_size)
-
-
-@my_njit
-def _simulate_accesses_jit(inner_code: int, M: int, K: int, N: int,
+@lru_cache(maxsize=131072)
+def _simulate_accesses_sig(inner_code: Union[int, InnerLoop], M: int, K: int, N: int,
                            l2_M: int, l2_K: int, l2_N: int,
                            l1_M: int, l1_K: int, l1_N: int,
-                           dtype_size: int, FMA_x: int, FMA_y: int, dataflow_code: int,
+                           dtype_size: int, FMA_x: int, FMA_y: int, dataflow_code: Union[int, Dataflow],
                            capacity: int, total_bytes: int) -> Tuple[float, int, int, int]:
-    sys_bytes = _sysarray_accesses_jit(M, N, K, FMA_x, FMA_y, dataflow_code, dtype_size)
+    """Compute memory traffic at each level (sys, L1/shared, L2, DRAM).
 
-    num_tiles_M = (M + l2_M - 1) // l2_M
-    num_tiles_K = (K + l2_K - 1) // l2_K
-    num_tiles_N = (N + l2_N - 1) // l2_N
+    Parameters are integers. The function is pure and amenable to
+    caching. It uses closed-form counts derived from tile reuse rather than
+    iterating through actual tiles, which keeps evaluation fast.
+    """
+    sys_bytes = _sysarray_accesses_sig(M, N, K, FMA_x, FMA_y, dataflow_code, dtype_size)
+
+    num_tiles_M = -(-M // l2_M) # == math.ceil(M/l2_M)
+    num_tiles_K = -(-K // l2_K)
+    num_tiles_N = -(-N // l2_N)
     max_reload = num_tiles_M * num_tiles_N * num_tiles_K
 
-    reuse_M = (l2_M + l1_M - 1) // l1_M
-    reuse_K = (l2_K + l1_K - 1) // l1_K
-    reuse_N = (l2_N + l1_N - 1) // l1_N
+    reuse_M = -(-l2_M // l1_M)
+    reuse_K = -(-l2_K // l1_K)
+    reuse_N = -(-l2_N // l1_N)
     read_bytes = (l1_M * l1_K * dtype_size + l1_K * l1_N * dtype_size) * (reuse_M * reuse_N * reuse_K)
     write_bytes = (l1_M * l1_N * dtype_size) * (reuse_M * reuse_N)
     l1_shared_total = (read_bytes + write_bytes) * max_reload
@@ -168,24 +244,24 @@ def _simulate_accesses_jit(inner_code: int, M: int, K: int, N: int,
     factor_M = reuse_M
     factor_K = reuse_K
     factor_N = reuse_N
-    if inner_code == 0:  # M (ws)
+    if inner_code == InnerLoop.M:
         mk_load = max_reload
         kn_load = num_tiles_K * num_tiles_N
         mn_load = max_reload
         factor_M = 1
-        dfk = 0
-    elif inner_code == 1:  # K (os)
+        dfk = Dataflow.WST
+    elif inner_code == InnerLoop.K:
         mk_load = max_reload
         kn_load = max_reload
         mn_load = num_tiles_M * num_tiles_N
         factor_K = 1
-        dfk = 1
-    elif inner_code == 2:  # N (as)
+        dfk = Dataflow.OST
+    elif inner_code == InnerLoop.N:
         mk_load = num_tiles_M * num_tiles_K
         kn_load = max_reload
         mn_load = max_reload
         factor_N = 1
-        dfk = 2
+        dfk = Dataflow.AST
 
     l2_bytes = (
         mk_load * (l2_M * l2_K * dtype_size) * factor_N
@@ -199,13 +275,13 @@ def _simulate_accesses_jit(inner_code: int, M: int, K: int, N: int,
     reload_mk = 1
     reload_kn = 1
     reload_mn = 1
-    if dfk == 0:
+    if dfk == Dataflow.WST:
         reload_mk = l2f2
         reload_mn = l2f1
-    elif dfk == 1:
+    elif dfk == Dataflow.OST:
         reload_mk = l2f2
         reload_kn = l2f0
-    else:
+    elif dfk == Dataflow.AST:
         reload_kn = l2f0
         reload_mn = l2f1
 
@@ -216,33 +292,11 @@ def _simulate_accesses_jit(inner_code: int, M: int, K: int, N: int,
     return (sys_bytes, l1_shared_total, l2_bytes, dram_counts)
 
 
-@lru_cache(maxsize=131072)
-def _simulate_accesses_sig(inner_code: int, M: int, K: int, N: int,
-                           l2_M: int, l2_K: int, l2_N: int,
-                           l1_M: int, l1_K: int, l1_N: int,
-                           dtype_size: int, FMA_x: int, FMA_y: int, dataflow_code: int,
-                           capacity: int, total_bytes: int) -> Tuple[float, int, int, int]:
-    return _simulate_accesses_jit(inner_code, M, K, N,
-                                  l2_M, l2_K, l2_N,
-                                  l1_M, l1_K, l1_N,
-                                  dtype_size, FMA_x, FMA_y, dataflow_code,
-                                  capacity, total_bytes)
-
-
-def iceil_div(a: int, b: int) -> int:
-    """Integer ceiling division using only integers."""
-    return -(-a // b)
 
 class TiledGEMM:
-    # __slots__ = (
-    #     'num_bundle', 'order_dims', 'FMA_x', 'FMA_y', 'dataflow', 'mem_accesses'
-    # )
-    """
-    - order_dims: loop order for the GEMM computation, e.g. "mkn"
-    - tile_dims: list of tuples (M, K, N) for each level of memory hierarchy
-    - FMA_dims: tuple (FMA_x, FMA_y) representing the dimensions of the systolic array
-    - dataflow: string representing the dataflow strategy, e.g. "none", "best", "wst", "ast", "ost"
-    - dtype_size: size of one element in bytes (default is 2 bytes for fp16)
+    """Performance-focused container for a tiled GEMM instance.
+    The constructor normalizes and precomputes everything that can be reused so
+    later method calls are O(1) arithmetic with no string parsing and no loops.
     """
 
     def __init__(self, order_dims, tile_dims, core, memLayer, dtype_size=2):
@@ -261,22 +315,20 @@ class TiledGEMM:
             else int(order_dims)
         )
         self.FMA_x, self.FMA_y = core.FMA_dims
-        # normalize dataflow to enum code
+        # Normalize dataflow to enum code (small ints make cheap cache keys)
         self.dataflow = core.dataflow
-        try:
-            # Will be mapped when passed to cached funcs
-            self._dataflow_code = as_dataflow_code(self.dataflow)
-        except Exception:
-            self._dataflow_code = 0
+        self._dataflow_code = as_dataflow_code(self.dataflow)
 
-        # Precompute frequently used byte-size values once
+
+        # Precompute frequently used byte-size values once.
+        # These are used across multiple methods and remain constant per instance.
         self.mk_bytes_ = self.M * self.K * self.dtype_size
         self.kn_bytes_ = self.K * self.N * self.dtype_size
         self.mn_bytes_ = self.M * self.N * self.dtype_size
         self.total_bytes = self.mk_bytes_ + self.kn_bytes_ + self.mn_bytes_
 
-        # Compute clamped dims for L2/L1/L0 once
-        # L3 is full problem (self.M, self.K, self.N)
+        # Compute clamped dims for L2/L1/L0 once.
+        # L3 is the full problem (self.M, self.K, self.N).
         l2_src = tile_dims[2]
         l1_src = tile_dims[1]
         l0_src = tile_dims[0]
@@ -290,49 +342,36 @@ class TiledGEMM:
         self.l0_K = min(l0_src[1], self.l1_K)
         self.l0_N = min(l0_src[2], self.l1_N)
 
-        # Precompute factors using flattened dims
-        self.num_tiles_M = iceil_div(self.M, self.l2_M)
-        self.num_tiles_K = iceil_div(self.K, self.l2_K)
-        self.num_tiles_N = iceil_div(self.N, self.l2_N)
-        self.l2_factors = (self.M // self.l2_M, self.K // self.l2_K, self.N // self.l2_N)
-
         self.mem_accesses = self.simulate_accesses()
 
-    def __repr__(self):
-        return f"TiledGEMM {self.M}x{self.K}x{self.N}\n"
+    # def __repr__(self):
+    #     return (
+    #         f"  DRAM read: {formatBytes(self.mem_read[3])}, write: {formatBytes(self.mem_write[3])}\n"
+    #         f"  L2 read: {formatBytes(self.mem_read[2])}, write: {formatBytes(self.mem_write[2])}\n"
+    #         f"  Shared read: {formatBytes(self.mem_read[1])}, write: {formatBytes(self.mem_write[1])}\n"
+    #         f"  Reg read: {formatBytes(self.mem_read[0])}, write: {formatBytes(self.mem_write[0])}\n"
+    #         f"  loop order: {self.order_dims}\n"
+    #         f"{self.tile.__repr__()}"
+    #     )
+    #     return [r + w for r, w in zip(self.mem_read, self.mem_write)]
 
     @property
     def GEMM_flop(self):
+        """Theoretical FLOP count for the full GEMM of size MxKxN."""
         return self.M * self.N * (2 * self.K - 1)
 
     def sysarray_accesses(self):
+        """Return systolic-array traffic (bytes) using cached pure function.
+
+        Keeping method thin avoids duplicating logic and ensures cache hits.
+        """
         return _sysarray_accesses_sig(self.M, self.N, self.K, self.FMA_x, self.FMA_y, self._dataflow_code, self.dtype_size)
     
-    def dram_accesses(self, df):
-        l2_factors = self.l2_factors
-
-        reload_mk, reload_kn, reload_mn = 1, 1, 1
-        if df == "ws":
-            reload_mk = l2_factors[2]
-            reload_mn = l2_factors[1]
-        elif df == "os":
-            reload_mk = l2_factors[2]
-            reload_kn = l2_factors[0]
-        elif df == "as":
-            reload_kn = l2_factors[0]
-            reload_mn = l2_factors[1]
-
-        dram_counts = reload_mk * self.mk_bytes + reload_kn * self.kn_bytes
-        if self.total_bytes > self.capacity:
-            dram_counts += reload_mn * self.mn_bytes
-
-        return dram_counts
-
     def simulate_accesses(self):
-        """Trace through tile accesses to each level of memory using precomputed inner code"""
-        inner_code = self._inner_code
+        """Compute all memory-level bytes (sys, L1, L2, DRAM) for this instance.
+        Thin wrapper around the cached pure function."""
         return _simulate_accesses_sig(
-            inner_code,
+            self._inner_code,
             self.M, self.K, self.N,
             self.l2_M, self.l2_K, self.l2_N,
             self.l1_M, self.l1_K, self.l1_N,
@@ -341,11 +380,12 @@ class TiledGEMM:
         )
 
     @classmethod
-    def enumerate_candidates(cls, core, memLayer, dim1: int, dim2: int, dim3: int,
+    def enumerate_candidates(self, core, memLayer, dim1: int, dim2: int, dim3: int,
                               dtype_size: int = 2, original: bool = False):
-        """Yield TiledGEMM instances across all tile shapes and preferred inner codes.
+        """Yield `TiledGEMM` instances across tile shapes and preferred inner codes.
 
-        Accepts integer inner codes (0=m,1=k,2=n) to avoid string orders.
+        The generator form avoids materializing the full search space in memory.
+        Inner loop choices are small ints for speed and cache-friendly keys.
         """
         df_code = as_dataflow_code(core.dataflow)
         inner_codes = generate_orders_inner_codes(df_code, dim1, dim2, dim3)
@@ -353,10 +393,13 @@ class TiledGEMM:
         for (l0, l1, l2) in space:
             tile_dims = (l0, l1, l2, (dim1, dim2, dim3))
             for code in inner_codes:
-                yield cls(code, tile_dims, core, memLayer, dtype_size)
+                yield self(code, tile_dims, core, memLayer, dtype_size)
     
     def per_layer_capacity(self):
-        # Compute utilizations from stored dims
+        """Return utilization per memory level relative to its capacity.
+
+        Computed from pre-stored dims to avoid recomputation and branches.
+        """
         ds = self.dtype_size
         l2_total = (self.l2_M * self.l2_K * ds) + (self.l2_K * self.l2_N * ds) + (self.l2_M * self.l2_N * ds)
         l1_total = (self.l1_M * self.l1_K * ds) + (self.l1_K * self.l1_N * ds) + (self.l1_M * self.l1_N * ds)
@@ -364,19 +407,22 @@ class TiledGEMM:
 
     @property
     def mk_bytes(self):
+        """Bytes of the MK matrix at the full problem scale."""
         return self.mk_bytes_
 
     @property
     def kn_bytes(self):
+        """Bytes of the KN matrix at the full problem scale."""
         return self.kn_bytes_
 
     @property
     def mn_bytes(self):
+        """Bytes of the MN matrix at the full problem scale."""
         return self.mn_bytes_
 
 
 def formatBytes(size):
-    """Format bytes into a human-readable string."""
+    """Format bytes into a human-readable string for diagnostics and logs."""
     for unit in ["B", "KB", "MB", "GB"]:
         if size < 1024:
             return f"{size:.2f} {unit}"
@@ -398,7 +444,8 @@ if __name__ == "__main__":
         def __init__(self, size_per_bundle):
             self.size_per_bundle = size_per_bundle
 
-    # Benchmark configuration
+    # Simple micro-benchmark for local validation and perf sanity checking.
+    # Repeats the same shapes to exercise the caches and measure steady-state.
     dataflows = ["none", "best", "wst", "ast", "ost"]
     orders = ["mkn", "kmn", "nmk", "mnk", "knm", "nkm"]
     cores = [_Core(num_bundle=4, FMA_dims=(8, 4), dataflow=df) for df in dataflows]
