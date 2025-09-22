@@ -20,7 +20,7 @@ import LLM_util
 from hw_component import Core, MemoryHierarchy, Network
 from model import Model_LSTM, Model_GEMM, Model_LLM
 from tile import TiledGEMM, formatBytes
-from astra_comparison import run_astra_simulation_only_onepath
+from astrasim_lib.comparison import run_astra_simulation_only_onepath
 from functools import lru_cache
 
 from simulate_LLM import visualize_graph
@@ -41,6 +41,14 @@ if showing_ms:
 else:
     m=1e6
     second = "us"
+
+
+def _env_flag(name: str) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return normalized not in {"", "0", "false", "no"}
 
 
 class ExecutionMode(Enum):
@@ -416,7 +424,7 @@ class PipelineGraphFlattener:
         return stage_int * self._tp_degree + tp_rank
 
 class TimeCalculationLLM(TimeCalculation):
-    def __init__(self, hw_config, model_config, mode):
+    def __init__(self, hw_config, model_config, mode, output_dir: Optional[str] = None):
 # Mode parameter
         execution_mode = self._derive_execution_mode(hw_config)
         astra_policy = self._map_execution_mode_to_policy(execution_mode)
@@ -427,6 +435,10 @@ class TimeCalculationLLM(TimeCalculation):
             mode,
             astra_policy_override=astra_policy,
         )
+        self.output_dir = os.path.abspath(output_dir) if output_dir else os.getcwd()
+        os.makedirs(self.output_dir, exist_ok=True)
+        self._generate_graphs = _env_flag("DEEPFLOW_GENERATE_GRAPHS")
+        self.persist_astrasim_artifacts = _env_flag("DEEPFLOW_PERSIST_ASTRASIM_ARTIFACTS")
         self.execution_mode = execution_mode
         self._reduction_total_llm = 0.0
         self.all_reduce = all_reduce # when the reduce happens in data parallelism options: "the end"  "every layer"
@@ -997,7 +1009,7 @@ class TimeCalculationLLM(TimeCalculation):
         )
 
         # Write results to file
-        output_file = "Transformer_breakdown_results.txt"
+        output_file = os.path.join(self.output_dir, "Transformer_breakdown_results.txt")
         with open(output_file, "w") as f:
             f.write("\n\n==============================================\n")
             f.write("Performance Results\n")
@@ -1444,22 +1456,23 @@ class TimeCalculationLLM(TimeCalculation):
                 f"{self.transformer_analytical_time_backward:.1f}s"
             )
 
-        if self.transformer_forward_root is not None:
+        graph_folder = self.output_dir.rstrip(os.sep) + os.sep
+        if self._generate_graphs and self.transformer_forward_root is not None:
             self.transformer_graph.save_graph(
                 self.transformer_forward_root,
-                "output_graph/",
+                graph_folder,
                 "transformer_graph_forward",
             )
-        if self.transformer_backward_root is not None:
+        if self._generate_graphs and self.transformer_backward_root is not None:
             self.transformer_graph.save_graph(
                 self.transformer_backward_root,
-                "output_graph/",
+                graph_folder,
                 "transformer_graph_backward",
             )
 
         self.tot_time = time_fw_bw
 
-        output_file = "LLM_time_results.txt"
+        output_file = os.path.join(self.output_dir, "LLM_time_results.txt")
         
         with open(output_file, "w") as f:
             f.write("\n\n==============================================\n")
@@ -1537,7 +1550,12 @@ class LLMExecutionDispatcher:
         if not self.pipeline_root:
             raise RuntimeError("Pipeline graph root is not available for AstraSim execution")
 
-        per_rank_sec, max_sec = run_astra_simulation_only_onepath(self.pipeline_root, self.time_calc, "./astra_pipeline_output")
+        per_rank_sec, max_sec = run_astra_simulation_only_onepath(
+            self.pipeline_root,
+            self.time_calc,
+            self.time_calc.output_dir,
+            persist_artifacts=self.time_calc.persist_astrasim_artifacts,
+        )
         self.time_calc.pipeline_astrasim_per_rank = per_rank_sec
         self.time_calc.pipeline_astrasim_time = max_sec
         if max_sec <= 0:
@@ -1586,7 +1604,8 @@ class LLMExecutionDispatcher:
         per_rank_sec, max_sec = run_astra_simulation_only_onepath(
             flattened_root,
             self.time_calc,
-            "./astra_pipeline_output_flat",
+            self.time_calc.output_dir,
+            persist_artifacts=self.time_calc.persist_astrasim_artifacts,
         )
 
         if not per_rank_sec:
@@ -1652,14 +1671,16 @@ class LLMExecutionDispatcher:
         fwd_per_rank, fwd_max = run_astra_simulation_only_onepath(
             self.transformer_forward_root,
             self.time_calc,
-            "./astra_transformer_output_forward",
+            self.time_calc.output_dir,
             dp_override=1,
+            persist_artifacts=self.time_calc.persist_astrasim_artifacts,
         )
         bwd_per_rank, bwd_max = run_astra_simulation_only_onepath(
             self.transformer_backward_root,
             self.time_calc,
-            "./astra_transformer_output_backward",
+            self.time_calc.output_dir,
             dp_override=1,
+            persist_artifacts=self.time_calc.persist_astrasim_artifacts,
         )
 
         self.time_calc.transformer_astrasim_per_rank_forward = fwd_per_rank

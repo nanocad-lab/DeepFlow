@@ -7,43 +7,77 @@ and executes AstraSim simulation for comparison with DeepFlow analytical timing.
 Non-mainlined test functionality - designed to be easily removable.
 """
 
-import os
-import json
-import sys  
-import time
-import shutil
-from collections import defaultdict
-from typing import Dict, List, Tuple, Any, Iterable, Set, Optional
-from collections import deque
 import itertools
+import json
+import os
+import shutil
+import sys
+import tempfile
+import time
+from collections import defaultdict, deque
 from itertools import count as _it_count
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-# Increase recursion limit for deep transformer graphs (96+ layers)
 sys.setrecursionlimit(10000)
 
-# Import DeepFlow components
-from astrasim_integration import (
-    _new_comp_node, _new_comm_node, write_et_node,
-    run_astrasim_analytical, generate_astrasim_configs_from_hw,
-    get_remote_memory_path, run_cache_astrasim, ASTRA_DEBUG
+from graphviz import Digraph
+
+from .config_generation import ASTRA_DEBUG, generate_astrasim_configs_from_hw
+from .et_utils import (
+    chakra_decode,
+    chakra_encode,
+    chakra_open,
+    new_comm_node,
+    new_comp_node,
+    new_recv_node,
+    new_send_node,
+    pb,
+    write_et_node,
 )
+from .integration import get_remote_memory_path, run_astrasim_analytical, run_cache_astrasim
 from simulate_LLM import visualize_graph
 
-# Global stash for TP communicator groups constructed during ET conversion
+
+def _env_truthy(name: str) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return normalized not in {"", "0", "false", "no"}
+
+
+def _clean_astrasim_artifacts(directory: str) -> None:
+    try:
+        for entry in os.listdir(directory):
+            path = os.path.join(directory, entry)
+            if entry.startswith("llm_graph.") and entry.endswith(".et"):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            elif entry in {
+                "manifest.json",
+                "system_native_collectives.json",
+                "comm_groups.json",
+            }:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+            elif entry.startswith("network_analytical_") and entry.endswith(".yml"):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        workload_dir = os.path.join(directory, "workload")
+        if os.path.isdir(workload_dir):
+            shutil.rmtree(workload_dir)
+    except FileNotFoundError:
+        pass
+
 _TP_GROUP_BASE_ID = 1000
 _LAST_TP_GROUPS: Optional[Dict[str, List[int]]] = None
 _TP_LABEL_DP_TO_ID: Dict[Tuple[str, int], str] = {}
-
-
-# Chakra ET dependencies
-BASE_DIR = os.path.dirname(__file__)
-CHAKRA_PB_DIR = os.path.join(BASE_DIR, 'astra-sim', 'extern', 'graph_frontend', 'chakra', 'schema', 'protobuf')
-CHAKRA_UTILS_DIR = os.path.join(BASE_DIR, 'astra-sim', 'extern', 'graph_frontend', 'chakra', 'src', 'third_party', 'utils')
-sys.path.insert(0, CHAKRA_PB_DIR)
-sys.path.insert(0, CHAKRA_UTILS_DIR)
-import et_def_pb2 as pb
-from protolib import encodeMessage as chakra_encode, decodeMessage as chakra_decode, openFileRd as chakra_open
-from graphviz import Digraph
 
 
 class _RankTrace:
@@ -64,30 +98,6 @@ class _RankTrace:
             chakra_encode(fh, pb.GlobalMetadata(version="0.0.4"))
             for node in self.nodes:
                 write_et_node(fh, node)
-
-
-def _new_send_node(node_id: int, name: str, size_bytes: int, dst_rank: int, tag: int) -> pb.Node:
-    node = pb.Node()
-    node.id = node_id
-    node.name = name
-    node.type = pb.COMM_SEND_NODE
-    node.attr.append(pb.AttributeProto(name="comm_size", int64_val=int(size_bytes)))
-    node.attr.append(pb.AttributeProto(name="comm_dst", int32_val=int(dst_rank)))
-    node.attr.append(pb.AttributeProto(name="comm_tag", int32_val=int(tag)))
-    node.attr.append(pb.AttributeProto(name="is_cpu_op", bool_val=False))
-    return node
-
-
-def _new_recv_node(node_id: int, name: str, size_bytes: int, src_rank: int, tag: int) -> pb.Node:
-    node = pb.Node()
-    node.id = node_id
-    node.name = name
-    node.type = pb.COMM_RECV_NODE
-    node.attr.append(pb.AttributeProto(name="comm_size", int64_val=int(size_bytes)))
-    node.attr.append(pb.AttributeProto(name="comm_src", int32_val=int(src_rank)))
-    node.attr.append(pb.AttributeProto(name="comm_tag", int32_val=int(tag)))
-    node.attr.append(pb.AttributeProto(name="is_cpu_op", bool_val=False))
-    return node
 
 
 def get_collective_type(comm_type_str: str) -> int:
@@ -690,7 +700,7 @@ def convert_deepflow_graph_to_chakra_et(
             send_name = f"{getattr(edge_obj, 'name', 'pipeline')}_send_control"
         else:
             send_name = f"{getattr(edge_obj, 'name', 'pipeline')}_send_dp{dp_idx}"
-        send_node = _new_send_node(send_id, send_name, size, dst_rank, tag)
+        send_node = new_send_node(send_id, send_name, size, dst_rank, tag)
         send_node.ctrl_deps.append(compute_et_ids[(parent, src_rank)])
         send_trace.nodes.append(send_node)
 
@@ -699,7 +709,7 @@ def convert_deepflow_graph_to_chakra_et(
             recv_name = f"{getattr(edge_obj, 'name', 'pipeline')}_recv_control"
         else:
             recv_name = f"{getattr(edge_obj, 'name', 'pipeline')}_recv_dp{dp_idx}"
-        recv_node = _new_recv_node(recv_id, recv_name, size, src_rank, tag)
+        recv_node = new_recv_node(recv_id, recv_name, size, src_rank, tag)
         # recv_node.ctrl_deps.append(send_id)
         recv_trace.nodes.append(recv_node)
 
@@ -735,7 +745,7 @@ def convert_deepflow_graph_to_chakra_et(
                         comm_name = tp_collective_labels[task]
                     else:
                         comm_name = f"{task.name}_{task.op_id}_dp{dp_idx}"
-                    comm_node = _new_comm_node(
+                    comm_node = new_comm_node(
                         node_id,
                         comm_name,
                         info["comm_type"],
@@ -775,7 +785,7 @@ def convert_deepflow_graph_to_chakra_et(
                     duration_sec = getattr(task, "duration", 0.0) or 0.0
                     duration_micros = int(round(duration_sec * 1e6)) if duration_sec else 0
                     node_id = trace.next_id
-                    comp_node = _new_comp_node(
+                    comp_node = new_comp_node(
                         node_id,
                         f"{task.name}_{task.op_id}",
                         max(duration_micros, 0)
@@ -908,7 +918,13 @@ def convert_deepflow_graph_to_chakra_et(
         print(f"[WARN] Failed to write manifest: {exc}")
     return et_prefix, rank_ids, manifest_path
 
-def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: str = "astra_comparison_output", dp_override: int = None):
+def run_astra_simulation_only_onepath(
+    fwdbwd_root,
+    time_calc_obj,
+    output_dir: str = "astra_comparison_output",
+    dp_override: Optional[int] = None,
+    persist_artifacts: Optional[bool] = None,
+):
     """
     Run AstraSim simulation on DeepFlow graph and print results.
 
@@ -921,24 +937,28 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
     print("ASTRASIM SIMULATION RESULTS")
     print("="*60)
 
+    persist = persist_artifacts if persist_artifacts is not None else _env_truthy(
+        "DEEPFLOW_PERSIST_ASTRASIM_ARTIFACTS"
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    work_dir: str
+    if persist:
+        work_dir = output_dir
+        _clean_astrasim_artifacts(work_dir)
+    else:
+        work_dir = tempfile.mkdtemp(prefix="astrasim_", dir=output_dir)
+
     try:
         # Convert both forward and backward graphs to Chakra ET format
         astrasim_start = time.time()
 
         # For now, just convert forward graph (can extend to include backward later)
         print(f"[AstraSim] Converting graph...")
-        # Clean previous forward outputs to avoid stale files
-        try:
-            fwd_dir = os.path.join(output_dir, "fwd")
-            if os.path.isdir(fwd_dir):
-                shutil.rmtree(fwd_dir)
-        except Exception as exc:
-            print(f"[WARN] Failed to clean {fwd_dir}: {exc}")
         dp_count = dp_override if dp_override is not None else time_calc_obj.dp
         fwd_et_prefix, rank_ids, fwd_manifest = convert_deepflow_graph_to_chakra_et(
             fwdbwd_root,
             dp_count,
-            f"{output_dir}/fwd",
+            work_dir,
         )
         rank_count = len(rank_ids)
         # TODO:
@@ -946,7 +966,9 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         # When that happens, let's duplicate to 2 ranks. No collectives exist so this should not have an effect.
         if rank_count == 1:
             # duplicate the .et file
-            shutil.copy(f"{output_dir}/fwd/llm_graph.0.et", f"{output_dir}/fwd/llm_graph.1.et")
+            src = os.path.join(work_dir, "llm_graph.0.et")
+            dst = os.path.join(work_dir, "llm_graph.1.et")
+            shutil.copy(src, dst)
             rank_ids = [rank_ids[0], rank_ids[0]+1]
         rank_count = len(rank_ids)
 
@@ -954,16 +976,17 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
             if rank > 10:
                 break
             if ASTRA_DEBUG:
-                _visualize_et_files([f"{output_dir}/fwd/llm_graph.{rank}.et"])
-                _dump_et_text([f"{output_dir}/fwd/llm_graph.{rank}.et"])
+                et_path = os.path.join(work_dir, f"llm_graph.{rank}.et")
+                _visualize_et_files([et_path])
+                _dump_et_text([et_path])
         # exit()
 
         # Generate AstraSim configuration files using actual hardware config
         print(f"[AstraSim] Generating configuration files...")
-        astra_configs = generate_astrasim_configs_from_hw(time_calc_obj.hw_config, output_dir, rank_count)
+        astra_configs = generate_astrasim_configs_from_hw(time_calc_obj.hw_config, work_dir, rank_count)
         remote_memory_json = get_remote_memory_path()
         comm_groups_dp = dp_count if dp_override is not None else getattr(time_calc_obj, "dp", 1)
-        comm_groups_path = _write_comm_groups_json(output_dir, comm_groups_dp, rank_ids)
+        comm_groups_path = _write_comm_groups_json(work_dir, comm_groups_dp, rank_ids)
 
         # Run AstraSim simulation on forward graph (cached via manifest)
         print(f"[AstraSim] Executing forward simulation with {rank_count} ranks...")
@@ -996,6 +1019,9 @@ def run_astra_simulation_only_onepath(fwdbwd_root, time_calc_obj, output_dir: st
         print(f"[AstraSim] ERROR: Failed to run simulation: {e}")
         print("="*60)
         raise
+    finally:
+        if not persist:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 

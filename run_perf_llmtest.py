@@ -4,10 +4,9 @@ import math
 import os
 import sys
 import config
-import os
 import time
 import atexit
-from astrasim_integration import ensure_cache_unlocked_if_standalone
+from astrasim_lib import ensure_chakra_available
 import pandas as pd
 import yaml
 import shutil
@@ -19,6 +18,22 @@ from LLM_util import  process_gemm_shapes, caltime
 algByte = False  # algorithmic ops false
 proj = False  # consider projection layer, turn off for end-2-end validation, as baeline model does not have projection layer
 validating_v100 = True
+
+# Cache handling policy for AstraSim integration.
+# Options: "NO CACHE", "CACHE READONLY", "CACHE READWRITE"
+cache_handling = "CACHE READWRITE"
+_CACHE_MODE_MAP = {
+    "NO CACHE": "NO_CACHE",
+    "CACHE READONLY": "CACHE_READONLY",
+    "CACHE READWRITE": "CACHE_READWRITE",
+}
+os.environ["DEEPFLOW_ASTRA_CACHE_MODE"] = _CACHE_MODE_MAP.get(
+    cache_handling.strip().upper(), "CACHE_READWRITE"
+)
+
+# Execution backend for LLM workloads.
+# Options: "LLMTEST" (TimeCalculationLLM) or "LEGACY_HEURISTIC" (historical pipeline).
+llm_execution_variant = "LLMTEST"
 
 # Global wall-clock timer: report total program runtime at exit
 _program_start_time = time.perf_counter()
@@ -52,6 +67,20 @@ def get_mode_from_config(model_config_path):
     
     return model_param["mode"]
 
+
+def _validate_astrasim_dependencies(hw_config) -> None:
+    backend = getattr(hw_config, "execution_backend", None)
+    model = getattr(backend, "model", "") if backend else ""
+    if str(model).lower() != "astra":
+        return
+    try:
+        ensure_chakra_available()
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "Hardware configuration requests the AstraSim execution backend, but the Chakra protobuf dependencies "
+            "are not available. Install or build the AstraSim externals before running with execution_backend.model='astra'."
+        ) from exc
+
 def run_LSTM(
     exp_hw_config_path,
     exp_model_config_path,
@@ -63,6 +92,7 @@ def run_LSTM(
     exp_hw_path = os.path.expandvars(os.path.expanduser(exp_hw_config_path))
     exp_model_path = os.path.expandvars(os.path.expanduser(exp_model_config_path))
     exp_hw_config = config.parse_config(exp_hw_path, config_type="hardware")
+    _validate_astrasim_dependencies(exp_hw_config)
     exp_model_config = config.parse_config(exp_model_path, config_type=mode)
     output_file = exp_dir + "/summary_%s.txt" % (
         mode,
@@ -94,6 +124,7 @@ def run_GEMM(
     exp_hw_path = os.path.expandvars(os.path.expanduser(exp_hw_config_path))
     exp_model_path = os.path.expandvars(os.path.expanduser(exp_model_config_path))
     exp_hw_config = config.parse_config(exp_hw_path, config_type="hardware")
+    _validate_astrasim_dependencies(exp_hw_config)
     exp_model_config = config.parse_config(exp_model_path, config_type=mode)
 
 
@@ -169,45 +200,73 @@ def run_LLM(
     exp_model_config_path,
     exp_dir,
     mode):
-    
+
     exp_hw_path = os.path.expandvars(os.path.expanduser(exp_hw_config_path))
     exp_model_path = os.path.expandvars(os.path.expanduser(exp_model_config_path))
     exp_hw_config = config.parse_config(exp_hw_path, config_type="hardware")
+    _validate_astrasim_dependencies(exp_hw_config)
     exp_model_config = config.parse_config(exp_model_path, config_type=mode)
-    output_file = exp_dir + "/summary_LLM.txt"
-    
-    
-    
 
-    TC = TimeCalculationLLM(exp_hw_config, exp_model_config, mode)
-    
+    variant = llm_execution_variant.strip().upper()
+    if variant == "LEGACY_HEURISTIC":
+        _run_llm_heuristic(exp_hw_config, exp_model_config, exp_dir, mode)
+    else:
+        _run_llm_llmtest(exp_hw_config, exp_model_config, exp_dir, mode)
 
-    time = TC.calcTime_LLM()
-    # TC.printSysConfig(exp_hw_config, exp_model_config, output_file)
-    
-    
-    
+
+def _run_llm_llmtest(exp_hw_config, exp_model_config, exp_dir, mode):
+    output_file = os.path.join(exp_dir, "summary_LLM.txt")
+    tc_llm = TimeCalculationLLM(exp_hw_config, exp_model_config, mode, output_dir=exp_dir)
+    total_time = tc_llm.calcTime_LLM()
+
     with open(output_file, "a+") as f:
         f.write("\n\n==============================================\n")
         f.write("Performance Results\n")
         f.write("==============================================\n")
-        # f.write("Forward Time: {0:.8f}\n".format(time_fw))
-        f.write("Total Time: {0:.8f}\n".format(time))
-        # f.write("Params (Billion): {0:.8f}\n".format(tot_param / 1e9))
-    # print("Performance Results written to {}".format(output_file))
-            
-    # output_dir_LLM = os.path.join(exp_dir, "output_LLM")
-    # caltime(TC.num_layers ,TC.batch_size, TC.seq_len,TC.n_tokens, TC.communication_time, TC.N_PP, exp_dir, exp_dir)
-    
-    # Emit lines for astra_test parsing
-    print("Total time: {}".format(TC.getTime()))
-    print("Reduction time: {}".format(TC.getReductionTotal()))
-    return
+        f.write("Total Time: {0:.8f}\n".format(total_time))
+
+    print("Total time: {}".format(tc_llm.getTime()))
+    print("Reduction time: {}".format(tc_llm.getReductionTotal()))
+
+
+def _run_llm_heuristic(exp_hw_config, exp_model_config, exp_dir, mode):
+    base_tc = TimeCalculation(exp_hw_config, exp_model_config, mode)
+    gemm_3d = process_gemm_shapes(
+        base_tc.batch_size,
+        base_tc.seq_len,
+        base_tc.hidden_dim,
+        base_tc.num_heads,
+        base_tc.ffn_dim,
+        option="multiply_batch_into_m",
+    )
+    print(gemm_3d)  # m, k, n
+    for i, (m, k, n) in enumerate(gemm_3d):
+        print(f"Running main for GEMM dimensions: M={m}, K={k}, N={n} (Layer {i + 1})")
+        output_file = os.path.join(
+            exp_dir, f"summary_m{m}_n{n}_k{k}_layer{i + 1}.txt"
+        )
+
+        layer_tc = TimeCalculation(exp_hw_config, exp_model_config, mode)
+        gemm_time_info = layer_tc.getGEMMTime(m, k, n, "Cf")
+
+        with open(output_file, "w") as f:
+            f.write("Best Order: {}\n".format(gemm_time_info[1]))
+            f.write("Best Tile: {}\n".format(gemm_time_info[2]))
+            f.write("Time: {}\n".format(gemm_time_info[0]))
+
+    caltime(
+        base_tc.num_layers,
+        base_tc.batch_size,
+        base_tc.seq_len,
+        base_tc.n_tokens,
+        base_tc.communication_time,
+        base_tc.N_PP,
+        exp_dir,
+        exp_dir,
+    )
 
 
 if __name__ == "__main__":
-    # Best-effort to clear any stale cache lock when running standalone
-    # ensure_cache_unlocked_if_standalone()
     args = parse_arguments()
     # Load configurations
     config_hardware_path = args.hardware_config

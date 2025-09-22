@@ -14,7 +14,7 @@ from topology import Topology
 from simulate import Graph
 import util
 from hw_component import Core, MemoryHierarchy, Network, DRAM
-from astrasim_integration import run_cache_astrasim
+from astrasim_lib import run_cache_astrasim
 from model import Model_LSTM, Model_GEMM, Model_LLM
 from tile import TiledGEMM, formatBytes
 
